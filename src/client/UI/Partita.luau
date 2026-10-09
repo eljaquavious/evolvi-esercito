@@ -28,7 +28,7 @@ local nebbiaOriginale
 local function impostaCamera()
 	local camera = workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Scriptable
-	camera.CFrame = CFrame.lookAt(info.centro + Vector3.new(0, 52, -50), info.centro + Vector3.new(0, 0, 3))
+	camera.CFrame = CFrame.lookAt(info.centro + Vector3.new(0, 42, -40), info.centro + Vector3.new(0, 0, 2))
 end
 
 local function ripristinaCamera()
