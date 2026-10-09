@@ -100,7 +100,7 @@ local function costruisciSchede()
 		Stile.testo({
 			Position = UDim2.new(0, 10, 0.56, 0),
 			Size = UDim2.new(1, -20, 0.18, 0),
-			Text = ("❤ %d  ⚔ %d  🎯 %s"):format(truppa.hp, truppa.danno, truppa.gittata > 2 and "Lunga" or "Corta"),
+			Text = ("Vita %d · Danno %d · %s"):format(truppa.hp, truppa.danno, truppa.gittata > 2 and "a distanza" or "corpo a corpo"),
 			TextColor3 = Stile.Colori.TestoSecondario,
 			Parent = scheda,
 		})
@@ -233,7 +233,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 	intestazione = Stile.pannello({
 		Name = "Intestazione",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 64),
+		Position = UDim2.new(0.5, 0, 0, 10),
 		Size = UDim2.new(0, 560, 0, 40),
 		BackgroundColor3 = Stile.Colori.Sfondo,
 		BackgroundTransparency = 0.15,
@@ -258,7 +258,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 
 	avviso = Stile.testo({
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 110),
+		Position = UDim2.new(0.5, 0, 0, 58),
 		Size = UDim2.new(0, 560, 0, 34),
 		TextColor3 = Stile.Colori.Testo,
 		TextStrokeTransparency = 0.4,
@@ -289,7 +289,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, -16, 1, -16),
 		Size = UDim2.fromOffset(170, 60),
-		Text = "⚔ COMBATTI!",
+		Text = "COMBATTI!",
 		Visible = false,
 		Parent = gui,
 	}, Stile.Colori.Rosso)
@@ -302,9 +302,9 @@ function Partita.inizializza(gui, r, callbackLobby)
 
 	local esci = Stile.bottone({
 		AnchorPoint = Vector2.new(0, 0),
-		Position = UDim2.new(0, 16, 0, 64),
+		Position = UDim2.new(0, 16, 0, 10),
 		Size = UDim2.fromOffset(110, 40),
-		Text = "← Lobby",
+		Text = "Lobby",
 		Parent = intestazione.Parent,
 	}, Stile.Colori.PannelloChiaro)
 	esci.Visible = false

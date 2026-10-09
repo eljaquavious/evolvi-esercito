@@ -190,6 +190,13 @@ function Lobby.costruisci(callback)
 	local spawn = workspace:FindFirstChildWhichIsA("SpawnLocation")
 	if spawn then
 		spawn.Position = Lobby.SPAWN - Vector3.new(0, 3, 0)
+		spawn.Transparency = 1
+		spawn.CanCollide = false
+		for _, figlio in ipairs(spawn:GetChildren()) do
+			if figlio:IsA("Decal") then
+				figlio:Destroy()
+			end
+		end
 	end
 	return lobby
 end

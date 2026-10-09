@@ -56,7 +56,7 @@ local function scheda(cassa, ordine, genitore, remoti)
 		TextWrapped = true,
 		Parent = carta,
 	})
-	local prezzo = cassa.valuta == "Robux" and ("R$ " .. cassa.prezzo) or ("🪙 " .. cassa.prezzo)
+	local prezzo = cassa.valuta == "Robux" and ("R$ " .. cassa.prezzo) or (cassa.prezzo .. " monete")
 	local bottone = Stile.bottone({
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -12),

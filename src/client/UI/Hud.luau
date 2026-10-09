@@ -4,11 +4,11 @@ local Stile = require(script.Parent.Stile)
 
 local Hud = {}
 
-local etichettaMonete, etichettaProgresso, menu
+local etichettaMonete, etichettaProgresso, menu, barra
 
 -- azioni: { campagna = fn, ranked = fn, shop = fn }
 function Hud.inizializza(gui, azioni)
-	local barra = Stile.pannello({
+	barra = Stile.pannello({
 		Name = "Barra",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 10),
@@ -20,7 +20,7 @@ function Hud.inizializza(gui, azioni)
 	etichettaMonete = Stile.testo({
 		Size = UDim2.new(0.34, -10, 1, -14),
 		Position = UDim2.fromOffset(12, 7),
-		Text = "🪙 0",
+		Text = "0 monete",
 		TextColor3 = Stile.Colori.Oro,
 		Font = Stile.FontTitolo,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -45,9 +45,9 @@ function Hud.inizializza(gui, azioni)
 		Stile.crea("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	local voci = {
-		{ "⚔  Campagna", Stile.Colori.Blu, azioni.campagna },
-		{ "🏆  Ranked", Stile.Colori.Rosso, azioni.ranked },
-		{ "🛒  Shop", Color3.fromRGB(196, 150, 40), azioni.shop },
+		{ "Campagna", Stile.Colori.Blu, azioni.campagna },
+		{ "Ranked", Stile.Colori.Rosso, azioni.ranked },
+		{ "Shop", Color3.fromRGB(196, 150, 40), azioni.shop },
 	}
 	for i, voce in ipairs(voci) do
 		local bottone = Stile.bottone({
@@ -64,7 +64,7 @@ function Hud.aggiorna(stato)
 	if not stato then
 		return
 	end
-	etichettaMonete.Text = "🪙 " .. stato.monete
+	etichettaMonete.Text = stato.monete .. " monete"
 	if stato.completata then
 		etichettaProgresso.Text = "Campagna completata!"
 	else
@@ -72,8 +72,10 @@ function Hud.aggiorna(stato)
 	end
 end
 
-function Hud.mostraMenu(visibile)
+-- In lobby si vedono barra e menu; durante una partita c'è l'intestazione della partita al loro posto.
+function Hud.mostraLobby(visibile)
 	menu.Visible = visibile
+	barra.Visible = visibile
 end
 
 return Hud

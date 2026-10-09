@@ -244,7 +244,7 @@ function Arena.crea(player, biomaId)
 	blocco(modello, {
 		Name = "Belvedere",
 		Size = Vector3.new(12, 1, 12),
-		Position = origine + Vector3.new(0, 0.5, -40),
+		Position = origine + Vector3.new(0, 0.5, -75),
 		Color = Color3.fromRGB(120, 110, 100),
 		Material = Enum.Material.Cobblestone,
 	})
@@ -266,7 +266,7 @@ function Arena.crea(player, biomaId)
 		modello = modello,
 		truppe = truppe,
 		bioma = bioma,
-		belvedere = origine + Vector3.new(0, 4, -40),
+		belvedere = origine + Vector3.new(0, 4, -75),
 	}
 end
 

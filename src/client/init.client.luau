@@ -38,12 +38,12 @@ Hud.inizializza(gui, {
 	end,
 })
 Partita.inizializza(gui, remoti, function()
-	Hud.mostraMenu(true)
+	Hud.mostraLobby(true)
 end)
 
 remoti.Fase.OnClientEvent:Connect(function(dati)
 	if dati.fase ~= "lobby" then
-		Hud.mostraMenu(false)
+		Hud.mostraLobby(false)
 		Shop.chiudi()
 	end
 end)
