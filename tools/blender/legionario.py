@@ -370,10 +370,20 @@ def tunica(c):
         fine = spalla + (gomito - spalla) * 0.45
         maniche.append(cilindro(spalla + (gomito - spalla) * -0.05, fine, 0.07, 0.064, n=20, tappi=False))
     c.oggetto("Maniche", unisci(*maniche), "tunica", spessore=0.005)
-    # Focale: sciarpa annodata al collo.
-    sciarpa = tubo_ellittico([((0, -0.005, 1.425), 0.088, 0.078), ((0, -0.01, 1.46), 0.082, 0.074),
-                              ((0, -0.006, 1.495), 0.07, 0.066), ((0, -0.004, 1.51), 0.064, 0.06)], n=32)
-    c.oggetto("Focale", sciarpa, "tunica", spessore=0.012)
+    # Focale: sciarpa avvolta al collo, con le pieghe, il nodo davanti e i due capi sul petto.
+    sciarpa = tubo_ellittico([((0, -0.006, 1.43), 0.094, 0.084), ((0, -0.01, 1.455), 0.086, 0.078),
+                              ((0, -0.006, 1.48), 0.074, 0.07), ((0, -0.004, 1.5), 0.066, 0.063)], n=48)
+    for v in sciarpa.verts:
+        a = math.atan2(v.co.y, v.co.x)
+        d = Vector((v.co.x, v.co.y, 0)).normalized()
+        v.co += d * 0.006 * math.sin(a * 7 + v.co.z * 90)
+    nodo = sfera((0, -0.093, 1.44), (0.026, 0.02, 0.022), 12, 8)
+    capi = []
+    for s in (-1, 1):
+        rot = Matrix.Rotation(math.radians(s * 12), 4, "Y")
+        capi.append(sfera((s * 0.014, -0.118, 1.405), (0.016, 0.007, 0.034), 10, 6, rot))
+    c.oggetto("Focale", sciarpa, "tunica", spessore=0.01)
+    c.oggetto("Focale_Nodo", unisci(nodo, *capi), "tunica")
 
 
 # Lorica segmentata -----------------------------------------------------------------------------------
@@ -382,6 +392,21 @@ def busto(z):
     """Raggi (x, y) dell'armatura alla quota z: segue il busto e ci sta sopra."""
     t = max(0.0, min(1.0, (z - 0.98) / (1.30 - 0.98)))
     return 0.178 + 0.012 * t, 0.137 + 0.008 * t
+
+
+SEZIONI_PETTO = [(1.29, 0.19, 0.146), (1.36, 0.175, 0.138), (1.41, 0.14, 0.115), (1.445, 0.10, 0.09)]
+
+
+def esterno_armatura(z):
+    """Raggi (x, y) della superficie esterna di lorica e petto alla quota z (per appoggiarci sopra le cinghie)."""
+    if z <= SEZIONI_PETTO[0][0]:
+        rx, ry = busto(z)
+        return rx + 0.012, ry + 0.012
+    for (z0, x0, y0), (z1, x1, y1) in zip(SEZIONI_PETTO, SEZIONI_PETTO[1:]):
+        if z <= z1:
+            t = (z - z0) / (z1 - z0)
+            return x0 + (x1 - x0) * t + 0.006, y0 + (y1 - y0) * t + 0.006
+    return SEZIONI_PETTO[-1][1] + 0.006, SEZIONI_PETTO[-1][2] + 0.006
 
 
 def lorica(c):
@@ -401,9 +426,7 @@ def lorica(c):
             fibbie.append(scatola((s * 0.022, -(ry0 + 0.013), basso + 0.026), (0.016, 0.006, 0.02)))
     c.oggetto("Lorica_Fasce", unisci(*lamine), "acciaio", spessore=0.004)
     # Petto e schiena: lamine che salgono e si chiudono verso il collo.
-    sez = [((0, 0.0, 1.29), 0.19, 0.146), ((0, 0.0, 1.36), 0.175, 0.138), ((0, 0.0, 1.41), 0.14, 0.115),
-           ((0, 0.0, 1.445), 0.10, 0.09)]
-    petto = tubo_ellittico(sez, n=64)
+    petto = tubo_ellittico([((0, 0.0, z), rx, ry) for z, rx, ry in SEZIONI_PETTO], n=64)
     c.oggetto("Lorica_Petto", petto, "acciaio", spessore=0.004)
     # Placche e cerniere d'ottone sul petto (come nelle illustrazioni).
     for s in (-1, 1):
@@ -484,31 +507,29 @@ def cintura(c):
 
 
 def balteo(c):
-    """Tracolla dalla spalla sinistra al fianco destro, davanti e dietro."""
-    def lungo(davanti):
-        segno = -1 if davanti else 1
+    """Tracolla dalla spalla sinistra al fianco destro, davanti e dietro, appoggiata sopra l'armatura."""
+    def y_su(x, z, segno):
+        rx, ry = esterno_armatura(z)
+        xx = max(-rx * 0.98, min(rx * 0.98, x))
+        return xx, segno * ry * math.sqrt(max(0.0, 1 - (xx / rx) ** 2)), rx, ry
+
+    def lungo(segno):
         punti, normali = [], []
-        for i in range(13):
-            t = i / 12
-            x = 0.12 - t * 0.31
-            z = 1.425 - t * 0.43
-            rx, ry = busto(z)
-            rx += 0.012
-            ry += 0.013
-            if z > 1.29:
-                rx, ry = 0.19 - (z - 1.29) * 0.9, 0.146 - (z - 1.29) * 0.5
-            xx = max(-rx * 0.98, min(rx * 0.98, x))
-            y = segno * ry * math.sqrt(max(0.0, 1 - (xx / rx) ** 2))
+        for i in range(17):
+            t = i / 16
+            z = 1.435 - t * 0.445
+            xx, y, rx, ry = y_su(0.105 - t * 0.30, z, segno)
             punti.append((xx, y, z))
-            normali.append((xx / rx, y / ry, 0.2))
+            normali.append((xx / rx, y / ry, 0.25))
         return striscia(punti, normali, 0.03)
-    sopra = []
-    for i in range(7):
-        a = math.radians(i * 30)
-        sopra.append((0.125, -0.10 * math.cos(a), 1.425 + 0.045 * math.sin(a)))
-    norm_sopra = [(0.3, -math.cos(math.radians(i * 30)), math.sin(math.radians(i * 30))) for i in range(7)]
-    c.oggetto("Balteo", unisci(lungo(True), lungo(False), striscia(sopra, norm_sopra, 0.03)), "cuoio",
-              spessore=0.004)
+    # Sopra la spalla, dal capo davanti a quello dietro.
+    _, y0, _, _ = y_su(0.105, 1.435, -1)
+    sopra, norm_sopra = [], []
+    for i in range(9):
+        a = math.radians(i * 22.5)
+        sopra.append((0.108, y0 * math.cos(a), 1.435 + 0.032 * math.sin(a)))
+        norm_sopra.append((0.3, -math.cos(a), math.sin(a)))
+    c.oggetto("Balteo", unisci(lungo(-1), lungo(1), striscia(sopra, norm_sopra, 0.03)), "cuoio", spessore=0.004)
 
 
 # Gambe e piedi ---------------------------------------------------------------------------------------
@@ -604,7 +625,8 @@ def elmo(c):
         a = math.radians(15 + 150 * i / n)
         x, y = math.cos(a), math.sin(a)
         alto = paranuca.verts.new((0.112 * x, 0.126 * y + 0.004, 1.628 - 0.42 * (0.126 * y + 0.004) + 0.006))
-        basso = paranuca.verts.new((0.165 * x, 0.19 * y + 0.01, 1.52))
+        # Ai lati, vicino alle orecchie, il paranuca scende meno e si allarga meno.
+        basso = paranuca.verts.new((0.155 * x, 0.19 * y + 0.01, 1.52 + 0.045 * x * x))
         sez_alto.append(alto)
         sez_basso.append(basso)
     unisci_anelli(paranuca, sez_alto, sez_basso, chiuso=False)
@@ -612,7 +634,7 @@ def elmo(c):
     bordo = []
     for i in range(n + 1):
         a = math.radians(15 + 150 * i / n)
-        bordo.append(Vector((0.167 * math.cos(a), 0.192 * math.sin(a) + 0.01, 1.518)))
+        bordo.append(Vector((0.157 * math.cos(a), 0.192 * math.sin(a) + 0.01, 1.518 + 0.045 * math.cos(a) ** 2)))
     ottone.append(striscia(bordo, [(0, 0, 1)] * len(bordo), 0.012))
     # Paraguance: placche curve ai lati del viso, con il bordo d'ottone e due borchie.
     for s in (-1, 1):
