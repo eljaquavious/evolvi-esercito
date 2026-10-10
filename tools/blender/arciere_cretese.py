@@ -160,7 +160,7 @@ def arco(u):
 
 def faretra(u):
     """Sulla schiena in diagonale: fondo al fianco sinistro, bocca sopra la spalla destra."""
-    fondo = u.sulla_pelle(Vector((0.03, 0.0, 0.92)), Vector((0.45, 1, 0)).normalized(), 0.085, 0.35)
+    fondo = u.sulla_pelle(Vector((-0.01, 0.0, 0.95)), Vector((0.2, 1, 0)).normalized(), 0.085, 0.35)
     bocca = u.sulla_pelle(Vector((-0.06, 0.0, 1.44)), Vector((-0.35, 1, 0)).normalized(), 0.09, 0.35)
     asse = (bocca - fondo).normalized()
     bocca = bocca + asse * 0.05
