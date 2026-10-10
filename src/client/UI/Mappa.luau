@@ -2,7 +2,6 @@
 -- i livelli collegati da un sentiero, le stelle conquistate e il pannello per attaccare.
 -- Livelli e sentiero sono parti locali di questo client.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -18,7 +17,6 @@ local Notifiche = require(script.Parent.Notifiche)
 
 local Mappa = {}
 
-local player = Players.LocalPlayer
 local remoti
 local aperta = false
 local stato
@@ -26,6 +24,7 @@ local selezionato = 1
 local zoom = 1
 
 local cartella -- parti locali dei livelli
+local costruitaConMisure = false -- true se i nodi stanno sulle quote misurate dal server
 local nodi = {} -- numero -> { base, gui, stelle }
 local puntini = {} -- numero -> lista di puntini del tratto che porta a quel livello
 
@@ -39,16 +38,32 @@ local ARANCIO = Color3.fromRGB(255, 130, 40)
 
 -- Mari, scritti sul plastico per orientarsi.
 local MARI = {
-	{ "ATLANTIC OCEAN", 46, -9 },
+	{ "ATLANTIC OCEAN", 45.5, -6.5 },
 	{ "MEDITERRANEAN SEA", 34.6, 19 },
-	{ "NORTH SEA", 56.5, 3 },
+	{ "NORTH SEA", 56, 3.5 },
 	{ "BLACK SEA", 43.4, 34.5 },
-	{ "BALTIC SEA", 57.5, 19.5 },
+	{ "BALTIC SEA", 58, 19.5 },
 }
+
+-- Quote dei livelli misurate dal server sul Terrain vero (vedi MappaCampagna); se mancano, una stima.
+local function quotaMisurata(numero)
+	local altezze = ReplicatedStorage:FindFirstChild("AltezzeMappa")
+	return altezze and altezze:GetAttribute("L" .. numero)
+end
+
+local function misureComplete()
+	for numero = 1, Campagna.TOTALE do
+		if not quotaMisurata(numero) then
+			return false
+		end
+	end
+	return true
+end
 
 local function posizioneLivello(numero)
 	local b = Campagna.Battaglie[numero]
-	return MappaEuropa.posizione(b.lat, b.lon)
+	local punto = MappaEuropa.posizione(b.lat, b.lon)
+	return Vector3.new(punto.X, quotaMisurata(numero) or MappaEuropa.superficie(punto), punto.Z)
 end
 
 local function stelleDi(numero)
@@ -64,6 +79,7 @@ local function parteLocale(proprieta)
 	p.Anchored = true
 	p.CanCollide = false
 	p.CastShadow = false
+	p.CanQuery = false
 	p.TopSurface = Enum.SurfaceType.Smooth
 	for k, v in pairs(proprieta) do
 		p[k] = v
@@ -75,7 +91,8 @@ end
 local function etichettaMare(testo, lat, lon)
 	local ancora = parteLocale({ Size = Vector3.one * 0.2, Transparency = 1, Position = MappaEuropa.posizione(lat, lon) + Vector3.new(0, 2, 0) })
 	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.fromOffset(220, 30)
+	-- Misure in studs: la scritta rimpicciolisce con la distanza e i mari vicini non si sovrappongono.
+	gui.Size = UDim2.new(#testo * 3, 0, 6, 0)
 	gui.LightInfluence = 0
 	gui.Parent = ancora
 	Stile.testo({
@@ -89,6 +106,7 @@ local function etichettaMare(testo, lat, lon)
 end
 
 local function costruisci()
+	costruitaConMisure = misureComplete()
 	cartella = Instance.new("Folder")
 	cartella.Name = "MappaLivelli"
 	cartella.Parent = workspace
@@ -103,7 +121,7 @@ local function costruisci()
 			Name = "Livello" .. numero,
 			Shape = Enum.PartType.Cylinder,
 			Size = Vector3.new(1.2, diametro, diametro),
-			CFrame = CFrame.new(posizione + Vector3.new(0, 0.6, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+			CFrame = CFrame.new(posizione + Vector3.new(0, 0.45, 0)) * CFrame.Angles(0, 0, math.rad(90)),
 			Material = Enum.Material.Neon,
 			CanQuery = true,
 		})
@@ -111,7 +129,7 @@ local function costruisci()
 		parteLocale({
 			Shape = Enum.PartType.Cylinder,
 			Size = Vector3.new(1, diametro + 1.2, diametro + 1.2),
-			CFrame = CFrame.new(posizione + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+			CFrame = CFrame.new(posizione + Vector3.new(0, 0.2, 0)) * CFrame.Angles(0, 0, math.rad(90)),
 			Color = Color3.fromRGB(40, 32, 26),
 			Material = Enum.Material.SmoothPlastic,
 		})
@@ -155,7 +173,10 @@ local function costruisci()
 			local quanti = math.max(2, math.floor(distanza / 5))
 			for i = 1, quanti - 1 do
 				local t = i / quanti
-				local punto = da:Lerp(posizione, t) + Vector3.new(0, 1.2 + math.sin(t * math.pi) * distanza * 0.08, 0)
+				local punto = da:Lerp(posizione, t)
+				-- Sopra le montagne che il tratto attraversa, con un piccolo arco.
+				local quota = math.max(punto.Y, MappaEuropa.superficie(punto)) + 1.2 + math.sin(t * math.pi) * distanza * 0.04
+				punto = Vector3.new(punto.X, quota, punto.Z)
 				table.insert(puntini[numero], parteLocale({
 					Shape = Enum.PartType.Ball,
 					Size = Vector3.one * 1.1,
@@ -183,9 +204,10 @@ local function aggiornaNodi()
 		nodo.stelle.Text = sbloccato(numero) and string.rep("★", stelle) .. string.rep("☆", Campagna.STELLE_MASSIME - stelle) or ""
 		nodo.numero.TextColor3 = sbloccato(numero) and Color3.new(1, 1, 1) or Color3.fromRGB(170, 170, 180)
 		nodo.nome.Visible = numero == selezionato
+		-- Solo il sentiero già percorso (oro) e il prossimo tratto (bianco): tutto il resto confonderebbe.
 		for _, punto in ipairs(puntini[numero]) do
-			punto.Color = sbloccato(numero) and ORO or Color3.fromRGB(240, 240, 240)
-			punto.Transparency = sbloccato(numero) and 0 or 0.5
+			punto.Color = stelle > 0 and ORO or Color3.fromRGB(245, 245, 245)
+			punto.Transparency = sbloccato(numero) and 0 or 1
 		end
 	end
 end
@@ -227,6 +249,17 @@ local function aggiornaPannello()
 		end
 	end
 	spazioBoss.Visible = livello.comandante ~= nil
+	-- Il pannello è alto quanto serve: testo (o carta del boss) e sotto il bottone, senza vuoti.
+	local larghezzaTesto = livello.comandante and -150 or -32
+	nomeLivello.Size = UDim2.new(1, larghezzaTesto, 0, 34)
+	dettagli.Size = UDim2.new(1, larghezzaTesto, 0, 200)
+	local altezzaTesto = math.max(#righe * 20, dettagli.TextBounds.Y) -- le righe lunghe vanno a capo
+	dettagli.Size = UDim2.new(1, larghezzaTesto, 0, altezzaTesto)
+	local fondo = 84 + altezzaTesto
+	if livello.comandante then
+		fondo = math.max(fondo, 14 + 160)
+	end
+	pannello.Size = UDim2.fromOffset(460, fondo + 12 + 56 + 14)
 	if livello.comandante then
 		local carta = Carta.crea(livello.comandante)
 		carta.Size = UDim2.fromScale(1, 1)
@@ -297,6 +330,12 @@ local function nodoSotto(posizioneSchermo)
 end
 
 function Mappa.apri(dati)
+	-- Costruita prima che il server misurasse le quote: rifalla sulle quote vere.
+	if cartella and not costruitaConMisure and misureComplete() then
+		cartella:Destroy()
+		cartella = nil
+		nodi, puntini = {}, {}
+	end
 	if not cartella then
 		costruisci()
 	end

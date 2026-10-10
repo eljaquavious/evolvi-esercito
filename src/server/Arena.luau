@@ -293,8 +293,7 @@ function Arena.crea(player, livello)
 				casella.Material = Enum.Material.Grass
 				casella.Transparency = 0
 				casella.Color = colore:Lerp(Color3.fromRGB(110, 150, 70), 0.45)
-				-- Pendii di terreno attorno alla collina.
-				terrain:FillBall(Arena.posizione(arena, col, riga) - Vector3.new(0, 7.5, 0), 7, bioma.materialeRilievi)
+				-- Niente terreno a palla sotto: sbucava sopra la casella della collina.
 			end
 		end
 	end

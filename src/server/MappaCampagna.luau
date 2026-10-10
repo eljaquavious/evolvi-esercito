@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local MappaEuropa = require(ReplicatedStorage.Shared.Config.MappaEuropa)
+local Campagna = require(ReplicatedStorage.Shared.Config.Campagna)
 
 local MappaCampagna = {}
 
@@ -71,6 +72,39 @@ local function tavolo()
 	modello.Parent = workspace
 end
 
+-- Il Terrain rende i voxel parziali più alti di quanto dica l'occupazione: la quota vera dei livelli
+-- si misura con un raycast e si pubblica in ReplicatedStorage.AltezzeMappa (attributi L1, L2...).
+-- Subito dopo WriteVoxels il raycast non colpisce ancora il terreno nuovo, quindi si riprova.
+local function misuraAltezze()
+	local altezze = Instance.new("Folder")
+	altezze.Name = "AltezzeMappa"
+	altezze.Parent = ReplicatedStorage
+	local parametri = RaycastParams.new()
+	parametri.FilterType = Enum.RaycastFilterType.Include
+	parametri.FilterDescendantsInstances = { terrain }
+	parametri.IgnoreWater = true
+	for _ = 1, 30 do
+		task.wait(0.5)
+		local mancanti = 0
+		for numero, battaglia in ipairs(Campagna.Battaglie) do
+			local chiave = "L" .. numero
+			if not altezze:GetAttribute(chiave) then
+				local punto = MappaEuropa.posizione(battaglia.lat, battaglia.lon)
+				local colpo = workspace:Raycast(Vector3.new(punto.X, 100, punto.Z), Vector3.new(0, -200, 0), parametri)
+				if colpo then
+					altezze:SetAttribute(chiave, colpo.Position.Y)
+				else
+					mancanti += 1
+				end
+			end
+		end
+		if mancanti == 0 then
+			return
+		end
+	end
+	warn("[MappaCampagna] quota di alcuni livelli non misurata: uso la stima")
+end
+
 function MappaCampagna.costruisci()
 	local nx, nz = MappaEuropa.COLONNE, MappaEuropa.RIGHE
 	local ny = MappaEuropa.VOXEL_SOTTO + MappaEuropa.VOXEL_SOPRA
@@ -114,6 +148,7 @@ function MappaCampagna.costruisci()
 	local regione = Region3.new(minimo, massimo):ExpandToGrid(CELLA)
 	terrain:WriteVoxels(regione, CELLA, materiali, occupazione)
 	tavolo()
+	task.spawn(misuraAltezze)
 end
 
 return MappaCampagna

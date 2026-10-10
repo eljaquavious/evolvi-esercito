@@ -199,6 +199,9 @@ local function mostraEsploratori(tipi)
 		carta.LayoutOrder = i
 		carta.Parent = carteEsploratori
 	end
+	-- Alto quanto le carte (due per riga), invece di un riquadro fisso mezzo vuoto.
+	local righe = math.max(1, math.ceil(#(tipi or {}) / 2))
+	esploratori.Size = UDim2.fromOffset(150, 52 + righe * 78 + 4)
 end
 
 local function entraPiazzamento(dati)
@@ -597,7 +600,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 	})
 	bottoneContinua = Stile.bottone({
 		Position = UDim2.new(0, 20, 1, -70),
-		Size = UDim2.new(0.44, -20, 0, 52),
+		Size = UDim2.fromOffset(240, 52),
 		ZIndex = 21,
 		Parent = risultato,
 	}, Color3.fromRGB(60, 190, 80))
@@ -605,9 +608,8 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Partita.avvia(prossimoLivello)
 	end)
 	local mappa = Stile.bottone({
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.64, 0, 1, -70),
-		Size = UDim2.new(0.26, -10, 0, 52),
+		Position = UDim2.new(0, 272, 1, -70),
+		Size = UDim2.fromOffset(148, 52),
 		Text = "MAP",
 		ZIndex = 21,
 		Parent = risultato,
@@ -616,9 +618,8 @@ function Partita.inizializza(gui, r, callbackLobby)
 		remoti.ApriMappa:InvokeServer()
 	end)
 	local lobby = Stile.bottone({
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -20, 1, -70),
-		Size = UDim2.new(0.22, -10, 0, 52),
+		Position = UDim2.new(0, 432, 1, -70),
+		Size = UDim2.fromOffset(148, 52),
 		Text = "LOBBY",
 		ZIndex = 21,
 		Parent = risultato,

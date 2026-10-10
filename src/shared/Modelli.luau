@@ -90,6 +90,29 @@ end
 
 local FIGURE = {}
 
+-- Cavallo con gualdrappa del colore della squadra, e cavaliere seduto (busto e braccia) del colore "divisa".
+local function cavallo(p, colore, divisa, manto)
+	manto = manto or Color3.fromRGB(96, 62, 36)
+	p(Vector3.new(1.3, 1.25, 3.0), 0, 2.0, 0, manto) -- cavallo
+	p(Vector3.new(0.7, 1.3, 0.8), 0, 2.9, -1.5, manto, nil, nil, CFrame.Angles(math.rad(-30), 0, 0)) -- collo
+	p(Vector3.new(0.65, 0.7, 1.2), 0, 3.4, -2.05, manto) -- testa
+	p(Vector3.new(0.2, 0.5, 1.0), 0, 3.45, -1.3, SCURO) -- criniera
+	p(Vector3.new(1.4, 0.9, 1.6), 0, 2.4, 0.2, colore, nil, Enum.Material.Fabric) -- gualdrappa
+	for _, x in ipairs({ -0.45, 0.45 }) do
+		for _, z in ipairs({ -1.1, 1.1 }) do
+			p(Vector3.new(0.3, 1.4, 0.3), x, 0.7, z, manto:Lerp(SCURO, 0.4))
+		end
+	end
+	p(Vector3.new(0.2, 0.9, 0.2), 0, 2.2, 1.6, SCURO, nil, nil, CFrame.Angles(math.rad(25), 0, 0)) -- coda
+	-- cavaliere seduto
+	p(Vector3.new(1.3, 1.3, 0.75), 0, 3.4, 0.2, divisa)
+	p(Vector3.new(0.4, 1.2, 0.45), -0.85, 3.4, 0.1, divisa)
+	p(Vector3.new(0.4, 1.2, 0.45), 0.85, 3.4, 0.1, divisa)
+	p(Vector3.new(0.5, 0.9, 0.5), -0.45, 2.75, -0.1, divisa:Lerp(SCURO, 0.3), nil, nil, CFrame.Angles(math.rad(-60), 0, 0)) -- gambe
+	p(Vector3.new(0.5, 0.9, 0.5), 0.45, 2.75, -0.1, divisa:Lerp(SCURO, 0.3), nil, nil, CFrame.Angles(math.rad(-60), 0, 0))
+	p(Vector3.new(0.95, 0.95, 0.95), 0, 4.55, 0.2, PELLE, Enum.PartType.Ball)
+end
+
 -- Huscarl sassone: cotta di maglia, scudo tondo, ascia danese.
 function FIGURE.Spadaccino(p, colore)
 	corpo(p, colore, SCURO)
@@ -138,29 +161,6 @@ function FIGURE.Arciere(p, colore)
 	p(Vector3.new(0.15, 3.8, 0.2), -1.15, 2.2, -0.5, LEGNO, nil, Enum.Material.Wood) -- arco lungo
 	p(Vector3.new(0.05, 2.6, 0.05), -1.0, 2.4, -0.5, Color3.fromRGB(230, 230, 220)) -- corda
 	p(Vector3.new(0.45, 1.3, 0.45), 0.45, 2.5, 0.6, CUOIO, nil, nil, CFrame.Angles(0, 0, math.rad(-20))) -- faretra
-end
-
--- Cavallo con gualdrappa del colore della squadra, e cavaliere seduto (busto e braccia) del colore "divisa".
-local function cavallo(p, colore, divisa, manto)
-	manto = manto or Color3.fromRGB(96, 62, 36)
-	p(Vector3.new(1.3, 1.25, 3.0), 0, 2.0, 0, manto) -- cavallo
-	p(Vector3.new(0.7, 1.3, 0.8), 0, 2.9, -1.5, manto, nil, nil, CFrame.Angles(math.rad(-30), 0, 0)) -- collo
-	p(Vector3.new(0.65, 0.7, 1.2), 0, 3.4, -2.05, manto) -- testa
-	p(Vector3.new(0.2, 0.5, 1.0), 0, 3.45, -1.3, SCURO) -- criniera
-	p(Vector3.new(1.4, 0.9, 1.6), 0, 2.4, 0.2, colore, nil, Enum.Material.Fabric) -- gualdrappa
-	for _, x in ipairs({ -0.45, 0.45 }) do
-		for _, z in ipairs({ -1.1, 1.1 }) do
-			p(Vector3.new(0.3, 1.4, 0.3), x, 0.7, z, manto:Lerp(SCURO, 0.4))
-		end
-	end
-	p(Vector3.new(0.2, 0.9, 0.2), 0, 2.2, 1.6, SCURO, nil, nil, CFrame.Angles(math.rad(25), 0, 0)) -- coda
-	-- cavaliere seduto
-	p(Vector3.new(1.3, 1.3, 0.75), 0, 3.4, 0.2, divisa)
-	p(Vector3.new(0.4, 1.2, 0.45), -0.85, 3.4, 0.1, divisa)
-	p(Vector3.new(0.4, 1.2, 0.45), 0.85, 3.4, 0.1, divisa)
-	p(Vector3.new(0.5, 0.9, 0.5), -0.45, 2.75, -0.1, divisa:Lerp(SCURO, 0.3), nil, nil, CFrame.Angles(math.rad(-60), 0, 0)) -- gambe
-	p(Vector3.new(0.5, 0.9, 0.5), 0.45, 2.75, -0.1, divisa:Lerp(SCURO, 0.3), nil, nil, CFrame.Angles(math.rad(-60), 0, 0))
-	p(Vector3.new(0.95, 0.95, 0.95), 0, 4.55, 0.2, PELLE, Enum.PartType.Ball)
 end
 
 function FIGURE.Cavaliere(p, colore)

@@ -154,7 +154,21 @@ end
 -- Latitudine e longitudine al centro della cella (colonna, riga) contate da 0.
 function MappaEuropa.coordinate(colonna, riga)
 	local dlon, dlat = gradi()
-	return MappaEuropa.LAT_NORD - (riga + 0.5) * dlat, MappaEuropa.LON_OVEST + (colonna + 0.5) * dlon
+	-- Stima prudente della superficie (Y) in un punto del mondo: il Terrain liscia i voxel verso l'alto,
+-- quindi prende la cella più alta tra le vicine e aggiunge mezzo voxel.
+function MappaEuropa.superficie(posizione)
+	local colonna = math.floor((MappaEuropa.CENTRO.X - posizione.X) / MappaEuropa.CELLA + MappaEuropa.COLONNE / 2)
+	local riga = math.floor(MappaEuropa.RIGHE / 2 - (posizione.Z - MappaEuropa.CENTRO.Z) / MappaEuropa.CELLA)
+	local massima = 0
+	for dx = -1, 1 do
+		for dy = -1, 1 do
+			massima = math.max(massima, MappaEuropa.altezza(colonna + dx, riga + dy))
+		end
+	end
+	return MappaEuropa.CENTRO.Y + (massima + 0.5) * MappaEuropa.CELLA
+end
+
+return MappaEuropa.LAT_NORD - (riga + 0.5) * dlat, MappaEuropa.LON_OVEST + (colonna + 0.5) * dlon
 end
 
 function MappaEuropa.terra(colonna, riga)
@@ -194,6 +208,20 @@ function MappaEuropa.posizione(lat, lon)
 	local base = MappaEuropa.posizioneCella(colonna - 0.5, riga - 0.5)
 	local altezza = MappaEuropa.altezza(math.floor(colonna), math.floor(riga))
 	return base + Vector3.new(0, altezza * MappaEuropa.CELLA, 0)
+end
+
+-- Stima prudente della superficie (Y) in un punto del mondo: il Terrain liscia i voxel verso l'alto,
+-- quindi prende la cella più alta tra le vicine e aggiunge mezzo voxel.
+function MappaEuropa.superficie(posizione)
+	local colonna = math.floor((MappaEuropa.CENTRO.X - posizione.X) / MappaEuropa.CELLA + MappaEuropa.COLONNE / 2)
+	local riga = math.floor(MappaEuropa.RIGHE / 2 - (posizione.Z - MappaEuropa.CENTRO.Z) / MappaEuropa.CELLA)
+	local massima = 0
+	for dx = -1, 1 do
+		for dy = -1, 1 do
+			massima = math.max(massima, MappaEuropa.altezza(colonna + dx, riga + dy))
+		end
+	end
+	return MappaEuropa.CENTRO.Y + (massima + 0.5) * MappaEuropa.CELLA
 end
 
 return MappaEuropa

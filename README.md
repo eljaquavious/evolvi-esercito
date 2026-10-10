@@ -59,7 +59,7 @@ La simulazione della battaglia si può provare senza Studio con [Lune](https://l
 2. Apri Studio con un place vuoto (Baseplate), tab **Plugins › Rojo › Connect**.
 3. Premi **Play**. Nella finestra **Output** devono comparire:
    ```
-   [Server] Evolvi Esercito avviato, versione 0.3.0
-   [Client] Evolvi Esercito avviato, versione 0.3.0
+   [Server] Evolvi Esercito avviato, versione 0.3.1
+   [Client] Evolvi Esercito avviato, versione 0.3.1
    ```
 4. Ogni volta che il codice cambia: `git pull`, Rojo aggiorna Studio da solo.
