@@ -92,7 +92,7 @@ local function etichettaMare(testo, lat, lon)
 	local ancora = parteLocale({ Size = Vector3.one * 0.2, Transparency = 1, Position = MappaEuropa.posizione(lat, lon) + Vector3.new(0, 2, 0) })
 	local gui = Instance.new("BillboardGui")
 	-- Misure in studs: la scritta rimpicciolisce con la distanza e i mari vicini non si sovrappongono.
-	gui.Size = UDim2.new(#testo * 3, 0, 6, 0)
+	gui.Size = UDim2.new(#testo * 4.5, 0, 9, 0)
 	gui.LightInfluence = 0
 	gui.Parent = ancora
 	Stile.testo({
