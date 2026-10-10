@@ -398,30 +398,40 @@ def _verso_fuori(bm):
 def maniche(u, nome, mat, t_inizio=-0.12, t_fine=0.48, margine=0.009, spessore=0.004, n=32):
     """Maniche: un tubo misurato sul braccio vero dalla spalla fino a t_fine dell'omero (1 = gomito);
     con t_fine > 1 prosegue sull'avambraccio fino a t_fine - 1 del polso."""
+    return tubo_arto(u, nome, mat, ("spalla", "gomito", "polso"), t_inizio, t_fine, margine, spessore, n, 0.14)
+
+
+def pantaloni(u, nome, mat, t_inizio=0.0, t_fine=1.9, margine=0.008, spessore=0.004, n=32):
+    """Gambe di brache o calzoni: dall'anca (0) al ginocchio (1) e giù fino alla caviglia (2)."""
+    return tubo_arto(u, nome, mat, ("anca", "ginocchio", "caviglia"), t_inizio, t_fine, margine, spessore, n, 0.2)
+
+
+def tubo_arto(u, nome, mat, giunti, t_inizio, t_fine, margine, spessore, n, portata, righe=18):
+    """Tubo di stoffa (o maglia) misurato sull'arto vero: t da 0 a 1 sul primo osso, da 1 a 2 sul secondo."""
     tubi = []
     for lato in ("d", "s"):
-        spalla, gomito, polso = u.P("spalla_" + lato), u.P("gomito_" + lato), u.P("polso_" + lato)
-        righe = []
-        for t in np.linspace(t_inizio, t_fine, 18):
+        g0, g1, g2 = (u.P(g + "_" + lato) for g in giunti)
+        anelli = []
+        for t in np.linspace(t_inizio, t_fine, righe):
             if t <= 1:
-                a0, a1, f = spalla, gomito, t
+                a0, a1, f = g0, g1, t
             else:
-                a0, a1, f = gomito, polso, t - 1
+                a0, a1, f = g1, g2, t - 1
             asse = (a1 - a0).normalized()
             base = asse.orthogonal().normalized()
-            p = a0.lerp(a1, max(f, 0.05)) if t >= 0 else spalla + (spalla - gomito).normalized() * (-t) * (gomito - spalla).length * 0.5
+            p = a0.lerp(a1, max(f, 0.05)) if t >= 0 else g0 + (g0 - g1).normalized() * (-t) * (g1 - g0).length * 0.5
             raggi = []
             for j in range(n):
                 d = Matrix.Rotation(2 * math.pi * j / n, 3, asse) @ base
-                hit = u.albero.ray_cast(p, d, 0.14)
+                hit = u.albero.ray_cast(p, d, portata)
                 raggi.append((hit[0] - p).length if hit[0] is not None else None)
             m = max([r for r in raggi if r is not None] or [0.05])
-            raggi = liscia_cerchio([m if r is None else r for r in raggi], 3)
+            raggi = liscio_cerchio([m if r is None else r for r in raggi], 3)
             pieghe = 0.001 + 0.003 * max(0.0, t) / max(t_fine, 0.1)
-            righe.append([p + (Matrix.Rotation(2 * math.pi * j / n, 3, asse) @ base) *
-                          (raggi[j] + margine + pieghe * math.sin(j * 5 * 2 * math.pi / n + t * 4)) for j in range(n)])
-        bm = griglia(righe, chiusa=True)
-        _verso_fuori_locale(bm, spalla, gomito)
+            anelli.append([p + (Matrix.Rotation(2 * math.pi * j / n, 3, asse) @ base) *
+                           (raggi[j] + margine + pieghe * math.sin(j * 5 * 2 * math.pi / n + t * 4)) for j in range(n)])
+        bm = griglia(anelli, chiusa=True)
+        _verso_fuori_locale(bm, g0, g1)
         tubi.append(bm)
     return u.oggetto(nome, unisci(*tubi), mat, spessore=spessore, copre=True)
 
