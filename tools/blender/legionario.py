@@ -371,6 +371,7 @@ def tunica(c):
         v.co += d * 0.006 * sopra * math.sin(a * 7 + v.co.z * 90)
     # Nodo davanti, sopra il bordo d'ottone; i capi restano infilati sotto la lorica.
     nodo = sfera((0, -0.09, 1.466), (0.02, 0.013, 0.016), 12, 8)
+    c.oggetto("Focale", sciarpa, "tunica", spessore=0.008)
     c.oggetto("Focale_Nodo", nodo, "tunica")
 
 
