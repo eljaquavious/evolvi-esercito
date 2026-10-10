@@ -143,6 +143,7 @@ class Unita:
         materiale "<sigla>_Nascosta": l'esportazione per il gioco la butta via."""
         me = self.corpo.data
         co = umano.coordinate(me)
+        normali = [v.normal.copy() for v in me.vertices]
         alberi = self.coperti
         coperto = np.zeros(len(co), dtype=bool)
         for i in range(len(co)):
@@ -151,12 +152,14 @@ class Unita:
                 loc, normale, _, d = albero.find_nearest(p, 0.06)
                 if loc is None:
                     continue
-                # Il vestito ha le normali verso l'esterno: un punto dietro la superficie è coperto.
+                # Il vestito ha le normali verso l'esterno: un punto davanti alla superficie va spinto dentro.
                 if (p - loc).dot(normale) > -margine:
                     if d < 0.04:
                         co[i] = loc - normale * margine
                         coperto[i] = True
-                else:
+                # Dietro la superficie: è coperto solo se il vestito sta davvero sopra la pelle (oltre l'orlo
+                # di una corazza staccata dal corpo la pelle resta scoperta, e nel gioco non deve sparire).
+                elif albero.ray_cast(p, normali[i], 0.15)[0] is not None:
                     coperto[i] = True
         umano.imposta_coordinate(me, co)
         nascosta = self.materiale("Nascosta", (0.5, 0.1, 0.1))

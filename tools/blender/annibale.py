@@ -105,12 +105,31 @@ def elmo(u):
 
 
 def benda(u):
-    """Benda nera sull'occhio destro, con il laccio che gira attorno alla testa sotto l'elmo."""
+    """Benda nera sull'occhio destro, modellata sul viso (raggi da davanti), con il laccio: in diagonale sulla
+    fronte fino sopra l'orecchio sinistro e attorno alla nuca, sotto l'elmo."""
     occhio = next(o for o in u.col.objects if o.name.startswith("Occhio.R"))
     c = occhio.matrix_world @ (sum((Vector(v) for v in occhio.bound_box), Vector()) / 8)
-    p = u.sulla_pelle(c + Vector((0, 0.05, 0)), Vector((0, -1, 0)), 0.006, 0.2)
-    u.oggetto("Benda", V.sfera(p, (0.024, 0.008, 0.02), 12, 6), "Benda")
-    laccio = V.anello_sul_corpo(u, (0, -0.02, c.z + 0.035), (-0.3, -0.35, 1), 0.004, 0.008, n=40, portata=0.2)
+    davanti_occhio = c.y - 0.012
+    righe = []
+    for dz in (0.021, 0.012, 0.0, -0.012, -0.019):
+        riga = []
+        largo = 0.027 * math.sqrt(max(0.15, 1 - (dz / 0.024) ** 2))
+        for f in (-1.0, -0.5, 0.0, 0.5, 1.0):
+            x = c.x + f * largo
+            hit = u.albero.ray_cast(Vector((x, -0.4, c.z + dz)), Vector((0, 1, 0)), 0.5)
+            y = hit[0].y if hit[0] is not None else davanti_occhio
+            riga.append(Vector((x, min(y, davanti_occhio) - 0.004, c.z + dz)))
+        righe.append(riga)
+    bm = V.griglia(righe)
+    bm.normal_update()
+    if sum(f.normal.y for f in bm.faces) > 0:
+        for f in bm.faces:
+            f.normal_flip()
+    u.oggetto("Benda", bm, "Benda", spessore=0.004)
+    # Laccio: piano inclinato che passa per la benda e sale verso sinistra, sopra il sopracciglio sinistro.
+    pendenza = 0.65
+    centro = Vector((0, -0.02, c.z - pendenza * c.x))
+    laccio = V.anello_sul_corpo(u, centro, (-pendenza, 0, 1), 0.004, 0.009, n=48, portata=0.2)
     u.oggetto("Benda_Laccio", laccio, "Benda", spessore=0.002)
 
 
