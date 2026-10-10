@@ -370,7 +370,9 @@ def tunica(c):
         sopra = min(1.0, max(0.0, (v.co.z - 1.452) / 0.015))
         v.co += d * 0.006 * sopra * math.sin(a * 7 + v.co.z * 90)
     # Nodo davanti, sopra il bordo d'ottone; i capi restano infilati sotto la lorica.
-    nodo = sfera((0, -0.09, 1.466), (0.02, 0.013, 0.016), 12, 8)
+    nodo = unisci(sfera((0, -0.087, 1.469), (0.024, 0.011, 0.011), 14, 8),
+                  sfera((0.004, -0.09, 1.457), (0.011, 0.008, 0.013), 10, 6,
+                        Matrix.Rotation(math.radians(-20), 4, "Y")))
     c.oggetto("Focale", sciarpa, "tunica", spessore=0.008)
     c.oggetto("Focale_Nodo", nodo, "tunica")
 
@@ -479,7 +481,7 @@ def pelle_dentro_maniche(corpo):
             j0 = int(jf) % n
             r = raggi[j0] + (raggi[(j0 + 1) % n] - raggi[j0]) * (jf - int(jf))
             eccesso = q.length - (r - 0.005)   # le pieghe rientrano al massimo di 3,5 mm
-            if 0 < eccesso < 0.04:
+            if 0 < eccesso < (0.05 if t < 0.15 else 0.03):   # vicino all'ascella la pelle è più lontana
                 co[v.index] = p - q.normalized() * eccesso
     umano.imposta_coordinate(me, co)
     ALBERO = umano.albero(me)
