@@ -54,8 +54,6 @@ def posa(sch):
         k = umano.sigla(s)
         umano.ruota_mondo(sch, "coscia" + k, (0, 1, 0), 3.5 * s)
         umano.ruota_mondo(sch, "piede" + k, (0, 1, 0), -3.5 * s)
-    # Il mento un po' su, lo sguardo fiero.
-    umano.ruota_mondo(sch, "testa", (1, 0, 0), -5)
     # Destra: revolver basso, il pollice lungo il calcio verso l'alto, le dita attorno.
     asse_calcio = Vector((0, -0.98, 0.2)).normalized()
     C.impugna(sch, -1, PISTOLA, asse_calcio, (1, -0.2, 0), (-0.7, 0.5, -0.4))
