@@ -29,7 +29,7 @@ CV = None
 def materiali(u):
     u.materiale("Chitone", (0.78, 0.74, 0.64), ruvidita=0.9)
     u.materiale("Lino", (0.85, 0.82, 0.72), ruvidita=0.85)
-    u.materiale("Porpora", (0.11, 0.012, 0.05), ruvidita=0.9)
+    u.materiale("Porpora", (0.075, 0.008, 0.03), ruvidita=0.9)
     u.materiale("Rosso", (0.45, 0.04, 0.03), ruvidita=0.85)
     u.materiale("Cuoio", (0.24, 0.12, 0.05), ruvidita=0.65)
     u.materiale("Stivali", (0.20, 0.10, 0.045), ruvidita=0.7)
