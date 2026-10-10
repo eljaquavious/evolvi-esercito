@@ -84,7 +84,7 @@ def tex_pietra(nome, base=(0.58, 0.54, 0.47), malta=(0.40, 0.38, 0.34), righe=8,
     for r in range(righe):
         tagli = _tagli(rng, *lungo)
         k, d = _blocchi_fila(x, tagli)
-        tinte = base * (1 + varia * rng.normal(size=(len(tagli), 1))) * (1 + 0.04 * rng.normal(size=(len(tagli), 3)))
+        tinte = base * (1 + varia * rng.normal(size=(len(tagli), 1))) * (1 + 0.015 * rng.normal(size=(len(tagli), 3)))
         fila = tinte[k]                                     # (lato, 3)
         dy = np.minimum(np.arange(h) + 0.5, h - np.arange(h) - 0.5)[:, None]   # px dal giunto orizzontale
         dx = (d * lato)[None, :]
