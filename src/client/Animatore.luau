@@ -220,13 +220,28 @@ function POSE.legionario(p, a, k, r, ritorno)
 end
 
 -- Fendente con la spada: alza il braccio, cala la lama.
-function POSE.spada(p, _a, k, r, ritorno)
+function POSE.spada(p, a, k, r, ritorno, self)
+	if self and self.riposo and self.riposo["mano.R"] then
+		return POSE.spadaMesh(p, a, k, r, ritorno, self)
+	end
 	local su = k * (1 - r)
 	local giu = r * ritorno
 	p["braccio.R"] = ruota(2.6 * su + 0.8 * giu, 0, -0.3 * su)
 	p["avambraccio.R"] = ruota(0.6 * su, 0, 0)
 	p.torace = ruota(0.15 * giu, -0.4 * su + 0.4 * giu, 0)
 	p["braccio.L"] = ruota(0.3 * su, 0, 0)
+end
+
+-- Modello Blender (la spada è già alzata in avanti a riposo): la mano sale sopra la spalla destra
+-- e cala in avanti e in basso, il busto ruota col colpo e il passo avanza.
+function POSE.spadaMesh(p, _a, k, r, ritorno, self)
+	local su = k * (1 - r)
+	local giu = r * ritorno
+	p.torace = ruota(0.15 * giu, -0.35 * su + 0.4 * giu, 0)
+	local presa = self.riposo["mano.R"] + Vector3.new(0.25 * su, 1.3 * su - 0.7 * giu, 0.9 * su - 0.8 * giu)
+	self:_mano(p, "R", presa, Vector3.new(1, -0.3, 0.6), math.max(su, giu), CFrame.identity)
+	p["braccio.L"] = ruota(0.3 * su, 0, 0)
+	p.bacino = CFrame.new(0, 0, -0.2 * giu)
 end
 
 -- Ascia danese a due mani: carica sopra la spalla e colpo dall'alto.
