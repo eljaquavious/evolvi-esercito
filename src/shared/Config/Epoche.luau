@@ -63,6 +63,8 @@ Epoche.Truppe = {
 		velocita = 0.9,
 		armatura = 0.25,
 		testuggine = 0.7,
+		-- Ogni legionario lancia il pilum una volta, prima di arrivare in mischia.
+		lancio = { gittata = 2.2, danno = 1.6 },
 	},
 	ArciereCretese = {
 		id = "ArciereCretese",

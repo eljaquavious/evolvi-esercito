@@ -2,10 +2,10 @@
 -- I reggimenti sono copiati da src/shared/Config/Epoche.luau (che usa Color3 e quindi non gira fuori da Roblox).
 local Battaglia = require("../src/shared/Battaglia")
 
-local SPADACCINO = { id = "Spadaccino", classe = "Fanteria", hp = 420, danno = 30, cadenza = 1.0, gittata = 1.1, velocita = 1.0, armatura = 0.25 }
-local ARCIERE = { id = "Arciere", classe = "Tiratore", hp = 230, danno = 27, cadenza = 0.8, gittata = 3.6, velocita = 0.9, armatura = 0.05 }
-local CAVALIERE = { id = "Cavaliere", classe = "Cavalleria", hp = 430, danno = 34, cadenza = 0.8, gittata = 1.2, velocita = 2.0, armatura = 0.2, carica = 2.2 }
-local CARRO = { id = "CarroArmato", classe = "Cavalleria", hp = 1150, danno = 105, cadenza = 0.45, gittata = 3.0, velocita = 1.0, armatura = 0.45, area = 0.4 }
+local SPADACCINO = { id = "Spadaccino", soldati = 8, classe = "Fanteria", hp = 420, danno = 30, cadenza = 1.0, gittata = 1.1, velocita = 1.0, armatura = 0.25 }
+local ARCIERE = { id = "Arciere", soldati = 8, classe = "Tiratore", hp = 230, danno = 27, cadenza = 0.8, gittata = 3.6, velocita = 0.9, armatura = 0.05 }
+local CAVALIERE = { id = "Cavaliere", soldati = 5, classe = "Cavalleria", hp = 430, danno = 34, cadenza = 0.8, gittata = 1.2, velocita = 2.0, armatura = 0.2, carica = 2.2 }
+local CARRO = { id = "CarroArmato", soldati = 1, classe = "Cavalleria", hp = 1150, danno = 105, cadenza = 0.45, gittata = 3.0, velocita = 1.0, armatura = 0.45, area = 0.4 }
 
 local falliti = 0
 local function verifica(nome, condizione)
@@ -45,18 +45,23 @@ b = Battaglia.nuova({
 	{ id = 1, squadra = "giocatore", def = CAVALIERE, x = 3, y = 2 },
 	{ id = 101, squadra = "nemico", def = ARCIERE, x = 3, y = 5 },
 })
-local cariche = 0
+local cariche, caricheDi = 0, {}
 for _ = 1, 400 do
 	for _, evento in ipairs(b:passo(0.1)) do
 		if evento.tipo == "attacco" and evento.carica then
 			cariche += 1
+			caricheDi[evento.da] = (caricheDi[evento.da] or 0) + 1
 		end
 	end
 	if b.finita then
 		break
 	end
 end
-verifica("i cavalieri caricano una volta sola", cariche == 1)
+local doppie = false
+for _, n in pairs(caricheDi) do
+	doppie = doppie or n > 1
+end
+verifica("i cavalieri caricano, ognuno una volta sola", cariche > 0 and not doppie)
 
 -- Danno ad area: il carro colpisce anche i reggimenti vicini al bersaglio.
 b = Battaglia.nuova({
@@ -67,7 +72,7 @@ b = Battaglia.nuova({
 local colpiAdArea = 0
 for _ = 1, 400 do
 	for _, evento in ipairs(b:passo(0.1)) do
-		if evento.tipo == "attacco" and evento.da == 1 then
+		if evento.tipo == "colpo" and evento.da == 17 then
 			colpiAdArea += #evento.area
 		end
 	end
@@ -85,7 +90,7 @@ b = Battaglia.nuova({
 local dentro = false
 for _ = 1, 600 do
 	b:passo(0.1)
-	for _, u in ipairs(b.unita) do
+	for _, u in ipairs(b.soldati) do
 		local dx, dy = u.x - 3, u.y - 3.5
 		if u.vivo and math.sqrt(dx * dx + dy * dy) < 0.5 then
 			dentro = true
@@ -117,11 +122,10 @@ local function dannoSubito(def)
 		{ id = 1, squadra = "giocatore", def = def, x = 3, y = 1 },
 		{ id = 101, squadra = "nemico", def = ARCIERE, x = 3, y = 4 },
 	})
-	local prima = b.unita[1].hp
 	for _ = 1, 30 do
 		b:passo(0.1)
 	end
-	return prima - b.unita[1].hp
+	return 1 - Battaglia.vitaReggimento(b.unita[1])
 end
 local LEGIONARIO = table.clone(SPADACCINO)
 LEGIONARIO.velocita = 0
@@ -145,7 +149,7 @@ b = Battaglia.nuova({
 	{ id = 1, squadra = "giocatore", def = CAVALIERE, x = 3, y = 1 },
 	{ id = 101, squadra = "nemico", def = FORTEZZA, x = 3, y = 6 },
 })
-local fortezza = b.unita[2]
+local fortezza = b.unita[2].soldati[1]
 local mossa = false
 for _ = 1, 600 do
 	b:passo(0.1)
@@ -164,11 +168,17 @@ b = Battaglia.nuova({
 	{ id = 2, squadra = "giocatore", def = SPADACCINO, x = 3.22, y = 5.24 },
 	{ id = 101, squadra = "nemico", def = table.clone(FORTEZZA), x = 4, y = 6, forza = 20 },
 })
-b.unita[3].danno = 0
-for _ = 1, 40 do
+b.unita[3].soldati[1].danno = 0
+for _ = 1, 60 do
 	b:passo(0.075)
 end
-verifica("chi è bloccato da un alleato arriva comunque alla fortezza", b:_inGittata(b.unita[1], b.unita[3]))
+local arrivati = 0
+for _, s in ipairs(b.unita[1].soldati) do
+	if b:_inGittata(s, b.unita[3].soldati[1]) then
+		arrivati += 1
+	end
+end
+verifica("chi è bloccato da un alleato arriva comunque alla fortezza", arrivati >= 3)
 
 -- Due ostacoli in diagonale chiudono il passaggio (stallo visto a Thermopylae): i reggimenti li aggirano.
 b = Battaglia.nuova({
@@ -186,5 +196,82 @@ b = Battaglia.nuova({
 }, { ostacoli = { { x = 1, y = 3 }, { x = 2, y = 3 }, { x = 3, y = 3 }, { x = 4, y = 3 }, { x = 5, y = 3 } } })
 b:simula(0.075)
 verifica("si passa dal varco nel muro", b.vincitore == "giocatore" and b.tempo < 30)
+
+-- Ogni soldato si muove per conto suo: i soldati di un reggimento non restano in formazione rigida.
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = SPADACCINO, x = 2, y = 2 },
+	{ id = 101, squadra = "nemico", def = SPADACCINO, x = 2, y = 5 },
+	{ id = 102, squadra = "nemico", def = SPADACCINO, x = 5, y = 5 },
+})
+for _ = 1, 40 do
+	b:passo(0.1)
+end
+local bersagli = {}
+for _, s in ipairs(b.unita[1].soldati) do
+	if s.bersaglio then
+		bersagli[s.bersaglio.id] = true
+	end
+end
+local diversi = 0
+for _ in pairs(bersagli) do
+	diversi += 1
+end
+verifica("i soldati scelgono bersagli diversi", diversi >= 3)
+
+-- Nessuno si compenetra.
+local sovrapposti = 0
+for i, a in ipairs(b.soldati) do
+	for j = i + 1, #b.soldati do
+		local c = b.soldati[j]
+		if a.vivo and c.vivo and math.sqrt((a.x - c.x) ^ 2 + (a.y - c.y) ^ 2) < (a.raggio + c.raggio) * 0.8 then
+			sovrapposti += 1
+		end
+	end
+end
+verifica("i soldati non si compenetrano", sovrapposti == 0)
+
+-- Le frecce arrivano dopo il tiro, non nello stesso istante.
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = ARCIERE, x = 3, y = 1 },
+	{ id = 101, squadra = "nemico", def = SPADACCINO, x = 3, y = 4 },
+})
+local tiri, colpiSubito = 0, 0
+for _ = 1, 20 do
+	for _, evento in ipairs(b:passo(0.1)) do
+		if evento.tipo == "attacco" and evento.colpo == "tiro" then
+			tiri += 1
+			if evento.ritardo <= 0.1 then
+				colpiSubito += 1
+			end
+		end
+	end
+end
+verifica("gli arcieri tirano frecce che volano", tiri > 0 and colpiSubito == 0)
+
+-- Il pilum: ogni legionario lo lancia una volta prima della mischia.
+local LEGIONARI = table.clone(SPADACCINO)
+LEGIONARI.id = "Legionario"
+LEGIONARI.lancio = { gittata = 2.2, danno = 1.6 }
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = LEGIONARI, x = 3, y = 1 },
+	{ id = 101, squadra = "nemico", def = SPADACCINO, x = 3, y = 5 },
+})
+local lanci = {}
+for _ = 1, 300 do
+	for _, evento in ipairs(b:passo(0.1)) do
+		if evento.tipo == "attacco" and evento.colpo == "lancio" then
+			lanci[evento.da] = (lanci[evento.da] or 0) + 1
+		end
+	end
+	if b.finita then
+		break
+	end
+end
+local lanciatori, ripetuti = 0, false
+for _, n in pairs(lanci) do
+	lanciatori += 1
+	ripetuti = ripetuti or n > 1
+end
+verifica("i legionari lanciano il pilum una volta", lanciatori >= 4 and not ripetuti)
 
 print(falliti == 0 and "Tutti i test passati" or (falliti .. " test falliti"))
