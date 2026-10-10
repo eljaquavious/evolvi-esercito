@@ -670,10 +670,10 @@ def lancia(c):
 def gladio(c):
     # Fodero al fianco destro, un po' inclinato con l'elsa in avanti.
     # La punta va indietro, l'elsa in avanti e un poco in fuori.
-    base = Matrix.Translation((-0.212, -0.02, 1.0)) @ Matrix.Rotation(math.radians(16), 4, "X") @ \
+    base = Matrix.Translation((-0.212, -0.025, 1.04)) @ Matrix.Rotation(math.radians(16), 4, "X") @ \
         Matrix.Rotation(math.radians(-5), 4, "Y")
     fodero = bmesh.new()
-    sezioni = [(0.0, 0.03), (-0.40, 0.026), (-0.50, 0.014), (-0.53, 0.0)]
+    sezioni = [(0.0, 0.03), (-0.36, 0.026), (-0.445, 0.014), (-0.47, 0.0)]
     anelli = []
     for z, mezza in sezioni:
         anello = [fodero.verts.new((mezza * math.cos(math.radians(a)) * (1 if mezza else 0) * 0.35,
@@ -688,7 +688,7 @@ def gladio(c):
         b = scatola((0, 0, z), (0.024, 0.066, 0.018))
         bmesh.ops.transform(b, matrix=base, verts=b.verts)
         ottone.append(b)
-    puntale = cilindro((0, 0, -0.46), (0, 0, -0.535), 0.016, 0.004, n=10)
+    puntale = cilindro((0, 0, -0.41), (0, 0, -0.475), 0.016, 0.004, n=10)
     bmesh.ops.transform(puntale, matrix=base, verts=puntale.verts)
     ottone.append(puntale)
     for s in (-1, 1):
@@ -809,3 +809,80 @@ def costruisci():
 
 if __name__ == "__main__":
     print(costruisci())
+
+
+# Studio per le foto (fuori dalla collezione del modello) ---------------------------------------------
+
+def studio(larghezza=1080, altezza=1440):
+    scena = bpy.context.scene
+    col = bpy.data.collections.get("Studio")
+    if col is None:
+        col = bpy.data.collections.new("Studio")
+        scena.collection.children.link(col)
+    for o in list(col.objects):
+        bpy.data.objects.remove(o, do_unlink=True)
+    for nome in ("Camera", "Light"):
+        o = bpy.data.objects.get(nome)
+        if o and o.users_collection and o.users_collection[0].name == "Collection":
+            o.hide_render = True
+            o.hide_viewport = True
+
+    def luce(nome, tipo, energia, posizione, colore=(1, 1, 1), dimensione=1.0):
+        dati = bpy.data.lights.new(nome, tipo)
+        dati.energy = energia
+        dati.color = colore
+        if tipo == "AREA":
+            dati.size = dimensione
+        o = bpy.data.objects.new(nome, dati)
+        o.location = posizione
+        col.objects.link(o)
+        punta_a(o, Vector((0.05, 0, 1.0)))
+        return o
+
+    luce("Chiave", "AREA", 900, (-2.6, -3.2, 3.6), (1.0, 0.96, 0.9), 2.0)
+    luce("Riempimento", "AREA", 350, (3.0, -2.4, 1.8), (0.85, 0.9, 1.0), 3.0)
+    luce("Controluce", "AREA", 500, (0.5, 3.0, 3.0), (1.0, 0.95, 0.85), 2.0)
+    pavimento = bpy.data.meshes.new("Pavimento")
+    bm = bmesh.new()
+    bmesh.ops.create_circle(bm, cap_ends=True, segments=64, radius=3.0)
+    bm.to_mesh(pavimento)
+    bm.free()
+    o = bpy.data.objects.new("Pavimento", pavimento)
+    o.data.materials.append(materiale("Pavimento", (0.55, 0.47, 0.36), ruvidita=0.95))
+    col.objects.link(o)
+    mondo = scena.world or bpy.data.worlds.new("Mondo")
+    scena.world = mondo
+    mondo.use_nodes = True
+    sfondo = mondo.node_tree.nodes.get("Background")
+    sfondo.inputs["Color"].default_value = (0.42, 0.45, 0.5, 1)
+    sfondo.inputs["Strength"].default_value = 0.7
+    camera = bpy.data.objects.new("Fotocamera", bpy.data.cameras.new("Fotocamera"))
+    camera.data.lens = 50
+    col.objects.link(camera)
+    scena.camera = camera
+    scena.render.engine = "BLENDER_EEVEE"
+    scena.render.resolution_x = larghezza
+    scena.render.resolution_y = altezza
+    scena.render.resolution_percentage = 100
+    scena.render.image_settings.file_format = "JPEG"
+    scena.render.image_settings.quality = 88
+    scena.view_settings.view_transform = "AgX"
+    return camera
+
+
+def punta_a(o, bersaglio):
+    direzione = bersaglio - o.location
+    o.rotation_euler = direzione.to_track_quat("-Z", "Y").to_euler()
+
+
+def foto(percorso, azimut=-25, elevazione=6, distanza=4.6, bersaglio=(0.08, 0, 1.12), lente=50):
+    """azimut 0 = davanti al soldato."""
+    camera = bpy.context.scene.camera or studio()
+    camera.data.lens = lente
+    a, e = math.radians(azimut), math.radians(elevazione)
+    b = Vector(bersaglio)
+    camera.location = b + Vector((math.sin(a) * math.cos(e), -math.cos(a) * math.cos(e), math.sin(e))) * distanza
+    punta_a(camera, b)
+    bpy.context.scene.render.filepath = percorso
+    bpy.ops.render.render(write_still=True)
+    return percorso
