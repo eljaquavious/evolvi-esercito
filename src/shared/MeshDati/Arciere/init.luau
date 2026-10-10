@@ -1,0 +1,33 @@
+-- Generato da tools/converti_mesh.py dal modello Blender: non modificare a mano.
+-- 5458 vertici, 4594 triangoli, texture 256x256. Misure in metri, assi di Roblox.
+return {
+	versione = 1,
+	minimo = { -0.38405, -0.01601, -0.25731 },
+	massimo = { 0.41130, 1.95069, 0.27779 },
+	ossa = {
+		{ nome = "bacino", padre = nil, posizione = { 0.00000, 0.93000, 0.02000 } },
+		{ nome = "spina", padre = "bacino", posizione = { 0.00000, 1.06000, 0.02000 } },
+		{ nome = "torace", padre = "spina", posizione = { 0.00000, 1.22000, 0.01500 } },
+		{ nome = "testa", padre = "torace", posizione = { -0.00000, 1.45000, -0.00500 } },
+		{ nome = "braccio.L", padre = "torace", posizione = { -0.18500, 1.38500, 0.02000 } },
+		{ nome = "avambraccio.L", padre = "braccio.L", posizione = { -0.31783, 1.15200, 0.04976 } },
+		{ nome = "mano.L", padre = "avambraccio.L", posizione = { -0.29559, 0.99671, -0.15318 } },
+		{ nome = "braccio.R", padre = "torace", posizione = { 0.18500, 1.38500, 0.02000 } },
+		{ nome = "avambraccio.R", padre = "braccio.R", posizione = { 0.31892, 1.15078, 0.02500 } },
+		{ nome = "mano.R", padre = "avambraccio.R", posizione = { 0.37275, 0.90864, -0.04030 } },
+		{ nome = "coscia.L", padre = "bacino", posizione = { -0.09000, 0.90000, 0.02000 } },
+		{ nome = "stinco.L", padre = "coscia.L", posizione = { -0.11251, 0.49864, 0.02000 } },
+		{ nome = "piede.L", padre = "stinco.L", posizione = { -0.14436, 0.08185, 0.06500 } },
+		{ nome = "coscia.R", padre = "bacino", posizione = { 0.09000, 0.90000, 0.02000 } },
+		{ nome = "stinco.R", padre = "coscia.R", posizione = { 0.11251, 0.49864, 0.02000 } },
+		{ nome = "piede.R", padre = "stinco.R", posizione = { 0.14436, 0.08185, 0.06500 } },
+		{ nome = "arco", padre = "mano.L", posizione = { -0.25500, 1.02000, -0.23500 } },
+	},
+	vertici = 5458,
+	triangoli = 4594,
+	lunghezzaGeometria = 142190,
+	geometria = require(script.Geometria),
+	lato = 256,
+	lunghezzaTexture = 196608,
+	texture = require(script.Texture),
+}
