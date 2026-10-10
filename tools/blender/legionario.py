@@ -229,8 +229,8 @@ SCHELETRO = {
     "vita": ((0, 0.0, 1.10), 0.135, 0.10),
     "petto": ((0, 0.0, 1.27), 0.16, 0.11),
     "spalle": ((0, 0.0, 1.38), 0.15, 0.10),
-    "collo": ((0, 0.0, 1.47), 0.055, 0.055),
-    "nuca": ((0, 0.0, 1.55), 0.05, 0.05),
+    "collo": ((0, 0.0, 1.47), 0.062, 0.062),
+    "nuca": ((0, 0.0, 1.54), 0.058, 0.058),
     "spalla_d": ((-0.18, 0.0, 1.40), 0.058, 0.058),
     "gomito_d": ((-0.25, 0.03, 1.13), 0.043, 0.043),
     "avambraccio_d": ((-0.25, -0.08, 1.15), 0.045, 0.045),
@@ -371,8 +371,8 @@ def tunica(c):
         maniche.append(cilindro(spalla + (gomito - spalla) * -0.05, fine, 0.07, 0.064, n=20, tappi=False))
     c.oggetto("Maniche", unisci(*maniche), "tunica", spessore=0.005)
     # Focale: sciarpa annodata al collo.
-    sciarpa = tubo_ellittico([((0, -0.005, 1.425), 0.085, 0.075), ((0, -0.008, 1.455), 0.08, 0.07),
-                              ((0, -0.004, 1.485), 0.068, 0.062)], n=32)
+    sciarpa = tubo_ellittico([((0, -0.005, 1.425), 0.088, 0.078), ((0, -0.01, 1.46), 0.082, 0.074),
+                              ((0, -0.006, 1.495), 0.07, 0.066), ((0, -0.004, 1.51), 0.064, 0.06)], n=32)
     c.oggetto("Focale", sciarpa, "tunica", spessore=0.012)
 
 
@@ -625,8 +625,8 @@ def elmo(c):
             for i in range(6):
                 u = i / 5
                 # Segue la guancia: più stretta verso il mento e piegata indietro verso l'orecchio.
-                x = s * (0.098 - 0.01 * t - 0.012 * u * u)
-                y = -0.075 + u * larghezza + 0.004 * t
+                x = s * (0.074 + 0.026 * u - 0.006 * t)
+                y = -0.082 + u * (larghezza + 0.01) + 0.006 * t
                 riga.append(g.verts.new((x, y, z)))
             righe.append(riga)
         for j in range(5):
@@ -796,6 +796,10 @@ def costruisci():
     schinieri(c)
     calzari(c)
     elmo(c)
+    # Testa ed elmo un poco più giù: il collo restava troppo lungo.
+    for o in list(c.col.objects):
+        if o.type == "MESH" and o.name.split("_")[0] in ("Testa", "Naso", "Occhi", "Sopracciglia", "Orecchie", "Elmo"):
+            o.data.transform(Matrix.Translation((0, 0, -0.022)))
     lancia(c)
     gladio(c)
     scudo(c)
