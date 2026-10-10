@@ -185,7 +185,7 @@ def lancia(u):
     for i in range(7):
         f = i / 6
         base = attacco - LANCIA * 0.28 * f
-        lungo = 0.36 - 0.13 * math.sin(math.pi * f)      # tacca in mezzo: due code
+        lungo = 0.28 - 0.10 * math.sin(math.pi * f)      # tacca in mezzo: due code
         vv.append([bm.verts.new(base + via * lungo * (k / 4) + lato * 0.02 * math.sin(math.pi * 1.5 * k / 4))
                    for k in range(5)])
     for a, b in zip(vv, vv[1:]):
@@ -221,16 +221,16 @@ def sella(u, cv):
     cv.gualdrappa("CV_Sella", "Cuoio", davanti=0.02, dietro=0.26, angolo=40, cade=0.03, distacco=0.03, spessore=0.02)
     garrese, groppa = cv.ossa["Bone"][1], cv.ossa["Bone"][0]
     pezzi = []
-    for f, alto, nome in ((0.0, 0.16, "davanti"), (0.30, 0.20, "dietro")):
+    for f, alto, nome in ((0.0, 0.06, "davanti"), (0.27, 0.09, "dietro")):
         centro = garrese.lerp(groppa, f) + Vector((0, 0, -0.12))
         punti = []
-        for j in range(15):
-            a = math.radians(-60 + 120 * j / 14)
+        for j in range(13):
+            a = math.radians(-38 + 76 * j / 12)
             d = Vector((math.sin(a), 0, math.cos(a)))
-            p = cv.sulla_pelle(centro, d, 0.03, 1.2) or centro + d * 0.3
-            p = p + Vector((0, 0, alto * math.cos(a) ** 2))
+            p = cv.sulla_pelle(centro, d, 0.045, 1.2) or centro + d * 0.3
+            p = p + Vector((0, 0, alto * math.cos(a * 2.2) ** 2))
             punti.append(p)
-        pezzi.append(V.tubo_lungo(punti, 0.035, n=8))
+        pezzi.append(V.tubo_lungo(punti, 0.028, n=8))
     u.oggetto("CV_Arcioni", V.unisci(*pezzi), "Legno")
     # Staffe: cinghia dalla sella al piede e la staffa di ferro sotto la pianta.
     cinghie, staffe = [], []
@@ -251,7 +251,7 @@ def sella(u, cv):
         u.oggetto("Staffe_Ferro", V.unisci(*staffe), "Ferro")
     # Pettorale: una fascia davanti al petto del cavallo, da un lato all'altro della sella.
     a, b = cv.ossa["Bone_L"][0], cv.ossa["Bone_R"][0]
-    petto = cv.osso("Bone.001", 0.12) + Vector((0, 0, -0.18))
+    petto = cv.osso("Bone.001", 0.12) + Vector((0, 0, -0.06))
     punti, normali = [], []
     for j in range(21):
         ang = math.radians(-100 + 200 * j / 20)
@@ -278,7 +278,7 @@ def costruisci():
     U = u
     materiali(u)
     u.costruisci_corpo(posa, barba=0.3)   # i Normanni dell'arazzo sono rasati
-    cv = C.Cavallo(u, scala=0.235, snello=0.8, sella=(0.0, 0.03, 0.86), manto=(0.32, 0.25, 0.22))
+    cv = C.Cavallo(u, scala=0.235, snello=0.8, sella=(0.0, 0.03, 0.86), manto=(0.22, 0.17, 0.15))
     CV = cv
     vestiti(u)
     S.elmo(u)
