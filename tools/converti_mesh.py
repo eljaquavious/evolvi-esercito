@@ -1,8 +1,9 @@
 """Converte l'uscita di tools/blender/esporta.py (JSON) in un modulo Luau per il gioco.
 
 Uso: python3 tools/converti_mesh.py <uscita.json> <Nome> [--png anteprima.png]
-Scrive src/shared/MeshDati/<Nome>.luau con geometria e texture compresse (zstd + base64),
-che src/shared/Mesh.luau decomprime con EncodingService.
+Scrive la cartella src/shared/MeshDati/<Nome>/ (init.luau con ossa e misure, Geometria.luau e
+Texture.luau con i dati compressi zstd + base64, che src/shared/Mesh.luau decomprime con EncodingService).
+I dati stanno in moduli separati perché uno script di Roblox oltre i 200.000 caratteri non si può scrivere.
 """
 import base64
 import json
@@ -48,15 +49,23 @@ return {{
 	vertici = {dati["vertici"]},
 	triangoli = {dati["triangoli"]},
 	lunghezzaGeometria = {lg},
-	geometria = {stringa_luau(geometria)},
+	geometria = require(script.Geometria),
 	lato = {dati["texture"]["lato"]},
 	lunghezzaTexture = {lt},
-	texture = {stringa_luau(texture)},
+	texture = require(script.Texture),
 }}
 """
-    uscita = os.path.join(RADICE, "src", "shared", "MeshDati", nome + ".luau")
-    open(uscita, "w").write(testo)
-    print(f"{uscita}: {len(testo) // 1024} KB (geometria {lg // 1024} KB, texture {lt // 1024} KB grezzi)")
+    cartella = os.path.join(RADICE, "src", "shared", "MeshDati", nome)
+    vecchio = cartella + ".luau"
+    if os.path.exists(vecchio):
+        os.remove(vecchio)
+    os.makedirs(cartella, exist_ok=True)
+    open(os.path.join(cartella, "init.luau"), "w").write(testo)
+    for parte, contenuto in (("Geometria", geometria), ("Texture", texture)):
+        assert len(contenuto) < 190000, parte + " troppo lunga per un solo modulo"
+        open(os.path.join(cartella, parte + ".luau"), "w").write(
+            "-- Generato da tools/converti_mesh.py: non modificare a mano.\nreturn " + stringa_luau(contenuto) + "\n")
+    print(f"{cartella}: geometria {len(geometria) // 1024} KB, texture {len(texture) // 1024} KB (compressi, base64)")
     if "--png" in sys.argv:
         from PIL import Image
         lato = dati["texture"]["lato"]

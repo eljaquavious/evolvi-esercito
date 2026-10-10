@@ -40,9 +40,10 @@ local function costruisci(nome, scala)
 		local padre = osso.padre and ossa[osso.padre]
 		local relativa = padre and (posizione - padre.posizione) or (posizione - centro)
 		local cframe = CFrame.new(relativa * scala)
+		-- AddBone vuole la posizione nello spazio della mesh; le istanze Bone invece sono relative al padre.
 		ossaId[osso.nome] = em:AddBone({
 			Name = osso.nome,
-			CFrame = cframe,
+			CFrame = CFrame.new((posizione - centro) * scala),
 			Virtual = false,
 			ParentId = padre and padre.id or nil,
 		})
