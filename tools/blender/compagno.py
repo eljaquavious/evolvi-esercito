@@ -41,7 +41,7 @@ def materiali(u):
     u.materiale("Chitone", (0.50, 0.07, 0.05), ruvidita=0.9)
     u.materiale("Lino", (0.80, 0.76, 0.64), ruvidita=0.85)
     u.materiale("Banda", (0.42, 0.05, 0.10), ruvidita=0.85)
-    u.materiale("Porpora", (0.27, 0.04, 0.12), ruvidita=0.9)
+    u.materiale("Porpora", (0.17, 0.025, 0.075), ruvidita=0.9)
     u.materiale("Cuoio", (0.24, 0.12, 0.05), ruvidita=0.65)
     u.materiale("Stivali", (0.20, 0.10, 0.045), ruvidita=0.7)
     u.materiale("Suola", (0.07, 0.04, 0.02), ruvidita=0.8)
@@ -138,22 +138,22 @@ def vestiti(u):
 
 def mantello(u, cv):
     """Clamide di porpora: dalle spalle giù per la schiena, poi distesa sulla groppa del cavallo."""
-    colonne = 22
-    angoli = np.linspace(-0.25, math.pi + 0.25, colonne)
+    colonne = 20
+    angoli = np.linspace(0.3, math.pi - 0.3, colonne)
     righe = []
-    for z in np.linspace(1.43, 0.98, 9):
+    for z in np.linspace(1.43, 1.0, 9):
         riga = []
         for a in angoli:
             d = Vector((math.cos(a), math.sin(a), 0))
-            fuori = 0.035 + 0.05 * (1.43 - z)
+            fuori = 0.035 + 0.03 * (1.43 - z)
             riga.append(u.sulla_pelle(Vector((0, 0.0, z)), d, fuori, 0.4))
         righe.append(riga)
     ultima = righe[-1]
-    for t in np.linspace(0.15, 1.0, 7):
+    for t in np.linspace(0.15, 1.0, 6):
         riga = []
         for p in ultima:
-            x = p.x * (1 + 0.6 * t)
-            y = max(p.y, 0.05) + 0.08 + 0.5 * t
+            x = p.x * (1 + 0.35 * t)
+            y = max(p.y, 0.05) + 0.06 + 0.32 * t
             q = cv.sulla_pelle((x, y, 2.5), (0, 0, -1), 0.025, 3.0)
             riga.append(q if q is not None else Vector((x, y, p.z - 0.1 * t)))
         righe.append(riga)
@@ -174,8 +174,8 @@ def elmo(u):
             radiale = Vector((p.x - centro.x, p.y - centro.y, 0)).normalized()
             davanti = max(0.0, -radiale.y)
             onda = 1 + 0.18 * math.sin(j * 2 * math.pi * 7 / len(bordo))
-            larga = (0.075 - 0.045 * davanti ** 2) * onda
-            giu = (0.06 - 0.045 * davanti) * f ** 1.6
+            larga = (0.105 - 0.06 * davanti ** 2) * onda
+            giu = (0.085 - 0.06 * davanti) * f ** 1.6
             giro.append(p + radiale * larga * f - Vector((0, 0, giu)))
         giri.append(giro)
     tesa = V.griglia(giri, chiusa=True)
