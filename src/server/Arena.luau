@@ -32,12 +32,13 @@ local SENZA_ERBA_ALTA = 150 -- vicino al campo niente Grass: la sua erba alta na
 local PEZZI_CASELLA = 4 -- ogni casella è fatta di 4x4 piastrelle che seguono il terreno
 local SOPRA_TERRENO = 0.35
 
--- Forma del terreno e materiali per bioma.
+-- Forma del terreno e materiali per bioma. Solo materiali del Terrain: uno da parti (per esempio Pebble)
+-- in WriteVoxels diventa Grass, con la sua erba alta.
 local RILIEVI = {
 	Pianeggiante = { ondulazione = 3, bordo = 28, base = Enum.Material.Grass, campo = Enum.Material.LeafyGrass, chiazze = Enum.Material.Ground, alto = Enum.Material.Grass, roccia = Enum.Material.Rock, sponda = Enum.Material.Mud },
 	Collinoso = { ondulazione = 9, bordo = 42, base = Enum.Material.Grass, campo = Enum.Material.LeafyGrass, chiazze = Enum.Material.Ground, alto = Enum.Material.LeafyGrass, roccia = Enum.Material.Rock, sponda = Enum.Material.Mud },
 	Desertico = { ondulazione = 5, bordo = 30, dune = true, base = Enum.Material.Sand, campo = Enum.Material.Sand, chiazze = Enum.Material.Sandstone, alto = Enum.Material.Sandstone, roccia = Enum.Material.Sandstone, sponda = Enum.Material.Mud },
-	Montagnoso = { ondulazione = 12, bordo = 64, neve = 52, base = Enum.Material.Ground, campo = Enum.Material.Ground, chiazze = Enum.Material.Pebble, alto = Enum.Material.Rock, roccia = Enum.Material.Rock, sponda = Enum.Material.Ground },
+	Montagnoso = { ondulazione = 12, bordo = 64, neve = 52, base = Enum.Material.Ground, campo = Enum.Material.Ground, chiazze = Enum.Material.Slate, alto = Enum.Material.Rock, roccia = Enum.Material.Rock, sponda = Enum.Material.Ground },
 	Innevato = { ondulazione = 8, bordo = 48, neve = -100, base = Enum.Material.Snow, campo = Enum.Material.Snow, chiazze = Enum.Material.Ground, alto = Enum.Material.Snow, roccia = Enum.Material.Rock, sponda = Enum.Material.Ground },
 }
 
