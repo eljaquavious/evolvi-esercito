@@ -31,8 +31,8 @@ BOCCA = None
 
 
 def materiali(u):
-    u.materiale("Blu", (0.24, 0.32, 0.43), ruvidita=0.9)
-    u.materiale("BluScuro", (0.15, 0.20, 0.28), ruvidita=0.9)
+    u.materiale("Blu", (0.15, 0.21, 0.31), ruvidita=0.9)
+    u.materiale("BluScuro", (0.10, 0.14, 0.21), ruvidita=0.9)
     u.materiale("Rosso", (0.42, 0.03, 0.03), ruvidita=0.85)
     u.materiale("Oro", (0.85, 0.63, 0.25), metallo=1.0, ruvidita=0.3)
     u.materiale("Nero", (0.025, 0.022, 0.02), ruvidita=0.35)
@@ -126,7 +126,7 @@ def kepi(u):
         for p in bordo:
             r = p - Vector((centro.x, centro.y, p.z))
             dietro = max(0.0, r.normalized().y)
-            alto = 0.085 + 0.03 * dietro
+            alto = 0.068 + 0.025 * dietro
             q = Vector((centro.x, centro.y - 0.018 * t, p.z)) + r * (1 - 0.1 * t)
             out.append(q + Vector((0, 0, alto * t)))
         return out
