@@ -21,6 +21,8 @@ local function predefiniti()
 		campagnaCompletata = false,
 		collezione = collezione, -- tipo -> copie possedute
 		mazzo = table.clone(iniziale), -- lista di tipi, una voce per carta
+		stelle = {}, -- tostring(numero livello) -> stelle migliori (1-3)
+		esperienza = 0,
 		statistiche = {
 			battaglie = 0,
 			vittorie = 0,
@@ -36,7 +38,7 @@ end
 local negozio
 do
 	local ok, errore = pcall(function()
-		negozio = DataStoreService:GetDataStore("Giocatori_v2")
+		negozio = DataStoreService:GetDataStore("Giocatori_v3")
 	end)
 	if not ok then
 		warn("[Dati] DataStore non disponibile, i progressi non verranno salvati: " .. tostring(errore))
@@ -118,11 +120,19 @@ function Dati.rilascia(player)
 end
 
 -- Aggiunge una carta alla collezione; se il mazzo ha posto, la mette anche nel mazzo.
+-- I comandanti sono unici: se ne ha già uno, non se ne aggiunge un altro.
 function Dati.aggiungiCarta(dati, tipo)
+	if Epoche.Truppe[tipo].comandante and (dati.collezione[tipo] or 0) > 0 then
+		return
+	end
 	dati.collezione[tipo] = (dati.collezione[tipo] or 0) + 1
 	if #dati.mazzo < 6 then
 		table.insert(dati.mazzo, tipo)
 	end
+end
+
+function Dati.stelle(dati, numero)
+	return dati.stelle[tostring(numero)] or 0
 end
 
 return Dati

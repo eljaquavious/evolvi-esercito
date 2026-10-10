@@ -22,6 +22,13 @@ Battaglia.FORZA_MINIMA = 0.4
 local RAGGIO = 0.42
 local RAGGIO_OSTACOLO = 0.5
 local RAGGIO_AREA = 1.0
+local RAGGIO_AURA = 2.2
+
+-- Effetti del terreno della casella su cui sta un reggimento.
+Battaglia.TERRENO = {
+	fiume = { velocita = 0.45, dannoSubito = 1.2 },
+	collina = { dannoSubito = 0.8, gittataTiratori = 0.7 },
+}
 local ANGOLI = { 0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8 }
 
 function Battaglia.moltiplicatore(classeAttacco, classeDifesa)
@@ -40,13 +47,14 @@ local function distanza(a, b)
 end
 
 -- unita: lista di { id = numero, squadra = "giocatore" | "nemico", def = reggimento, x, y, forza = moltiplicatore opzionale }
--- opzioni: { colonne, righe, ostacoli = { { x, y } } }
+-- opzioni: { colonne, righe, ostacoli = { { x, y } }, terreno = { ["col,riga"] = "fiume" | "collina" } }
 function Battaglia.nuova(unita, opzioni)
 	opzioni = opzioni or {}
 	local self = setmetatable({}, Battaglia)
 	self.colonne = opzioni.colonne or 6
 	self.righe = opzioni.righe or 6
 	self.ostacoli = opzioni.ostacoli or {}
+	self.terreno = opzioni.terreno or {}
 	self.unita = {}
 	self.tempo = 0
 	self.finita = false
@@ -74,8 +82,33 @@ function Battaglia.nuova(unita, opzioni)
 	return self
 end
 
+-- Effetti del terreno sotto il reggimento (tabella vuota se il terreno è normale).
+function Battaglia:_terrenoSotto(u)
+	local tipo = self.terreno[math.floor(u.x + 0.5) .. "," .. math.floor(u.y + 0.5)]
+	return Battaglia.TERRENO[tipo] or {}
+end
+
+function Battaglia:_gittata(u)
+	local gittata = u.def.gittata
+	if gittata > 2 then
+		gittata = gittata + (self:_terrenoSotto(u).gittataTiratori or 0)
+	end
+	return gittata
+end
+
 function Battaglia:_inGittata(u, b)
-	return distanza(u, b) <= u.def.gittata + 0.05
+	return distanza(u, b) <= self:_gittata(u) + 0.05
+end
+
+-- Bonus al danno dato dal comandante alleato più vicino (il migliore tra quelli a portata).
+function Battaglia:_aura(u)
+	local migliore = 0
+	for _, altro in ipairs(self.unita) do
+		if altro ~= u and altro.vivo and altro.squadra == u.squadra and altro.def.aura and distanza(u, altro) <= RAGGIO_AURA then
+			migliore = math.max(migliore, altro.def.aura)
+		end
+	end
+	return 1 + migliore
 end
 
 -- Tiene il bersaglio finché è vivo e a tiro, altrimenti sceglie il nemico più vicino.
@@ -127,7 +160,8 @@ end
 function Battaglia:_muovi(u, bersaglio, dt)
 	local dx, dy = bersaglio.x - u.x, bersaglio.y - u.y
 	local d = math.sqrt(dx * dx + dy * dy)
-	local passo = math.min(u.def.velocita * dt, d - u.def.gittata * 0.9)
+	local velocita = u.def.velocita * (self:_terrenoSotto(u).velocita or 1)
+	local passo = math.min(velocita * dt, d - self:_gittata(u) * 0.9)
 	if passo <= 0 then
 		return
 	end
@@ -146,9 +180,13 @@ end
 -- Danno di un colpo, prima dell'armatura del bersaglio.
 function Battaglia:_dannoBase(u, b, d)
 	local forza = Battaglia.FORZA_MINIMA + (1 - Battaglia.FORZA_MINIMA) * (u.hp / u.hpMax)
-	local danno = u.danno * forza * Battaglia.moltiplicatore(u.def.classe, b.def.classe)
+	local danno = u.danno * forza * Battaglia.moltiplicatore(u.def.classe, b.def.classe) * self:_aura(u)
 	if u.def.gittata > 2 and d < 1.3 then
 		danno = danno * Battaglia.MALUS_TIRATORE_IN_MISCHIA
+	end
+	-- Testuggine: gli scudi alzati riducono i colpi da lontano.
+	if b.def.testuggine and d > 1.5 then
+		danno = danno * b.def.testuggine
 	end
 	local carica = false
 	if u.def.carica and not u.caricaUsata and d < 1.5 then
@@ -160,7 +198,7 @@ function Battaglia:_dannoBase(u, b, d)
 end
 
 function Battaglia:_ferisci(b, danno, eventi, attaccante)
-	local reale = danno * (1 - (b.def.armatura or 0))
+	local reale = danno * (1 - (b.def.armatura or 0)) * (self:_terrenoSotto(b).dannoSubito or 1)
 	b.hp = b.hp - reale
 	if b.hp <= 0 then
 		b.hp = 0

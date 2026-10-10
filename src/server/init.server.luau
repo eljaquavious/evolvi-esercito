@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local NomiRemoti = require(Shared.Remoti)
 local Campagna = require(Shared.Config.Campagna)
+local Progressi = require(Shared.Config.Progressi)
 local versione = require(Shared.Versione)
 
 local Dati = require(script.Dati)
@@ -12,6 +13,7 @@ local Lobby = require(script.Lobby)
 local GestoreCampagna = require(script.GestoreCampagna)
 local Collezione = require(script.Collezione)
 local Shop = require(script.Shop)
+local MappaCampagna = require(script.MappaCampagna)
 
 -- Crea gli eventi tra server e client.
 local cartellaRemoti = Instance.new("Folder")
@@ -43,6 +45,9 @@ local function stato(dati)
 		collezione = dati.collezione,
 		mazzo = dati.mazzo,
 		statistiche = dati.statistiche,
+		stelle = dati.stelle,
+		esperienza = dati.esperienza,
+		livelloGiocatore = Progressi.livello(dati.esperienza),
 	}
 end
 
@@ -64,13 +69,14 @@ remoti.Ranked.OnServerInvoke = function(player)
 end
 
 Ambiente.imposta()
+MappaCampagna.costruisci()
 GestoreCampagna.inizializza(remoti)
 Collezione.inizializza(remoti)
 Shop.inizializza(remoti)
 
 Lobby.costruisci({
 	campagna = function(player)
-		local ok, messaggio = GestoreCampagna.avvia(player)
+		local ok, messaggio = GestoreCampagna.apriMappa(player)
 		if not ok and messaggio then
 			remoti.Notifica:FireClient(player, messaggio)
 		end

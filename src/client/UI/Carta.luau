@@ -11,11 +11,18 @@ local Carta = {}
 
 Carta.PROPORZIONE = 0.7 -- larghezza / altezza
 
--- Colori della carta per epoca: { alto, basso, bordo, testo }.
+-- Colori della carta per epoca: { alto, basso, bordo, testo, nome sulla fascia }.
 local TEMI = {
+	Antica = { Color3.fromRGB(240, 186, 150), Color3.fromRGB(150, 62, 44), Color3.fromRGB(255, 214, 180), Color3.fromRGB(56, 18, 10) },
 	Medievale = { Color3.fromRGB(236, 196, 112), Color3.fromRGB(150, 98, 38), Color3.fromRGB(255, 226, 150), Color3.fromRGB(46, 30, 10) },
 	Novecento = { Color3.fromRGB(178, 190, 160), Color3.fromRGB(62, 74, 50), Color3.fromRGB(214, 226, 190), Color3.fromRGB(20, 26, 14) },
+	-- Comandanti: carta leggendaria nera e oro.
+	Leggenda = { Color3.fromRGB(78, 64, 44), Color3.fromRGB(18, 14, 10), Color3.fromRGB(255, 210, 90), Color3.fromRGB(246, 206, 112), Color3.fromRGB(30, 22, 8) },
 }
+
+function Carta.tema(def)
+	return def.comandante and TEMI.Leggenda or TEMI[def.epoca] or TEMI.Medievale
+end
 
 local function ritratto(genitore, tipo)
 	local vista = Stile.crea("ViewportFrame", {
@@ -48,7 +55,7 @@ function Carta.crea(tipo, opzioni)
 	opzioni = opzioni or {}
 	local def = Epoche.Truppe[tipo]
 	local v = Carte.valutazioni(def)
-	local tema = TEMI[def.epoca] or TEMI.Medievale
+	local tema = Carta.tema(def)
 	local scuro = tema[4]
 
 	local carta = Stile.crea("TextButton", {
@@ -117,9 +124,20 @@ function Carta.crea(tipo, opzioni)
 		Size = UDim2.fromScale(0.92, 0.8),
 		Text = string.upper(def.nome),
 		Font = Stile.FontTitolo,
-		TextColor3 = tema[3],
+		TextColor3 = tema[5] or tema[3],
 		Parent = fascia,
 	})
+	if def.comandante then
+		Stile.testo({
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.fromScale(0.5, 0.55),
+			Size = UDim2.fromScale(0.6, 0.06),
+			Text = "LEGEND",
+			Font = Stile.FontTitolo,
+			TextColor3 = tema[3],
+			Parent = carta,
+		})
+	end
 
 	-- Statistiche su due colonne.
 	local statistiche = Stile.crea("Frame", {
@@ -233,6 +251,51 @@ function Carta.seleziona(carta, selezionata)
 		bordo.Thickness = selezionata and 5 or 2.5
 		bordo.Color = selezionata and Color3.fromRGB(90, 220, 255) or bordo:GetAttribute("Originale")
 	end
+end
+
+-- Carta piccola per la barra del mazzo: ritratto, OVR e numero dello slot.
+function Carta.mini(tipo, numero)
+	local def = Epoche.Truppe[tipo]
+	local tema = Carta.tema(def)
+	local carta = Stile.crea("TextButton", {
+		Name = "Mini_" .. tipo,
+		Text = "",
+		AutoButtonColor = true,
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderSizePixel = 0,
+	}, {
+		Stile.angoli(8),
+		Stile.crea("UIStroke", { Color = tema[3], Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
+		Stile.sfumatura(tema[1], tema[2], 110),
+		Stile.crea("UIAspectRatioConstraint", { AspectRatio = 0.82 }),
+	})
+	local vista = ritratto(carta, tipo)
+	vista.AnchorPoint = Vector2.new(0.5, 0)
+	vista.Position = UDim2.fromScale(0.5, 0.02)
+	vista.Size = UDim2.fromScale(0.95, 0.78)
+	Stile.titolo({
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -4, 1, -2),
+		Size = UDim2.fromScale(0.5, 0.26),
+		Text = tostring(Carte.valutazioni(def).OVR),
+		TextColor3 = Color3.new(1, 1, 1),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = carta,
+	})
+	if numero then
+		Stile.crea("TextLabel", {
+			Position = UDim2.fromOffset(-4, -4),
+			Size = UDim2.fromScale(0.3, 0.24),
+			BackgroundColor3 = Stile.Colori.Sfondo,
+			Text = tostring(numero),
+			TextColor3 = Color3.new(1, 1, 1),
+			TextScaled = true,
+			Font = Stile.Font,
+			ZIndex = 3,
+			Parent = carta,
+		}, { Stile.angoli(4), Stile.bordo(Color3.new(1, 1, 1), 1) })
+	end
+	return carta
 end
 
 return Carta

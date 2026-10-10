@@ -5,11 +5,12 @@ return {
 		"Stato", -- server -> client: monete, livello, epoca
 		"Notifica", -- server -> client: messaggio breve
 		"ApriShop", -- server -> client
-		"Fase", -- server -> client: lobby, piazzamento, battaglia, risultato
+		"Fase", -- server -> client: lobby, mappa, piazzamento, battaglia, round, risultato
 	},
 	Funzioni = {
 		"ChiediStato",
-		"AvviaCampagna",
+		"ApriMappa",
+		"AvviaCampagna", -- numero del livello
 		"Casella", -- piazza o rimuove una truppa
 		"Combatti",
 		"TornaLobby",

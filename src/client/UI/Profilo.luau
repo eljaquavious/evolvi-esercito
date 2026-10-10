@@ -2,6 +2,11 @@
 
 local Players = game:GetService("Players")
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Epoche = require(ReplicatedStorage.Shared.Config.Epoche)
+local Campagna = require(ReplicatedStorage.Shared.Config.Campagna)
+local Progressi = require(ReplicatedStorage.Shared.Config.Progressi)
 local Stile = require(script.Parent.Stile)
 
 local Profilo = {}
@@ -21,10 +26,27 @@ local VOCI = {
 		end
 		return math.floor(s.vittorie / s.battaglie * 100 + 0.5) .. "%"
 	end, Stile.Colori.Oro },
-	{ "ENEMY REGIMENTS DEFEATED", function(_, s) return s.reggimentiSconfitti end },
+	{ "ENEMIES DEFEATED", function(_, s) return s.reggimentiSconfitti end },
 	{ "REGIMENTS LOST", function(_, s) return s.reggimentiPersi end },
 	{ "COINS EARNED", function(_, s) return s.moneteGuadagnate end, Stile.Colori.Oro },
-	{ "HIGHEST LEVEL", function(st, s) return ("%d/%d"):format(math.max(s.livelloMassimo, st.livello), st.totale) end },
+	{ "CAMPAIGN", function(st, s) return ("%d/%d"):format(math.max(s.livelloMassimo, st.livello) - (st.completata and 0 or 1), st.totale) end },
+	{ "STARS", function(st)
+		local n = 0
+		for _, stelle in pairs(st.stelle or {}) do
+			n += stelle
+		end
+		return ("%d/%d"):format(n, Campagna.TOTALE * Campagna.STELLE_MASSIME)
+	end, Stile.Colori.Oro },
+	{ "PLAYER LEVEL", function(st) return Progressi.livello(st.esperienza or 0) end, Color3.fromRGB(120, 190, 255) },
+	{ "COMMANDERS", function(st)
+		local n = 0
+		for tipo, quante in pairs(st.collezione) do
+			if quante > 0 and Epoche.Truppe[tipo] and Epoche.Truppe[tipo].comandante then
+				n += 1
+			end
+		end
+		return n
+	end, Stile.Colori.Oro },
 	{ "CARDS OWNED", function(st)
 		local n = 0
 		for _, quante in pairs(st.collezione) do
@@ -38,8 +60,7 @@ local function disegna()
 	if not stato or not stato.statistiche then
 		return
 	end
-	sottotitolo.Text = stato.completata and "Campaign complete"
-		or ("%s Era  ·  Level %d/%d"):format(stato.epoca, stato.livello, stato.totale)
+	sottotitolo.Text = ("Level %d  ·  %s Era"):format(Progressi.livello(stato.esperienza or 0), stato.epoca)
 	for _, figlio in ipairs(griglia:GetChildren()) do
 		if figlio:IsA("GuiObject") then
 			figlio:Destroy()
@@ -138,7 +159,7 @@ function Profilo.inizializza(gui)
 		Parent = contenuto,
 	}, {
 		Stile.crea("UIGridLayout", {
-			CellSize = UDim2.new(1 / 3, -8, 1 / 3, -8),
+			CellSize = UDim2.new(1 / 4, -9, 1 / 3, -8),
 			CellPadding = UDim2.fromOffset(12, 12),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),

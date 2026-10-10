@@ -120,8 +120,9 @@ function Stile.finestra(gui, nome, titolo, colore)
 	local finestra = Stile.pannello({
 		Name = nome,
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, -116, 0.47, 0),
-		Size = UDim2.new(0.94, -232, 0.8, 0),
+		-- Spostata a destra per lasciare libero il menu a sinistra (230 px + margine).
+		Position = UDim2.new(0.5, 125, 0.47, 0),
+		Size = UDim2.new(0.96, -250, 0.8, 0),
 		BackgroundColor3 = Stile.Colori.Sfondo,
 		Visible = false,
 		ZIndex = 10,

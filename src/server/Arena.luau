@@ -12,6 +12,7 @@ Arena.CASELLA = 10
 Arena.COLONNE = Campagna.COLONNE
 Arena.RIGHE = Campagna.RIGHE
 Arena.ALTEZZA_CASELLE = 0.4
+Arena.ALTEZZA_COLLINA = 2
 
 local DISTANZA_TRA_ARENE = 600
 local INIZIO_ARENE = 3000
@@ -156,7 +157,8 @@ local function rilievo(tipo, pos, rng, bioma, neve)
 	end
 end
 
-local function decora(g, biomaId, bioma, origine, rng)
+-- zFiume: se c'è un fiume, niente alberi o colline nell'acqua.
+local function decora(g, biomaId, bioma, origine, rng, zFiume)
 	local neve = biomaId == "Innevato"
 	for _, voce in ipairs(PAESAGGI[biomaId] or {}) do
 		local tipo, quantita, minimo, massimo = voce[1], voce[2], voce[3], voce[4]
@@ -167,7 +169,8 @@ local function decora(g, biomaId, bioma, origine, rng)
 			local raggio = rng:NextNumber(minimo, massimo)
 			local x, z = math.cos(angolo) * raggio, math.sin(angolo) * raggio
 			-- Lascia libera la visuale tra la telecamera (dietro al lato del giocatore) e il tabellone.
-			if not (z < -30 and math.abs(x) < 60 + (-z) * 0.4) then
+			local nelFiume = zFiume and math.abs(z - zFiume) < 12
+			if not (z < -30 and math.abs(x) < 60 + (-z) * 0.4) and not nelFiume then
 				piazzati += 1
 				local pos = origine + Vector3.new(x, 0, z)
 				if tipo == "collina" or tipo == "duna" or tipo == "montagna" then
@@ -180,11 +183,22 @@ local function decora(g, biomaId, bioma, origine, rng)
 	end
 end
 
--- Posizione a terra (sopra le caselle) per coordinate del tabellone, anche non intere.
+-- Posizione a terra (sopra le caselle, e sopra le colline) per coordinate del tabellone, anche non intere.
 function Arena.posizione(arena, x, y)
 	local cx = (x - (Arena.COLONNE + 1) / 2) * Arena.CASELLA
 	local cz = (y - (Arena.RIGHE + 1) / 2) * Arena.CASELLA
-	return arena.origine + Vector3.new(cx, Arena.ALTEZZA_CASELLE, cz)
+	local tipo = arena.terreno and arena.terreno[math.floor(x + 0.5) .. "," .. math.floor(y + 0.5)]
+	local collina = tipo == "collina" and Arena.ALTEZZA_COLLINA or 0
+	return arena.origine + Vector3.new(cx, Arena.ALTEZZA_CASELLE + collina, cz)
+end
+
+-- Fiume che attraversa tutta la mappa lungo una riga del tabellone.
+local function scavaFiume(origine, riga)
+	local z = origine.Z + (riga - (Arena.RIGHE + 1) / 2) * Arena.CASELLA
+	local centro = Vector3.new(origine.X, 0, z)
+	terrain:FillBlock(CFrame.new(centro + Vector3.new(0, 2, 0)), Vector3.new(LATO_TERRENO, 12, Arena.CASELLA - 1), Enum.Material.Air)
+	terrain:FillBlock(CFrame.new(centro - Vector3.new(0, 4, 0)), Vector3.new(LATO_TERRENO, 4, Arena.CASELLA + 3), Enum.Material.Mud)
+	terrain:FillBlock(CFrame.new(centro - Vector3.new(0, 1, 0)), Vector3.new(LATO_TERRENO, 2, Arena.CASELLA - 1), Enum.Material.Water)
 end
 
 function Arena.crea(player, livello)
@@ -213,9 +227,17 @@ function Arena.crea(player, livello)
 	modello.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 	arena.modello = modello
 
-	local ostacoli = {}
-	for _, o in ipairs(livello.ostacoli) do
-		ostacoli[o.col .. "," .. o.riga] = true
+	-- terreno: "col,riga" -> tipo (ostacolo, fiume, guado, collina)
+	arena.terreno = {}
+	local rigaFiume
+	for _, t in ipairs(livello.terreno) do
+		arena.terreno[t.col .. "," .. t.riga] = t.tipo
+		if t.tipo == "fiume" or t.tipo == "guado" then
+			rigaFiume = t.riga
+		end
+	end
+	if rigaFiume then
+		scavaFiume(origine, rigaFiume)
 	end
 
 	local tabellone = Instance.new("Folder")
@@ -238,10 +260,12 @@ function Arena.crea(player, livello)
 			if (col + riga) % 2 == 0 then
 				colore = colore:Lerp(Color3.new(1, 1, 1), 0.12)
 			end
+			local tipo = arena.terreno[col .. "," .. riga]
+			local spessore = Arena.ALTEZZA_CASELLE + (tipo == "collina" and Arena.ALTEZZA_COLLINA or 0)
 			local casella = blocco(tabellone, {
 				Name = "Casella_" .. col .. "_" .. riga,
-				Size = Vector3.new(lato - 0.5, Arena.ALTEZZA_CASELLE, lato - 0.5),
-				Position = Arena.posizione(arena, col, riga) - Vector3.new(0, Arena.ALTEZZA_CASELLE / 2, 0),
+				Size = Vector3.new(lato - 0.5, spessore, lato - 0.5),
+				Position = Arena.posizione(arena, col, riga) - Vector3.new(0, spessore / 2, 0),
 				Color = colore,
 				Material = Enum.Material.SmoothPlastic,
 				Transparency = 0.25,
@@ -249,9 +273,28 @@ function Arena.crea(player, livello)
 			})
 			casella:SetAttribute("Col", col)
 			casella:SetAttribute("Riga", riga)
-			if ostacoli[col .. "," .. riga] then
+			if tipo then
+				casella:SetAttribute("Terreno", tipo)
+			end
+			if tipo == "ostacolo" then
 				casella:SetAttribute("Ostacolo", true)
 				casella.Color = colore:Lerp(Color3.new(0, 0, 0), 0.35)
+			elseif tipo == "fiume" then
+				-- Il fiume si attraversa ma non ci si schiera sopra.
+				casella:SetAttribute("Ostacolo", true)
+				casella.Color = Color3.fromRGB(70, 150, 210)
+				casella.Material = Enum.Material.Glass
+				casella.Transparency = 0.55
+			elseif tipo == "guado" then
+				casella.Color = Color3.fromRGB(196, 176, 130):Lerp(colore, 0.35)
+				casella.Material = Enum.Material.Sand
+				casella.Transparency = 0.1
+			elseif tipo == "collina" then
+				casella.Material = Enum.Material.Grass
+				casella.Transparency = 0
+				casella.Color = colore:Lerp(Color3.fromRGB(110, 150, 70), 0.45)
+				-- Pendii di terreno attorno alla collina.
+				terrain:FillBall(Arena.posizione(arena, col, riga) - Vector3.new(0, 7.5, 0), 7, bioma.materialeRilievi)
 			end
 		end
 	end
@@ -267,11 +310,13 @@ function Arena.crea(player, livello)
 	decorazioni.Name = "Decorazioni"
 	decorazioni.Parent = modello
 	local rng = Random.new(livello.numero * 31 + 7)
-	for _, o in ipairs(livello.ostacoli) do
-		local pos = Arena.posizione(arena, o.col, o.riga)
-		OGGETTI[bioma.ostacolo](decorazioni, pos, rng, 1.2, biomaId == "Innevato")
+	for _, t in ipairs(livello.terreno) do
+		if t.tipo == "ostacolo" then
+			local pos = Arena.posizione(arena, t.col, t.riga)
+			OGGETTI[bioma.ostacolo](decorazioni, pos, rng, 1.2, biomaId == "Innevato")
+		end
 	end
-	decora(decorazioni, biomaId, bioma, origine, rng)
+	decora(decorazioni, biomaId, bioma, origine, rng, rigaFiume and (rigaFiume - (Arena.RIGHE + 1) / 2) * Arena.CASELLA)
 
 	blocco(modello, {
 		Name = "Belvedere",

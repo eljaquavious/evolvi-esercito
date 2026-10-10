@@ -103,4 +103,59 @@ b = Battaglia.nuova({
 b:passo(0.1)
 verifica("senza nemici vince chi resta", b.finita and b.vincitore == "giocatore")
 
+-- Terreno: il fiume rallenta, la collina allunga il tiro dei tiratori.
+b = Battaglia.nuova({ { id = 1, squadra = "giocatore", def = SPADACCINO, x = 3, y = 3 } }, { terreno = { ["3,3"] = "fiume", ["4,4"] = "collina" } })
+local fante = b.unita[1]
+verifica("il fiume rallenta", (b:_terrenoSotto(fante).velocita or 1) < 1)
+local arciere = { def = ARCIERE, x = 4, y = 4 }
+verifica("la collina allunga il tiro degli arcieri", b:_gittata(arciere) > ARCIERE.gittata)
+verifica("la collina non allunga la mischia", b:_gittata({ def = SPADACCINO, x = 4, y = 4 }) == SPADACCINO.gittata)
+
+-- Testuggine: i legionari prendono meno danno dalle frecce.
+local function dannoSubito(def)
+	b = Battaglia.nuova({
+		{ id = 1, squadra = "giocatore", def = def, x = 3, y = 1 },
+		{ id = 101, squadra = "nemico", def = ARCIERE, x = 3, y = 4 },
+	})
+	local prima = b.unita[1].hp
+	for _ = 1, 30 do
+		b:passo(0.1)
+	end
+	return prima - b.unita[1].hp
+end
+local LEGIONARIO = table.clone(SPADACCINO)
+LEGIONARIO.velocita = 0
+local TESTUGGINE = table.clone(LEGIONARIO)
+TESTUGGINE.testuggine = 0.7
+verifica("la testuggine riduce il danno a distanza", dannoSubito(TESTUGGINE) < dannoSubito(LEGIONARIO))
+
+-- Aura: un comandante vicino aumenta il danno degli alleati.
+local COMANDANTE = { id = "Cesare", classe = "Fanteria", hp = 700, danno = 36, cadenza = 1, gittata = 1.1, velocita = 1, armatura = 0.3, aura = 0.15, comandante = true }
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = SPADACCINO, x = 3, y = 2 },
+	{ id = 2, squadra = "giocatore", def = COMANDANTE, x = 4, y = 2 },
+	{ id = 3, squadra = "giocatore", def = SPADACCINO, x = 1, y = 6 },
+})
+verifica("l'aura del comandante vale vicino", b:_aura(b.unita[1]) > 1)
+verifica("l'aura non arriva lontano", b:_aura(b.unita[3]) == 1)
+
+-- Fortezza: non si muove mai.
+local FORTEZZA = { id = "FortezzaMedievale", classe = "Fortezza", hp = 1500, danno = 38, cadenza = 0.7, gittata = 4.4, velocita = 0, armatura = 0.4, fortezza = true }
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = CAVALIERE, x = 3, y = 1 },
+	{ id = 101, squadra = "nemico", def = FORTEZZA, x = 3, y = 6 },
+})
+local fortezza = b.unita[2]
+local mossa = false
+for _ = 1, 600 do
+	b:passo(0.1)
+	if fortezza.x ~= 3 or fortezza.y ~= 6 then
+		mossa = true
+	end
+	if b.finita then
+		break
+	end
+end
+verifica("la fortezza resta ferma", not mossa)
+
 print(falliti == 0 and "Tutti i test passati" or (falliti .. " test falliti"))

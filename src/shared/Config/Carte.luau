@@ -30,7 +30,7 @@ function Carte.valutazioni(def)
 	}
 	-- L'OVR pesa di più attacco e vita; parte da una base per l'epoca, così le epoche più avanzate valgono di più.
 	local media = v.ATK * 0.3 + v.HP * 0.3 + v.SPD * 0.15 + v.RNG * 0.1 + v.DEF * 0.15
-	local base = 30 + 12 * ((Epoche.indice(def.epoca) or 1) - 1)
+	local base = 30 + 12 * ((Epoche.indice(def.epoca) or 1) - 1) + (def.comandante and 8 or 0)
 	v.OVR = math.clamp(math.floor(base + media * 0.55 + 0.5), 1, 99)
 	return v
 end

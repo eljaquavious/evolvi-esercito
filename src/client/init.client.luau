@@ -9,6 +9,7 @@ local Shop = require(script.UI.Shop)
 local Inventario = require(script.UI.Inventario)
 local Profilo = require(script.UI.Profilo)
 local Partita = require(script.UI.Partita)
+local Mappa = require(script.UI.Mappa)
 
 local player = Players.LocalPlayer
 local cartellaRemoti = ReplicatedStorage:WaitForChild("Remoti")
@@ -29,6 +30,7 @@ Notifiche.inizializza(gui)
 Shop.inizializza(gui, remoti)
 Inventario.inizializza(gui, remoti)
 Profilo.inizializza(gui)
+Mappa.inizializza(gui, remoti)
 
 -- Una sola finestra aperta alla volta.
 local finestre = { Shop, Inventario, Profilo }
@@ -46,10 +48,16 @@ local function alterna(finestra)
 	end
 end
 
+local function notificaSeFallisce(ok, messaggio)
+	if not ok and messaggio then
+		Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+	end
+end
+
 Hud.inizializza(gui, {
-	campagna = function()
+	play = function()
 		chiudiFinestre()
-		Partita.avvia()
+		notificaSeFallisce(remoti.ApriMappa:InvokeServer())
 	end,
 	esercito = alterna(Inventario),
 	shop = alterna(Shop),
@@ -66,6 +74,7 @@ local function aggiornaStato(stato)
 	Hud.aggiorna(stato)
 	Inventario.aggiorna(stato)
 	Profilo.aggiorna(stato)
+	Mappa.aggiorna(stato)
 end
 
 remoti.Fase.OnClientEvent:Connect(function(dati)
@@ -79,7 +88,7 @@ remoti.Notifica.OnClientEvent:Connect(function(messaggio)
 	Notifiche.mostra(messaggio)
 end)
 remoti.ApriShop.OnClientEvent:Connect(function()
-	if not Partita.inCorso() then
+	if not Partita.inCorso() and not Mappa.aperta() then
 		chiudiFinestre(Shop)
 		Shop.apri()
 	end

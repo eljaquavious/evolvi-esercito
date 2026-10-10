@@ -124,34 +124,41 @@ function disegna()
 	riepilogo.Text = ("DECK %d/%d   ·   AVG OVR %d"):format(#mazzo, Carte.DIMENSIONE_MAZZO, media)
 
 	local epocaRaggiunta = Campagna.livello(stato.livello).indiceEpoca
-	local ordine = 0
-	for indiceEpoca, epoca in ipairs(Epoche.Lista) do
-		for _, tipo in ipairs(epoca.truppe) do
-			ordine += 1
-			local possedute = stato.collezione[tipo] or 0
-			local libere = possedute - contaNelMazzo(tipo)
-			local opzioni = {}
-			if indiceEpoca > epocaRaggiunta then
-				opzioni.nota = "LOCKED"
-				opzioni.spenta = true
-			elseif possedute == 0 then
-				opzioni.nota = "NOT OWNED"
-				opzioni.spenta = true
-			else
-				opzioni.quantita = libere
-				opzioni.spenta = libere <= 0
-			end
-			local carta = Carta.crea(tipo, opzioni)
-			-- Alta quanto la fila (meno margini e barra di scorrimento), larga in proporzione.
-			local altezza = math.max(griglia.AbsoluteSize.Y - 22, 120)
-			carta.Size = UDim2.fromOffset(math.floor(altezza * Carta.PROPORZIONE), altezza)
-			carta.LayoutOrder = ordine
-			carta.Parent = griglia
-			if not opzioni.nota then
-				carta.Activated:Connect(function()
-					aggiungi(tipo)
-				end)
-			end
+	-- Dove si sconfigge ogni comandante, per dire al giocatore come ottenerlo.
+	local battagliaDel = {}
+	for numero, battaglia in ipairs(Campagna.Battaglie) do
+		if battaglia.comandante then
+			battagliaDel[battaglia.comandante] = numero
+		end
+	end
+	for ordine, tipo in ipairs(Epoche.carte()) do
+		local def = Epoche.Truppe[tipo]
+		local possedute = stato.collezione[tipo] or 0
+		local libere = possedute - contaNelMazzo(tipo)
+		local opzioni = {}
+		if possedute == 0 and def.comandante then
+			opzioni.nota = "WIN BATTLE " .. battagliaDel[tipo]
+			opzioni.spenta = true
+		elseif (Epoche.indice(def.epoca) or 1) > epocaRaggiunta then
+			opzioni.nota = "LOCKED"
+			opzioni.spenta = true
+		elseif possedute == 0 then
+			opzioni.nota = "NOT OWNED"
+			opzioni.spenta = true
+		else
+			opzioni.quantita = libere
+			opzioni.spenta = libere <= 0
+		end
+		local carta = Carta.crea(tipo, opzioni)
+		-- Alta quanto la fila (meno margini e barra di scorrimento), larga in proporzione.
+		local altezza = math.max(griglia.AbsoluteSize.Y - 22, 120)
+		carta.Size = UDim2.fromOffset(math.floor(altezza * Carta.PROPORZIONE), altezza)
+		carta.LayoutOrder = ordine
+		carta.Parent = griglia
+		if not opzioni.nota then
+			carta.Activated:Connect(function()
+				aggiungi(tipo)
+			end)
 		end
 	end
 end

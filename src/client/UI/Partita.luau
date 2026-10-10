@@ -1,4 +1,5 @@
--- Interfaccia della campagna: piazzamento dei reggimenti, conto alla rovescia, battaglia e risultato.
+-- Interfaccia della campagna: piazzamento dei reggimenti con il resoconto degli esploratori,
+-- conto alla rovescia, battaglia, punteggio dei round (al meglio di 5) e risultato con le stelle.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -23,9 +24,10 @@ local carte = {} -- [indice] = carta nella barra
 local arena
 local evidenzia
 
-local intestazione, titoloLivello, contatore, avviso, bottoneLobby
-local barraMazzo, bottoneCombatti, scrittaConto
-local risultato, titoloRisultato, dettaglioRisultato, spazioPremio, bottoneContinua
+local intestazione, titoloLivello, contatore, avviso, bottoneLobby, punteggio
+local barraMazzo, bottoneCombatti, scrittaConto, esploratori, carteEsploratori, bannerRound
+local risultato, titoloRisultato, stelleRisultato, dettaglioRisultato, spazioPremio, bottoneContinua
+local prossimoLivello
 
 local atmosferaOriginale
 
@@ -153,7 +155,7 @@ local function clic(posizioneSchermo)
 		return
 	end
 	if casella:GetAttribute("Ostacolo") then
-		Notifiche.mostra("That tile is blocked.")
+		Notifiche.mostra(casella:GetAttribute("Terreno") == "fiume" and "You can't deploy in the river." or "That tile is blocked.")
 		return
 	end
 	local ok, messaggio, lista = remoti.Casella:InvokeServer(selezionata, casella:GetAttribute("Col"), casella:GetAttribute("Riga"))
@@ -175,6 +177,28 @@ local function mostraPiazzamento(visibile)
 	bottoneCombatti.Visible = visibile
 	bottoneLobby.Visible = visibile
 	avviso.Visible = visibile
+	punteggio.Visible = visibile
+	esploratori.Visible = visibile
+end
+
+local function testoPunteggio(dati)
+	return ("ROUND %d   ·   YOU %d - %d ENEMY   ·   FIRST TO %d"):format(dati.round, dati.vinti, dati.persi, dati.perVincere)
+end
+
+-- Resoconto degli esploratori: le carte dell'armata nemica, senza dire dove si schiererà.
+local function mostraEsploratori(tipi)
+	for _, figlio in ipairs(carteEsploratori:GetChildren()) do
+		if figlio:IsA("GuiObject") then
+			figlio:Destroy()
+		end
+	end
+	for i, tipo in ipairs(tipi or {}) do
+		local carta = Carta.mini(tipo)
+		carta.Size = UDim2.new(0, 58, 0, 70)
+		carta.AutoButtonColor = false
+		carta.LayoutOrder = i
+		carta.Parent = carteEsploratori
+	end
 end
 
 local function entraPiazzamento(dati)
@@ -185,13 +209,28 @@ local function entraPiazzamento(dati)
 	arena = workspace:WaitForChild("Arene"):WaitForChild(dati.arena, 10)
 	impostaCamera()
 	impostaAtmosfera(dati.atmosfera)
-	titoloLivello.Text = ("LEVEL %d/%d  ·  %s  ·  %s"):format(dati.livello, dati.totale, string.upper(dati.epoca), string.upper(dati.bioma))
+	titoloLivello.Text = ("%d. %s  ·  %s"):format(dati.livello, string.upper(dati.nome), dati.anno)
+	punteggio.Text = testoPunteggio(dati)
 	usate = {}
+	for _, indice in ipairs(dati.usate or {}) do
+		usate[indice] = true
+	end
 	costruisciMazzo()
 	selezionata = nil
 	selezionaLibera()
 	aggiornaCarte()
-	avviso.Text = "Pick a card, then click a blue tile. Click a placed regiment to take it back. The enemy is revealed when the battle starts."
+	mostraEsploratori(dati.esploratori)
+	bannerRound.Visible = false
+	if dati.assedio then
+		avviso.Text = "SIEGE! The enemy hides in a fortress: destroy it and win the battle."
+		avviso.TextColor3 = Stile.Colori.Oro
+	elseif dati.round == 1 then
+		avviso.Text = "Pick a card, then a blue tile. Rivers can't hold troops; hills protect them and help archers."
+		avviso.TextColor3 = Stile.Colori.Testo
+	else
+		avviso.Text = "Your regiments are back in position: change them or press FIGHT!"
+		avviso.TextColor3 = Stile.Colori.Testo
+	end
 	mostraPiazzamento(true)
 end
 
@@ -216,7 +255,8 @@ local function entraBattaglia(dati)
 	barraMazzo.Visible = false
 	bottoneCombatti.Visible = false
 	bottoneLobby.Visible = false
-	avviso.Text = "The enemy army is revealed!"
+	esploratori.Visible = false
+	avviso.Text = dati.assedio and "Storm the fortress!" or "The enemy army is revealed!"
 	evidenzia.Adornee = nil
 	task.spawn(contoAllaRovescia, dati.conto or 3)
 	task.delay((dati.conto or 3) + 0.2, function()
@@ -226,27 +266,52 @@ local function entraBattaglia(dati)
 	end)
 end
 
+-- Fine di un round: grande scritta con il punteggio, poi il server manda il prossimo piazzamento o il risultato.
+local function mostraRound(dati)
+	fase = "round"
+	scrittaConto.Visible = false
+	bannerRound.Visible = true
+	local titolo = bannerRound:FindFirstChild("Titolo")
+	titolo.Text = dati.vittoria and "ROUND WON!" or "ROUND LOST"
+	titolo.TextColor3 = dati.vittoria and Stile.Colori.Oro or Stile.Colori.Rosso
+	bannerRound:FindFirstChild("Punteggio").Text = ("YOU %d - %d ENEMY"):format(dati.vinti, dati.persi)
+	punteggio.Text = ("YOU %d - %d ENEMY"):format(dati.vinti, dati.persi)
+	local scala = bannerRound:FindFirstChildOfClass("UIScale")
+	scala.Scale = 0.6
+	TweenService:Create(scala, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+	if dati.vittoria and dati.vinti == dati.perVincere - 1 and dati.persi < dati.perVincere - 1 then
+		avviso.Text = "Match point! The enemy retreats into its fortress."
+	else
+		avviso.Text = ""
+	end
+end
+
 local function mostraRisultato(dati)
 	fase = "risultato"
 	mostraPiazzamento(false)
 	scrittaConto.Visible = false
+	bannerRound.Visible = false
 	risultato.Visible = true
+	prossimoLivello = dati.prossimo
 	titoloRisultato.Text = dati.vittoria and "VICTORY!" or "DEFEAT"
 	titoloRisultato.TextColor3 = dati.vittoria and Stile.Colori.Oro or Stile.Colori.Rosso
+	stelleRisultato.Text = string.rep("★", dati.stelle) .. string.rep("☆", 3 - dati.stelle)
+	stelleRisultato.Visible = dati.vittoria
 	local righe = {
-		("+%d coins"):format(dati.monete),
+		("%s  ·  rounds %d - %d"):format(dati.nome, dati.vinti, dati.persi),
+		("+%d coins    +%d XP"):format(dati.monete, dati.esperienza),
 		("Enemy regiments defeated: %d"):format(dati.sconfitti or 0),
-		("Regiments lost: %d"):format(dati.persi or 0),
+		("Regiments lost: %d"):format(dati.persiReggimenti or 0),
 	}
+	if dati.nuovoLivelloGiocatore then
+		table.insert(righe, ("LEVEL UP! You are now level %d."):format(dati.nuovoLivelloGiocatore))
+	end
 	if dati.nuovaEpoca then
-		table.insert(righe, "")
 		table.insert(righe, "Your army evolves: " .. dati.nuovaEpoca .. " era unlocked! Check your new cards in ARMY.")
 	elseif dati.completata and dati.vittoria then
-		table.insert(righe, "")
 		table.insert(righe, "Campaign complete! New eras are coming soon.")
 	elseif not dati.vittoria then
-		table.insert(righe, "")
-		table.insert(righe, "Tip: Infantry beats Cavalry, Cavalry beats Ranged, Ranged beats Infantry.")
+		table.insert(righe, "Tip: read the scouts report and counter it. Infantry beats Cavalry, Cavalry beats Ranged, Ranged beats Infantry.")
 	end
 	dettaglioRisultato.Text = table.concat(righe, "\n")
 
@@ -271,32 +336,41 @@ local function mostraRisultato(dati)
 		carta.ZIndex = 22
 		carta.Parent = spazioPremio
 	end
-	dettaglioRisultato.Size = dati.premio and UDim2.new(0.62, -20, 1, -170) or UDim2.new(1, -40, 1, -170)
+	dettaglioRisultato.Size = dati.premio and UDim2.new(0.62, -20, 1, -210) or UDim2.new(1, -40, 1, -210)
 
 	if dati.vittoria then
-		bottoneContinua.Text = dati.completata and "PLAY AGAIN" or "NEXT LEVEL"
+		bottoneContinua.Text = dati.prossimo == dati.numero and "PLAY AGAIN" or "NEXT BATTLE"
 	else
 		bottoneContinua.Text = "RETRY"
 	end
 end
 
-local function tornaLobby()
+-- Esce dalla partita; ripristinaVista = false quando si passa alla mappa, che ha la sua telecamera.
+local function esci(ripristinaVista)
 	fase = "lobby"
 	info = nil
 	arena = nil
 	mostraPiazzamento(false)
 	risultato.Visible = false
 	scrittaConto.Visible = false
+	bannerRound.Visible = false
 	evidenzia.Adornee = nil
-	ripristinaCamera()
 	ripristinaAtmosfera()
+	if ripristinaVista then
+		ripristinaCamera()
+	end
+end
+
+local function tornaLobby()
+	esci(true)
 	if suFineLobby then
 		suFineLobby()
 	end
 end
 
-function Partita.avvia()
-	local ok, messaggio = remoti.AvviaCampagna:InvokeServer()
+-- numero: livello da giocare (senza, il prossimo non ancora vinto).
+function Partita.avvia(numero)
+	local ok, messaggio = remoti.AvviaCampagna:InvokeServer(numero)
 	if not ok and messaggio then
 		Notifiche.mostra(messaggio, Stile.Colori.Rosso)
 	end
@@ -336,9 +410,18 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Parent = intestazione,
 	})
 
+	punteggio = Stile.titolo({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 60),
+		Size = UDim2.fromOffset(520, 24),
+		Text = "",
+		Visible = false,
+		Parent = gui,
+	})
+
 	avviso = Stile.testo({
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 62),
+		Position = UDim2.new(0.5, 0, 0, 88),
 		Size = UDim2.fromOffset(640, 22),
 		Font = Stile.FontTesto,
 		TextStrokeTransparency = 0.3,
@@ -391,6 +474,69 @@ function Partita.inizializza(gui, r, callbackLobby)
 		end
 	end)
 
+	esploratori = Stile.pannello({
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 16, 0.45, 0),
+		Size = UDim2.fromOffset(150, 300),
+		BackgroundColor3 = Stile.Colori.Sfondo,
+		BackgroundTransparency = 0.15,
+		Visible = false,
+		Parent = gui,
+	})
+	Stile.titolo({
+		Position = UDim2.fromOffset(8, 8),
+		Size = UDim2.new(1, -16, 0, 22),
+		Text = "SCOUTS REPORT",
+		TextColor3 = Stile.Colori.Oro,
+		Parent = esploratori,
+	})
+	Stile.testo({
+		Position = UDim2.fromOffset(8, 30),
+		Size = UDim2.new(1, -16, 0, 14),
+		Text = "Enemy regiments this round",
+		Font = Stile.FontTesto,
+		TextColor3 = Stile.Colori.TestoSecondario,
+		Parent = esploratori,
+	})
+	carteEsploratori = Stile.crea("Frame", {
+		Position = UDim2.fromOffset(10, 52),
+		Size = UDim2.new(1, -20, 1, -60),
+		BackgroundTransparency = 1,
+		Parent = esploratori,
+	}, {
+		Stile.crea("UIGridLayout", {
+			CellSize = UDim2.fromOffset(58, 70),
+			CellPadding = UDim2.fromOffset(8, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+
+	bannerRound = Stile.crea("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.4),
+		Size = UDim2.fromOffset(560, 150),
+		BackgroundTransparency = 1,
+		Visible = false,
+		ZIndex = 30,
+		Parent = gui,
+	}, { Stile.crea("UIScale", {}) })
+	local titoloBanner = Stile.titolo({
+		Name = "Titolo",
+		Size = UDim2.new(1, 0, 0, 96),
+		Text = "",
+		ZIndex = 31,
+		Parent = bannerRound,
+	})
+	titoloBanner:FindFirstChildOfClass("UIStroke").Thickness = 4
+	Stile.titolo({
+		Name = "Punteggio",
+		Position = UDim2.fromOffset(0, 100),
+		Size = UDim2.new(1, 0, 0, 44),
+		Text = "",
+		ZIndex = 31,
+		Parent = bannerRound,
+	})
+
 	scrittaConto = Stile.titolo({
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.42),
@@ -407,24 +553,33 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Name = "Risultato",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(540, 400),
+		Size = UDim2.fromOffset(600, 450),
 		BackgroundColor3 = Stile.Colori.Sfondo,
 		Visible = false,
 		ZIndex = 20,
 		Parent = gui,
 	})
 	titoloRisultato = Stile.titolo({
-		Position = UDim2.fromOffset(20, 16),
-		Size = UDim2.new(1, -40, 0, 64),
+		Position = UDim2.fromOffset(20, 14),
+		Size = UDim2.new(1, -40, 0, 60),
+		ZIndex = 21,
+		Parent = risultato,
+	})
+	stelleRisultato = Stile.titolo({
+		Position = UDim2.fromOffset(20, 76),
+		Size = UDim2.new(1, -40, 0, 48),
+		Text = "",
+		Font = Stile.Font,
+		TextColor3 = Stile.Colori.Oro,
 		ZIndex = 21,
 		Parent = risultato,
 	})
 	dettaglioRisultato = Stile.testo({
-		Position = UDim2.fromOffset(28, 92),
-		Size = UDim2.new(1, -40, 1, -170),
+		Position = UDim2.fromOffset(28, 132),
+		Size = UDim2.new(1, -40, 1, -210),
 		Font = Stile.FontTesto,
 		TextScaled = false,
-		TextSize = 20,
+		TextSize = 19,
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Top,
@@ -433,8 +588,8 @@ function Partita.inizializza(gui, r, callbackLobby)
 	})
 	spazioPremio = Stile.crea("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -24, 0, 84),
-		Size = UDim2.new(0.34, 0, 1, -160),
+		Position = UDim2.new(1, -24, 0, 124),
+		Size = UDim2.new(0.32, 0, 1, -200),
 		BackgroundTransparency = 1,
 		Visible = false,
 		ZIndex = 21,
@@ -442,20 +597,33 @@ function Partita.inizializza(gui, r, callbackLobby)
 	})
 	bottoneContinua = Stile.bottone({
 		Position = UDim2.new(0, 20, 1, -70),
-		Size = UDim2.new(0.5, -26, 0, 52),
+		Size = UDim2.new(0.44, -20, 0, 52),
+		ZIndex = 21,
+		Parent = risultato,
+	}, Color3.fromRGB(60, 190, 80))
+	bottoneContinua.Activated:Connect(function()
+		Partita.avvia(prossimoLivello)
+	end)
+	local mappa = Stile.bottone({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.64, 0, 1, -70),
+		Size = UDim2.new(0.26, -10, 0, 52),
+		Text = "MAP",
 		ZIndex = 21,
 		Parent = risultato,
 	}, Stile.Colori.Blu)
-	bottoneContinua.Activated:Connect(Partita.avvia)
-	local esci = Stile.bottone({
+	mappa.Activated:Connect(function()
+		remoti.ApriMappa:InvokeServer()
+	end)
+	local lobby = Stile.bottone({
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -20, 1, -70),
-		Size = UDim2.new(0.5, -26, 0, 52),
+		Size = UDim2.new(0.22, -10, 0, 52),
 		Text = "LOBBY",
 		ZIndex = 21,
 		Parent = risultato,
 	}, Stile.Colori.Secondario)
-	esci.Activated:Connect(function()
+	lobby.Activated:Connect(function()
 		remoti.TornaLobby:InvokeServer()
 	end)
 
@@ -488,10 +656,14 @@ function Partita.inizializza(gui, r, callbackLobby)
 			entraPiazzamento(dati)
 		elseif dati.fase == "battaglia" then
 			entraBattaglia(dati)
+		elseif dati.fase == "round" then
+			mostraRound(dati)
 		elseif dati.fase == "risultato" then
 			mostraRisultato(dati)
 		elseif dati.fase == "lobby" then
 			tornaLobby()
+		elseif dati.fase == "mappa" and fase ~= "lobby" then
+			esci(false)
 		end
 	end)
 end
