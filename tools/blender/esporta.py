@@ -29,7 +29,7 @@ from mathutils.bvhtree import BVHTree
 NOME = "Gioco"
 
 # Ossa del gioco, con il padre. Le ossa del corpo realistico che mancano qui si fondono in quelle sotto.
-OSSA = [
+OSSA_BASE = [
     ("bacino", None),
     ("spina", "bacino"),
     ("torace", "spina"),
@@ -47,7 +47,9 @@ OSSA = [
     ("stinco.R", "coscia.R"),
     ("piede.R", "stinco.R"),
 ]
+OSSA = list(OSSA_BASE)
 INDICE = {nome: i for i, (nome, _) in enumerate(OSSA)}
+PERNI_EXTRA = {}  # ossa in più (armi da lanciare, spade da sguainare): nome -> punto
 DITA = ("pollice", "indice", "medio", "anulare", "mignolo")
 
 STATO = {}
@@ -71,6 +73,8 @@ def osso_gioco(nome):
 
 def perno(nome, giunti):
     """Punto attorno a cui ruota l'osso del gioco (nella posa del modello)."""
+    if nome in PERNI_EXTRA:
+        return Vector(PERNI_EXTRA[nome])
     if nome == "testa":
         return Vector(giunti["collo"][0])
     return Vector(giunti[nome][0])
@@ -132,14 +136,31 @@ def _budget(triangoli, totale, minimo=40):
     return [int(min(t, max(min(t, minimo), basso * math.sqrt(t)))) for t in triangoli]
 
 
-def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli_dal_corpo=None, corpo="Corpo"):
+def _centro(nomi):
+    punti = []
+    for nome in nomi:
+        o = bpy.data.objects[nome]
+        punti += [o.matrix_world @ Vector(c) for c in o.bound_box]
+    return sum(punti, Vector()) / len(punti)
+
+
+def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli_dal_corpo=None, corpo="Corpo", extra=None):
     """Crea l'oggetto "Gioco": copia unita, pesata e decimata dei pezzi della collezione.
 
     rigidi: {"Lancia_*": "mano.R", ...} pezzi che seguono un osso solo.
     escludi: nomi (anche con *) dei dettagli minuti da non copiare (restano nella texture).
     togli_dal_corpo: materiali del corpo da buttare (pelle nascosta sotto i vestiti).
+    extra: ossa in più per i pezzi che si staccano dal corpo, {"lancia": ("mano.R", punto)} dove punto
+    è un Vector o una lista di oggetti di cui prendere il centro (per esempio l'elsa del gladio).
     Ogni pezzo si decima per conto suo, così quelli sottili (l'asta della lancia) non spariscono.
     """
+    OSSA[:] = list(OSSA_BASE)
+    PERNI_EXTRA.clear()
+    for nome, (padre, punto) in (extra or {}).items():
+        OSSA.append((nome, padre))
+        PERNI_EXTRA[nome] = tuple(punto) if isinstance(punto, (Vector, tuple)) else tuple(_centro(punto))
+    INDICE.clear()
+    INDICE.update({nome: i for i, (nome, _) in enumerate(OSSA)})
     rigidi = rigidi or {}
     escludi = escludi or []
     vecchio = bpy.data.objects.get(NOME)
@@ -235,7 +256,8 @@ def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli
     gioco.hide_render = True
 
     STATO.clear()
-    STATO.update({"giunti": {k: (tuple(v[0]), tuple(v[1])) for k, v in giunti.items()}, "sorgenti": [o.name for o in sorgenti]})
+    STATO.update({"giunti": {k: (tuple(v[0]), tuple(v[1])) for k, v in giunti.items()}, "sorgenti": [o.name for o in sorgenti],
+                  "ossa": list(OSSA), "perni": dict(PERNI_EXTRA)})
     return {"triangoli": sum(len(p.vertices) - 2 for p in me.polygons), "vertici": len(me.vertices),
             "pezzi": {o.name: b for (o, _), b in zip(copie, budget)}}
 
@@ -379,8 +401,9 @@ def dati(lato_texture=256):
     # Un'immagine a 8 bit di Blender dà già i valori sRGB, come li vuole Roblox.
     rgb = np.clip(np.round(pixel * 255), 0, 255).astype(np.uint8).tobytes()
     giunti = STATO["giunti"]
+    PERNI_EXTRA.update(STATO.get("perni", {}))
     ossa = []
-    for nome, padre in OSSA:
+    for nome, padre in STATO.get("ossa", OSSA):
         ossa.append({"nome": nome, "padre": padre, "posizione": roblox(perno(nome, giunti))})
     return {
         "minimo": list(minimo),
