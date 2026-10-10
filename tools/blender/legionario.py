@@ -366,7 +366,9 @@ def tunica(c):
     for v in sciarpa.verts:
         a = math.atan2(v.co.y, v.co.x)
         d = Vector((v.co.x, v.co.y, 0)).normalized()
-        v.co += d * 0.006 * math.sin(a * 7 + v.co.z * 90)
+        # Liscia dove entra nel bordo d'ottone della lorica, con le pieghe sopra.
+        sopra = min(1.0, max(0.0, (v.co.z - 1.452) / 0.015))
+        v.co += d * 0.006 * sopra * math.sin(a * 7 + v.co.z * 90)
     nodo = sfera((0, -0.092, 1.442), (0.019, 0.013, 0.015), 12, 8)
     capi = []
     for s in (-1, 1):
@@ -380,8 +382,8 @@ def tunica(c):
 
 # Anelli della focale (quota, centro y, raggio x, raggio y): un rotolo di stoffa che riempie lo scollo
 # della lorica e si stringe sul collo. La pelle del collo sotto viene tenuta dentro (nascondi_sotto_vestiti).
-SCIARPA = [(1.43, 0.0, 0.096, 0.09), (1.455, 0.002, 0.092, 0.086), (1.48, 0.004, 0.08, 0.075),
-           (1.503, 0.004, 0.072, 0.068)]
+SCIARPA = [(1.42, 0.0, 0.085, 0.076), (1.452, 0.0, 0.086, 0.078), (1.472, 0.003, 0.088, 0.081),
+           (1.49, 0.004, 0.079, 0.074), (1.505, 0.004, 0.071, 0.068)]
 
 
 def sciarpa_ellisse(z):
