@@ -117,7 +117,8 @@ def carica(col, donna=False):
     if donna:
         # Occhi della donna nel corpo base: il loro centro (a metà) va sul centro degli occhi dell'uomo.
         mondi = {o: o.matrix_world.copy() for o in occhi}
-        centro_f = sum((m.translation for m in mondi.values()), Vector()) / len(mondi)
+        centri = {o: mondi[o] @ (sum((Vector(v) for v in o.bound_box), Vector()) / 8) for o in occhi}
+        centro_f = sum(centri.values(), Vector()) / len(centri)
         centro_m = Vector((0, (OCCHIO_UOMO[1] - SPOSTAMENTO.y) / SCALA, OCCHIO_UOMO[2] / SCALA))
         sposta = Vector((0, centro_m.y - centro_f.y, centro_m.z - centro_f.z))
         m_co = coordinate(uomo.data)
@@ -130,7 +131,7 @@ def carica(col, donna=False):
             o.parent = None
             o.matrix_world = trasforma @ mondi[o]
         sinistro = next(o for o in occhi if ".eye.L" in o.name)
-        OCCHIO = tuple(sinistro.matrix_world.translation)
+        OCCHIO = tuple(trasforma @ centri[sinistro])
     else:
         OCCHIO = OCCHIO_UOMO
         for o in occhi:
