@@ -141,9 +141,8 @@ def costruisci():
     F.uniforme(u)
     F.equipaggiamento(u)
     # Il tiratore ha posato tascapane e borraccia (in ginocchio resterebbero sospesi fuori dal cappotto).
-    for nome in ("Tascapane", "Borraccia"):
-        o = bpy.data.objects.get(nome)
-        if o and o.name in u.col.objects:
+    for o in list(u.col.objects):
+        if o.name.split(".")[0] in ("Tascapane", "Borraccia"):
             bpy.data.objects.remove(o, do_unlink=True)
     V.baffi(u, "Baffi", "Peli", folti=1.2)
     F.elmo(u)
