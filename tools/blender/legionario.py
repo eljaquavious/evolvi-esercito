@@ -286,8 +286,8 @@ def corpo(c):
     skin.branch_smoothing = 0.6
     skin.use_smooth_shade = True
     sub = o.modifiers.new("Liscio", "SUBSURF")
-    sub.levels = 2
-    sub.render_levels = 2
+    sub.levels = 1
+    sub.render_levels = 1
     o.data.materials.append(c.mat["pelle"])
     applica(o)
     for poligono in o.data.polygons:
@@ -519,14 +519,15 @@ def schinieri(c):
         sezioni = []
         for i in range(8):
             t = i / 7
-            p = ginocchio.lerp(caviglia, 0.12 + t * 0.72)
+            p = ginocchio.lerp(caviglia, 0.04 + t * 0.8)
             r = 0.072 - t * 0.016
             sezioni.append(((p.x, p.y - 0.004, p.z), r, r * 0.95))
         # Solo la parte davanti della gamba (da -160 a -20 gradi), come un guscio.
         gusci.append(tubo_ellittico(list(reversed(sezioni)), n=16, inizio=math.radians(200),
                                     fine=math.radians(340), chiuso=False))
-        rotula = ginocchio + Vector((0, -0.05, 0.015))
-        gusci.append(sfera(rotula, (0.04, 0.02, 0.04), 12, 8))
+        # Ginocchiera: la parte alta dello schiniere si gonfia sulla rotula.
+        rotula = ginocchio + Vector((0, -0.058, -0.004))
+        gusci.append(sfera(rotula, (0.046, 0.02, 0.05), 12, 8))
         for t in (0.3, 0.7):
             p = ginocchio.lerp(caviglia, 0.12 + t * 0.72)
             r = 0.07 - t * 0.016
@@ -717,16 +718,17 @@ def scudo(c):
     meta = SCUDO_LARGHEZZA / SCUDO_RAGGIO / 2
     colonne = 32
 
-    def punto(u, z, dentro=0.0):
+    def punto(u, z, fuori=0.0):
+        """Punto sul fronte curvo (u da 0 a 1 da sinistra a destra); fuori > 0 sporge davanti."""
         phi = -meta + 2 * meta * u
-        r = SCUDO_RAGGIO + dentro
+        r = SCUDO_RAGGIO + fuori
         return Vector((r * math.sin(phi), SCUDO_RAGGIO - r * math.cos(phi), z))
 
-    def faccia(dentro, materiale_nome, uv, rovescia):
+    def faccia(fuori, materiale_nome, uv, rovescia):
         bm = bmesh.new()
         livello = bm.loops.layers.uv.new("UVMap")
         righe = 4
-        griglia = [[bm.verts.new(punto(i / colonne, SCUDO_ALTEZZA * j / righe, dentro)) for i in range(colonne + 1)]
+        griglia = [[bm.verts.new(punto(i / colonne, SCUDO_ALTEZZA * j / righe, fuori)) for i in range(colonne + 1)]
                    for j in range(righe + 1)]
         for j in range(righe):
             for i in range(colonne):
@@ -743,15 +745,15 @@ def scudo(c):
         bmesh.ops.transform(bm, matrix=m, verts=bm.verts)
         return c.oggetto("Scudo_" + materiale_nome, bm, materiale_nome)
 
-    faccia(0.0, "scudo", True, True)
-    faccia(0.014, "scudo_retro", False, False)
+    faccia(0.0, "scudo", True, False)
+    faccia(-0.014, "scudo_retro", False, True)
     # Bordatura d'ottone su tutti i lati.
     bordi = []
     for z in (0.004, SCUDO_ALTEZZA - 0.004):
-        punti = [punto(i / colonne, z, 0.007) for i in range(colonne + 1)]
+        punti = [punto(i / colonne, z, -0.007) for i in range(colonne + 1)]
         bordi.append(cilindri_lungo(punti, 0.011))
     for u in (0.0, 1.0):
-        punti = [punto(u, SCUDO_ALTEZZA * j / 8, 0.007) for j in range(9)]
+        punti = [punto(u, SCUDO_ALTEZZA * j / 8, -0.007) for j in range(9)]
         bordi.append(cilindri_lungo(punti, 0.011))
     b = unisci(*bordi)
     bmesh.ops.transform(b, matrix=m, verts=b.verts)
@@ -760,14 +762,14 @@ def scudo(c):
     placca = bmesh.new()
     u0, u1 = 0.5 - 0.085 / SCUDO_LARGHEZZA, 0.5 + 0.085 / SCUDO_LARGHEZZA
     z0, z1 = SCUDO_ALTEZZA / 2 - 0.105, SCUDO_ALTEZZA / 2 + 0.105
-    griglia = [[placca.verts.new(punto(u0 + (u1 - u0) * i / 6, z0 + (z1 - z0) * j / 2, -0.004)) for i in range(7)]
+    griglia = [[placca.verts.new(punto(u0 + (u1 - u0) * i / 6, z0 + (z1 - z0) * j / 2, 0.003)) for i in range(7)]
                for j in range(3)]
     for j in range(2):
         for i in range(6):
             placca.faces.new((griglia[j][i + 1], griglia[j][i], griglia[j + 1][i], griglia[j + 1][i + 1]))
     bmesh.ops.transform(placca, matrix=m, verts=placca.verts)
     c.oggetto("Scudo_Umbone_Placca", placca, "acciaio", spessore=0.004)
-    calotta = sfera(punto(0.5, SCUDO_ALTEZZA / 2, -0.004), (0.068, 0.05, 0.068), 20, 12)
+    calotta = sfera(punto(0.5, SCUDO_ALTEZZA / 2, 0.006), (0.068, 0.05, 0.068), 20, 12)
     bmesh.ops.transform(calotta, matrix=m, verts=calotta.verts)
     c.oggetto("Scudo_Umbone", calotta, "acciaio")
 
