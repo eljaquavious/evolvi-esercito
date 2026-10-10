@@ -721,3 +721,14 @@ def calotta(u, nome, mat, z_davanti, z_dietro, apice, forma, distacco=0.013, n=4
     bm.faces.new([bm.verts[len(bm.verts) - n + j] for j in range(n)])
     _verso_fuori(bm)
     return u.oggetto(nome, bm, mat, spessore=spessore), bordo, anelli
+
+
+def baffi(u, nome, mat, folti=1.0):
+    """Baffi sopra il labbro, appoggiati sulla pelle (folti > 1 più grossi e lunghi)."""
+    pezzi = []
+    for s in (1, -1):
+        punti = [Vector((s * 0.004, -0.123, 1.579)), Vector((s * 0.02, -0.119, 1.574)),
+                 Vector((s * 0.034, -0.110, 1.563)), Vector((s * (0.042 + 0.006 * (folti - 1)), -0.100, 1.548))]
+        punti = [u.fuori_dalla_pelle(p, 0.004 * folti) for p in punti]
+        pezzi.append(tubo_lungo(punti, [0.0045 * folti, 0.0055 * folti, 0.004 * folti, 0.0015], n=8))
+    return u.oggetto(nome, unisci(*pezzi), mat)
