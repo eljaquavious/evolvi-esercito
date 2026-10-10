@@ -55,49 +55,16 @@ def materiali(u):
 
 # Posa ----------------------------------------------------------------------------------------------
 
-def punta(sch, nome, bersaglio):
-    """Gira un osso attorno alla sua testa finché la coda guarda verso il bersaglio."""
-    pb = sch.pose.bones[nome]
-    a = (pb.tail - pb.head).normalized()
-    b = (Vector(bersaglio) - pb.head).normalized()
-    asse = a.cross(b)
-    if asse.length < 1e-6:
-        return
-    umano.ruota_mondo(sch, nome, tuple(asse.normalized()), math.degrees(a.angle(b)))
-
-
-def impugna(sch, s, punto, pollice, dita, polo, chiusura=1.0):
-    """Pugno chiuso su un'asta (o sulle redini) che passa per 'punto': il pollice guarda lungo 'pollice',
-    le dita girano attorno all'asta partendo verso 'dita'. È vestiti.impugna_verticale per un'asta qualsiasi."""
-    su = Vector(pollice).normalized()
-    avanti = Vector(dita)
-    avanti = (avanti - su * avanti.dot(su)).normalized()
-    phi = math.radians(15)
-    radiale = su * math.cos(phi) - avanti * math.sin(phi)
-    y = avanti * math.cos(phi) + su * math.sin(phi)
-    dorso = (y.cross(radiale) if s < 0 else radiale.cross(y)).normalized()
-    umano.posa_braccio(sch, s, Vector(punto) - y * 0.09 + dorso * 0.028, y, dorso, polo)
-    umano.chiudi_dita(sch, s, {d: tuple(a * chiusura for a in g) for d, g in
-                               {"indice": (70, 95, 50), "medio": (75, 95, 50), "anulare": (80, 95, 50),
-                                "mignolo": (85, 90, 50), "pollice": (35, 45, 35)}.items()})
-
-
 def posa(sch):
     # In sella senza staffe: cosce aperte attorno al corpo del cavallo, gambe giù lungo i fianchi.
-    for s in (1, -1):
-        k = umano.sigla(s)
-        punta(sch, "coscia" + k, (s * 0.31, -0.21, 0.62))
-        punta(sch, "stinco" + k, (s * 0.335, -0.10, 0.24))
-        pb = sch.pose.bones["stinco" + k]
-        caviglia = pb.tail.copy()
-        punta(sch, "piede" + k, caviglia + Vector((s * 0.03, -0.55, -0.8)))
+    C.seduto(sch, (0.31, -0.21, 0.62), (0.335, -0.10, 0.24), (0.03, -0.55, -0.8))
     # Busto un poco indietro, come chi cavalca, e la testa dritta.
     umano.ruota_mondo(sch, "spina", (1, 0, 0), 4)
     umano.ruota_mondo(sch, "testa", (1, 0, 0), -4)
     # Destra sulla lancia bassa: dita in giù attorno all'asta, pollice verso la punta.
-    impugna(sch, -1, PRESA, LANCIA, (0.25, 0, -1), (-0.6, 0.6, -0.3))
+    C.impugna(sch, -1, PRESA, LANCIA, (0.25, 0, -1), (-0.6, 0.6, -0.3))
     # Sinistra con le redini: pugno chiuso, pollice in su, nocche in avanti.
-    impugna(sch, 1, REDINI, (0, -0.25, 1), (-1, 0, -0.35), (0.6, 0.5, -0.5), chiusura=0.9)
+    C.impugna(sch, 1, REDINI, (0, -0.25, 1), (-1, 0, -0.35), (0.6, 0.5, -0.5), chiusura=0.9)
 
 
 # Vestiti -------------------------------------------------------------------------------------------

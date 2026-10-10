@@ -65,6 +65,46 @@ def assicura_file():
     return FILE
 
 
+# Posa del cavaliere --------------------------------------------------------------------------------
+
+def punta(sch, nome, bersaglio):
+    """Gira un osso attorno alla sua testa finché la coda guarda verso il bersaglio."""
+    pb = sch.pose.bones[nome]
+    a = (pb.tail - pb.head).normalized()
+    b = (Vector(bersaglio) - pb.head).normalized()
+    asse = a.cross(b)
+    if asse.length < 1e-6:
+        return
+    umano.ruota_mondo(sch, nome, tuple(asse.normalized()), math.degrees(a.angle(b)))
+
+
+def impugna(sch, s, punto, pollice, dita, polo, chiusura=1.0):
+    """Pugno chiuso su un'asta (o sulle redini) che passa per 'punto': il pollice guarda lungo 'pollice',
+    le dita girano attorno all'asta partendo verso 'dita'. È vestiti.impugna_verticale per un'asta qualsiasi."""
+    su = Vector(pollice).normalized()
+    avanti = Vector(dita)
+    avanti = (avanti - su * avanti.dot(su)).normalized()
+    phi = math.radians(15)
+    radiale = su * math.cos(phi) - avanti * math.sin(phi)
+    y = avanti * math.cos(phi) + su * math.sin(phi)
+    dorso = (y.cross(radiale) if s < 0 else radiale.cross(y)).normalized()
+    umano.posa_braccio(sch, s, Vector(punto) - y * 0.09 + dorso * 0.028, y, dorso, polo)
+    umano.chiudi_dita(sch, s, {d: tuple(a * chiusura for a in g) for d, g in
+                               {"indice": (70, 95, 50), "medio": (75, 95, 50), "anulare": (80, 95, 50),
+                                "mignolo": (85, 90, 50), "pollice": (35, 45, 35)}.items()})
+
+
+def seduto(sch, ginocchio, caviglia, piede):
+    """Gambe a cavallo: coscia verso il ginocchio, stinco verso la caviglia, piede lungo 'piede' (lato sinistro,
+    x > 0; il destro è lo specchio)."""
+    for s in (1, -1):
+        k = umano.sigla(s)
+        punta(sch, "coscia" + k, (s * ginocchio[0], ginocchio[1], ginocchio[2]))
+        punta(sch, "stinco" + k, (s * caviglia[0], caviglia[1], caviglia[2]))
+        coda = sch.pose.bones["stinco" + k].tail.copy()
+        punta(sch, "piede" + k, coda + Vector((s * piede[0], piede[1], piede[2])))
+
+
 class Cavallo:
     """Il cavallo dentro un'unità: corpo, ossa (estremi nel mondo) e attrezzi per misurarlo."""
 
@@ -208,6 +248,39 @@ class Cavallo:
         if loc is not None and (p - loc).dot(normale) < distacco:
             return loc + normale * distacco
         return p
+
+    def criniera_lunga(self, mat, lato=-1, lunghezza=0.22, n=24, spessore=0.012):
+        """Criniera lunga che ricade su un lato del collo (lato -1 = destra), a ciocche, più il ciuffo."""
+        a, b = self.ossa["Bone.001"]
+        asse = (b - a).normalized()
+        su = Vector((0, 0, 1))
+        su = (su - asse * su.dot(asse)).normalized()
+        fuori = Vector((lato, 0, 0))
+        righe = []
+        for k in range(6):
+            f = k / 5
+            riga = []
+            for i in range(n):
+                t = 0.03 + 0.92 * i / (n - 1)
+                c = a.lerp(b, t)
+                cresta = self.sulla_pelle(c, su, 0.0) or (c + su * 0.1)
+                # Scende sul lato seguendo la pelle, le ciocche di lunghezza diversa.
+                lungo = lunghezza * (0.6 + 0.4 * math.sin(math.pi * min(1.0, t * 1.1))) * (1 + 0.18 * math.sin(i * 2.3))
+                d = (su * (1 - f) + fuori * f * 1.2 - su * f * 0.6).normalized()
+                p = cresta + d * lungo * f + su * 0.03 * (1 - f)
+                riga.append(self._fuori(p, 0.018 + 0.01 * f))
+            righe.append(riga)
+        bm = V.griglia(righe)
+        V._verso_fuori(bm)
+        nuca = self.osso("Bone.002", 0.05)
+        avanti = (self.osso("Bone.002", 1.0) - nuca).normalized()
+        base = self.sulla_pelle(nuca, su, -0.01) or nuca
+        ciuffo = [base, base + avanti * 0.06 + su * 0.02, base + avanti * 0.13 - su * 0.01]
+        ciuffo = [self._fuori(p, 0.014) for p in ciuffo]
+        bm2 = V.tubo_lungo(ciuffo, [0.026, 0.02, 0.006], n=8)
+        o = self.u.oggetto("CV_Criniera", bm, mat, spessore=spessore)
+        self.u.oggetto("CV_Ciuffo", bm2, mat)
+        return o
 
     def coda(self, mat, lunghezza=0.95, legata=False, n=14):
         """Coda piena: attaccatura alta, poi giù con un po' di arco; ciocche in rilievo sulla superficie."""
