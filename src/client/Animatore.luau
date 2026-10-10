@@ -92,7 +92,7 @@ function Animatore:_impugnaGladio()
 	local gladio, mano = self.giunti.gladio, self.giunti["mano.R"]
 	if gladio and mano and gladio:IsA("Bone") then
 		gladio.Parent = mano
-		gladio.CFrame = CFrame.new(0, -0.12, -0.2) * ruota(PI / 2, 0, 0)
+		gladio.CFrame = CFrame.new(0, -0.2, -0.05) * ruota(PI / 2, 0, 0)
 		self.lanciaVia = true
 	end
 end
