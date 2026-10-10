@@ -59,6 +59,9 @@ class Unita:
     def oggetto(self, nome, bm, mat, liscio=True, spessore=0.0, suddividi=0, copre=False):
         me = bpy.data.meshes.new(nome)
         bm.normal_update()
+        if copre:
+            # La superficie prima dello spessore, con le normali verso fuori: è il lato interno della stoffa.
+            self.coperti.append(BVHTree.FromBMesh(bm))
         bm.to_mesh(me)
         bm.free()
         for poligono in me.polygons:
@@ -77,8 +80,6 @@ class Unita:
             mod.render_levels = suddividi
         if spessore or suddividi:
             applica(o)
-        if copre:
-            self.coperti.append(o)
         return o
 
     # Corpo e misure ------------------------------------------------------------------------------
@@ -142,18 +143,11 @@ class Unita:
         materiale "<sigla>_Nascosta": l'esportazione per il gioco la butta via."""
         me = self.corpo.data
         co = umano.coordinate(me)
-        alberi = []
-        for o in self.coperti:
-            bm = bmesh.new()
-            bm.from_mesh(o.data)
-            bm.transform(o.matrix_world)
-            bm.normal_update()
-            alberi.append((BVHTree.FromBMesh(bm), o))
-            bm.free()
+        alberi = self.coperti
         coperto = np.zeros(len(co), dtype=bool)
         for i in range(len(co)):
             p = Vector(co[i])
-            for albero, o in alberi:
+            for albero in alberi:
                 loc, normale, _, d = albero.find_nearest(p, 0.06)
                 if loc is None:
                     continue
