@@ -1,0 +1,32 @@
+-- Generato da tools/converti_mesh.py dal modello Blender: non modificare a mano.
+-- 6790 vertici, 5193 triangoli, texture 256x256. Misure in metri, assi di Roblox.
+return {
+	versione = 1,
+	minimo = { -0.36919, -0.01677, -0.53573 },
+	massimo = { 0.39741, 1.75069, 0.29586 },
+	ossa = {
+		{ nome = "bacino", padre = nil, posizione = { 0.00000, 0.93000, 0.02000 } },
+		{ nome = "spina", padre = "bacino", posizione = { 0.00000, 1.06000, 0.02000 } },
+		{ nome = "coscia.L", padre = "bacino", posizione = { -0.09000, 0.90000, 0.02000 } },
+		{ nome = "coscia.R", padre = "bacino", posizione = { 0.09000, 0.90000, 0.02000 } },
+		{ nome = "torace", padre = "spina", posizione = { 0.00000, 1.22000, 0.01500 } },
+		{ nome = "stinco.L", padre = "coscia.L", posizione = { -0.10200, 0.50696, -0.06354 } },
+		{ nome = "stinco.R", padre = "coscia.R", posizione = { 0.10200, 0.49818, 0.02000 } },
+		{ nome = "testa", padre = "torace", posizione = { -0.00000, 1.45000, -0.00500 } },
+		{ nome = "braccio.L", padre = "torace", posizione = { -0.18500, 1.38500, 0.02000 } },
+		{ nome = "braccio.R", padre = "torace", posizione = { 0.18500, 1.38500, 0.02000 } },
+		{ nome = "piede.L", padre = "stinco.L", posizione = { -0.12293, 0.08817, -0.03314 } },
+		{ nome = "piede.R", padre = "stinco.R", posizione = { 0.12293, 0.08071, 0.06500 } },
+		{ nome = "avambraccio.L", padre = "braccio.L", posizione = { -0.31892, 1.15078, 0.02500 } },
+		{ nome = "avambraccio.R", padre = "braccio.R", posizione = { 0.36464, 1.18409, 0.03348 } },
+		{ nome = "mano.L", padre = "avambraccio.L", posizione = { -0.32549, 0.90024, -0.02961 } },
+		{ nome = "mano.R", padre = "avambraccio.R", posizione = { 0.33310, 1.04679, -0.18088 } },
+	},
+	vertici = 6790,
+	triangoli = 5193,
+	lunghezzaGeometria = 173756,
+	geometria = require(script.Geometria),
+	lato = 256,
+	lunghezzaTexture = 196608,
+	texture = require(script.Texture),
+}
