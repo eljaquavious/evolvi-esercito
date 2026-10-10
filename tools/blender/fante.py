@@ -30,9 +30,9 @@ def punto_fucile(t):
 
 
 def materiali(u):
-    u.materiale("Blu", (0.30, 0.38, 0.50), ruvidita=0.9)
-    u.materiale("BluScuro", (0.22, 0.28, 0.38), ruvidita=0.9)
-    u.materiale("Elmo", (0.30, 0.36, 0.42), metallo=0.6, ruvidita=0.55)
+    u.materiale("Blu", (0.21, 0.28, 0.38), ruvidita=0.9)
+    u.materiale("BluScuro", (0.14, 0.19, 0.27), ruvidita=0.9)
+    u.materiale("Elmo", (0.20, 0.25, 0.30), metallo=0.25, ruvidita=0.6)
     u.materiale("Cuoio", (0.28, 0.15, 0.06), ruvidita=0.6)
     u.materiale("CuoioScuro", (0.16, 0.08, 0.03), ruvidita=0.6)
     u.materiale("Suola", (0.07, 0.04, 0.02), ruvidita=0.8)
@@ -40,7 +40,7 @@ def materiali(u):
     u.materiale("Noce", (0.36, 0.20, 0.09), ruvidita=0.5)
     u.materiale("Acciaio", (0.25, 0.25, 0.27), metallo=1.0, ruvidita=0.35)
     u.materiale("AcciaioChiaro", (0.62, 0.63, 0.65), metallo=1.0, ruvidita=0.25)
-    u.materiale("Tela", (0.55, 0.50, 0.38), ruvidita=0.9)
+    u.materiale("Tela", (0.36, 0.32, 0.22), ruvidita=0.9)
     u.materiale("Peli", (0.14, 0.08, 0.04), ruvidita=0.8)
 
 
