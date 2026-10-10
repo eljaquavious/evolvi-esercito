@@ -33,7 +33,9 @@ def materiali(u):
     F.materiale_tex(u, "Assi", F.tex_assi(SIGLA + "_Assi", n=10), 2.0)
     F.materiale_tex(u, "AssiScure", F.tex_assi(SIGLA + "_AssiScure", n=8, base=(0.27, 0.19, 0.12), seme=9), 2.0)
     u.materiale("Legno", (0.33, 0.22, 0.13), ruvidita=0.7)
-    u.materiale("Pali", (0.40, 0.29, 0.17), ruvidita=0.7)
+    u.materiale("Pali", (0.29, 0.20, 0.115), ruvidita=0.7)
+    u.materiale("Buio", (0.03, 0.025, 0.02), ruvidita=0.9)
+    u.materiale("Scudo", (0.50, 0.07, 0.05), ruvidita=0.7)
     u.materiale("Ferro", (0.16, 0.15, 0.15), metallo=1.0, ruvidita=0.5)
     u.materiale("Cuoio", (0.42, 0.30, 0.18), ruvidita=0.8)
     u.materiale("CuoioScuro", (0.30, 0.20, 0.12), ruvidita=0.8)
@@ -105,7 +107,7 @@ def torre(u, nome, x, y, lato, alto, porta=False):
     for sx, sy in ((0, -1), (1, 0), (-1, 0)) if porta else ((0, -1), (1, 0), (-1, 0), (0, 1)):
         c = Vector((x + sx * (m - 0.04), y + sy * (m - 0.04), piano - 1.4))
         fori.append(F.scatola(c, (0.14 if sx == 0 else 0.1, 0.1 if sx == 0 else 0.14, 0.5)))
-    u.oggetto(nome + "_Feritoie", V.unisci(*fori), "Ferro", liscio=False)
+    u.oggetto(nome + "_Feritoie", V.unisci(*fori), "Buio", liscio=False)
 
 
 def porta(u):
@@ -127,6 +129,14 @@ def porta(u):
     u.oggetto("Porta_Ponte", V.unisci(*ponte), "AssiScure", liscio=False)
     u.oggetto("Porta_Parapetto", F.palizzata((-TORRE_PORTA + 0.9, -L - 0.55, 0), (TORRE_PORTA - 0.9, -L - 0.55, 0), 3.2,
                                              4.4, tronco=0.25, punta=0.2), "Tronchi", liscio=False, spessore=0.15)
+    # Scudi ovali appesi al parapetto, con l'umbone di ferro.
+    scudi, umboni = [], []
+    for x in (-0.9, -0.3, 0.3, 0.9):
+        c = Vector((x, -L - 0.66, 3.75))
+        scudi.append(V.sfera(c, (0.26, 0.05, 0.4), 12, 6))
+        umboni.append(V.sfera(c - Vector((0, 0.05, 0)), (0.07, 0.04, 0.07), 8, 4))
+    u.oggetto("Porta_Scudi", V.unisci(*scudi), "Scudo")
+    u.oggetto("Porta_Umboni", V.unisci(*umboni), "Ferro")
 
 
 def tende(u):
