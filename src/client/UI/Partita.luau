@@ -32,7 +32,8 @@ local atmosferaOriginale
 local function impostaCamera()
 	local camera = workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Scriptable
-	camera.CFrame = CFrame.lookAt(info.centro + Vector3.new(0, 55, -58), info.centro)
+	-- Più dall'alto e puntata verso il lato del giocatore: la fila più vicina resta sopra la barra delle carte.
+	camera.CFrame = CFrame.lookAt(info.centro + Vector3.new(0, 64, -50), info.centro + Vector3.new(0, 0, -9))
 end
 
 local function ripristinaCamera()
@@ -75,7 +76,7 @@ end
 
 local function aggiornaCarte()
 	for indice, carta in pairs(carte) do
-		Carta.spegni(carta, usate[indice] == true)
+		Carta.spegni(carta, usate[indice] == true, "DEPLOYED")
 		Carta.seleziona(carta, indice == selezionata)
 	end
 	contatore.Text = ("REGIMENTS %d/%d"):format(numeroUsate(), info.maxReggimenti)
@@ -360,7 +361,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Name = "Mazzo",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, -100, 1, -14),
-		Size = UDim2.fromScale(0.62, 0.27),
+		Size = UDim2.fromScale(0.62, 0.23),
 		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = gui,
@@ -372,7 +373,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 			Padding = UDim.new(0, 10),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
-		Stile.crea("UISizeConstraint", { MaxSize = Vector2.new(860, 210) }),
+		Stile.crea("UISizeConstraint", { MaxSize = Vector2.new(820, 190) }),
 	})
 
 	bottoneCombatti = Stile.bottone({

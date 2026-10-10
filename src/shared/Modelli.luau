@@ -190,13 +190,15 @@ end
 
 -- Scala dei soldati nel reggimento, per farli stare nella casella.
 local SCALE = {
-	Spadaccino = 0.62,
-	Arciere = 0.62,
-	Cavaliere = 0.62,
-	Fante = 0.62,
-	Mitragliere = 0.62,
-	CarroArmato = 1.15,
+	Spadaccino = 0.82,
+	Arciere = 0.82,
+	Cavaliere = 0.8,
+	Fante = 0.82,
+	Mitragliere = 0.85,
+	CarroArmato = 1.4,
 }
+-- Le formazioni sono pensate per la scala 0.62: con soldati più grandi si allargano in proporzione.
+local ALLARGAMENTO = 1.25
 
 local function figura(genitore, base, tipo, colore, origine, s)
 	local p = scalatore(genitore, base, origine, s)
@@ -217,7 +219,7 @@ local function barraVita(radice, colore, numero)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Vita"
 	gui.Size = UDim2.fromOffset(70, 16)
-	gui.StudsOffset = Vector3.new(0, 5.5, 0)
+	gui.StudsOffset = Vector3.new(0, 7, 0)
 	gui.AlwaysOnTop = true
 	gui.LightInfluence = 0
 	gui.MaxDistance = 250
@@ -261,11 +263,11 @@ function Modelli.reggimento(def, squadra, cframe)
 	modello.Name = def.id
 	local radice = nuovaRadice(modello, cframe)
 	local colore = Modelli.COLORI_SQUADRA[squadra]
-	local scala = SCALE[def.id] or 0.62
+	local scala = SCALE[def.id] or 0.82
 	for i, posizione in ipairs(formazione(def.soldati)) do
 		local soldato = Instance.new("Model")
 		soldato.Name = "Soldato" .. i
-		local origine = CFrame.new(posizione) * CFrame.Angles(0, math.rad((i * 37) % 11 - 5), 0)
+		local origine = CFrame.new(posizione * ALLARGAMENTO) * CFrame.Angles(0, math.rad((i * 37) % 11 - 5), 0)
 		figura(soldato, radice, def.id, colore, origine, scala)
 		soldato.Parent = modello
 	end

@@ -25,14 +25,9 @@ cartella.Parent = workspace
 
 local slotOccupati = {}
 
--- Altezza reale del terreno in (x, z): i voxel di Terrain sono da 4 studs, la superficie non cade esattamente dove si riempie.
-local function superficie(x, z)
-	local parametri = RaycastParams.new()
-	parametri.FilterType = Enum.RaycastFilterType.Include
-	parametri.FilterDescendantsInstances = { terrain }
-	local colpo = workspace:Raycast(Vector3.new(x, 200, z), Vector3.new(0, -400, 0), parametri)
-	return colpo and colpo.Position.Y or 0
-end
+-- Un FillBlock con la cima a y = 0 dà una superficie a y = 2 (voxel da 4 studs).
+-- Costante e non misurata: subito dopo FillBlock il terreno nuovo non si può ancora colpire con un raycast.
+local SUPERFICIE = 2
 
 local function blocco(genitore, proprieta)
 	local p = Instance.new("Part")
@@ -210,7 +205,7 @@ function Arena.crea(player, livello)
 		terrain:FillBlock(CFrame.new(origine - Vector3.new(0, 8, 0)), Vector3.new(Arena.COLONNE * Arena.CASELLA + 16, 16, Arena.RIGHE * Arena.CASELLA + 16), Enum.Material.Ground)
 	end
 	-- Il tabellone poggia sulla superficie vera del terreno.
-	origine = Vector3.new(origine.X, superficie(origine.X, origine.Z) + 0.15, origine.Z)
+	origine = Vector3.new(origine.X, SUPERFICIE + 0.15, origine.Z)
 	arena.origine = origine
 
 	local modello = Instance.new("Model")
@@ -239,7 +234,7 @@ function Arena.crea(player, livello)
 	for col = 1, Arena.COLONNE do
 		for riga = 1, Arena.RIGHE do
 			local delGiocatore = riga <= Campagna.RIGHE_GIOCATORE
-			local colore = bioma.casella:Lerp(delGiocatore and Color3.fromRGB(60, 120, 255) or Color3.fromRGB(230, 70, 70), delGiocatore and 0.6 or 0.45)
+			local colore = bioma.casella:Lerp(delGiocatore and Color3.fromRGB(60, 120, 255) or Color3.fromRGB(235, 50, 50), 0.7)
 			if (col + riga) % 2 == 0 then
 				colore = colore:Lerp(Color3.new(1, 1, 1), 0.12)
 			end

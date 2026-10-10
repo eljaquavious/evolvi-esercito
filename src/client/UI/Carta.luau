@@ -198,17 +198,29 @@ function Carta.crea(tipo, opzioni)
 end
 
 -- Scurisce la carta (già usata, non posseduta...).
-function Carta.spegni(carta, spenta)
+-- testo: scritta opzionale sul velo (es. "DEPLOYED").
+function Carta.spegni(carta, spenta, testo)
 	local velo = carta:FindFirstChild("Velo")
 	if spenta and not velo then
-		Stile.crea("Frame", {
+		velo = Stile.crea("Frame", {
 			Name = "Velo",
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = Color3.new(0, 0, 0),
-			BackgroundTransparency = 0.45,
+			BackgroundTransparency = testo and 0.3 or 0.45,
 			ZIndex = 4,
 			Parent = carta,
 		}, { Stile.angoli(12) })
+		if testo then
+			Stile.titolo({
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.42),
+				Size = UDim2.fromScale(0.9, 0.12),
+				Text = testo,
+				TextColor3 = Stile.Colori.Verde,
+				ZIndex = 5,
+				Parent = velo,
+			})
+		end
 	elseif not spenta and velo then
 		velo:Destroy()
 	end

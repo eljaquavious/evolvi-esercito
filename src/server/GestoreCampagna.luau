@@ -16,6 +16,8 @@ local Lobby = require(script.Parent.Lobby)
 local GestoreCampagna = {}
 
 local TICK = 0.1
+-- Secondi di battaglia simulati per ogni secondo reale: sotto 1 la battaglia si gode di più, senza cambiare il bilanciamento.
+local VELOCITA_BATTAGLIA = 0.75
 local MONETE_SCONFITTA = 10
 
 local sessioni = {}
@@ -291,7 +293,7 @@ local function eseguiBattaglia(player, sessione)
 	end
 
 	while sessione.attiva and not battaglia.finita do
-		local eventi = battaglia:passo(TICK)
+		local eventi = battaglia:passo(TICK * VELOCITA_BATTAGLIA)
 		for _, u in ipairs(battaglia.unita) do
 			local modello = modelli[u.id]
 			if u.vivo and modello and modello.PrimaryPart then

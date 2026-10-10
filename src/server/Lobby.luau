@@ -278,7 +278,7 @@ function Lobby.costruisci(callback)
 	parametri.FilterType = Enum.RaycastFilterType.Include
 	parametri.FilterDescendantsInstances = { terrain }
 	local colpo = workspace:Raycast(Vector3.new(0, 200, -6), Vector3.new(0, -400, 0), parametri)
-	local alzo = colpo and colpo.Position.Y or 0
+	local alzo = colpo and colpo.Position.Y or 2 -- 2: dove finisce la superficie se il terreno non è ancora colpibile
 	lobby:PivotTo(lobby:GetPivot() + Vector3.new(0, alzo, 0))
 	Lobby.SPAWN += Vector3.new(0, alzo, 0)
 	lobby.Parent = workspace

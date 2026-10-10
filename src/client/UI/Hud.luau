@@ -1,4 +1,4 @@
--- Barra in alto a sinistra (monete, epoca, livello) e menu laterale della lobby.
+-- Barra in basso al centro (monete, epoca, livello) e menu laterale della lobby.
 
 local Stile = require(script.Parent.Stile)
 
@@ -30,7 +30,8 @@ end
 function Hud.inizializza(gui, azioni)
 	barra = Stile.crea("Frame", {
 		Name = "Barra",
-		Position = UDim2.fromOffset(16, 10),
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -16),
 		Size = UDim2.fromOffset(520, 50),
 		BackgroundTransparency = 1,
 		Parent = gui,
