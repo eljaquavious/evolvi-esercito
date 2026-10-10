@@ -4,3 +4,5 @@
 *.rbxlx.lock
 sourcemap.json
 tools/cache_quote/
+__pycache__/
+*.pyc

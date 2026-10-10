@@ -45,7 +45,7 @@ def materiali(u):
     u.materiale("Cuoio", (0.24, 0.12, 0.05), ruvidita=0.65)
     u.materiale("Stivali", (0.20, 0.10, 0.045), ruvidita=0.7)
     u.materiale("Suola", (0.07, 0.04, 0.02), ruvidita=0.8)
-    u.materiale("Bronzo", (0.80, 0.52, 0.24), metallo=1.0, ruvidita=0.35)
+    u.materiale("Bronzo", (0.55, 0.33, 0.12), metallo=1.0, ruvidita=0.35)
     u.materiale("Ferro", (0.45, 0.45, 0.47), metallo=1.0, ruvidita=0.35)
     u.materiale("Corniolo", (0.50, 0.32, 0.16), ruvidita=0.55)
     u.materiale("Crini", (0.05, 0.03, 0.02), ruvidita=0.8)
