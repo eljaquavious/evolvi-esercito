@@ -138,6 +138,7 @@ def elmo(u):
             anello.append(q)
         anelli.append(anello)
     bm = V.griglia(anelli, chiusa=True)
+    bm.verts.ensure_lookup_table()
     bm.faces.new([bm.verts[len(bm.verts) - n + j] for j in range(n)])
     V._verso_fuori(bm)
     u.oggetto("Elmo_Calotta", bm, "Ferro", spessore=0.003)
