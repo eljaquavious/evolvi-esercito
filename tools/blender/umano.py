@@ -116,6 +116,7 @@ def carica(col, donna=False):
             uomo = o
     if donna:
         # Occhi della donna nel corpo base: il loro centro (a metà) va sul centro degli occhi dell'uomo.
+        bpy.context.view_layer.update()           # matrix_world degli occhi (figli del corpo) aggiornate
         mondi = {o: o.matrix_world.copy() for o in occhi}
         # Dai vertici (il riquadro dell'oggetto comprende i modificatori, specchio compreso).
         centri = {o: mondi[o] @ Vector(coordinate(o.data).mean(axis=0)) for o in occhi}
