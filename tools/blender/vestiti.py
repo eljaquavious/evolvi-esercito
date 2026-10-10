@@ -764,3 +764,99 @@ def baffi(u, nome, mat, folti=1.0):
         punti = [u.fuori_dalla_pelle(p, 0.004 * folti) for p in punti]
         pezzi.append(tubo_lungo(punti, [0.0045 * folti, 0.0055 * folti, 0.004 * folti, 0.0015], n=8))
     return u.oggetto(nome, unisci(*pezzi), mat)
+
+
+def pteruges(u, nome, mat, z_alto=1.0, lunghezza=0.20, n=18, distacco=0.04, larghezza=None, spalle=True,
+             lunghezza_spalle=0.17, n_spalle=9, spessore=0.006):
+    """Strisce di cuoio (o lino) che pendono dalla corazza: un giro attorno ai fianchi e, se spalle, un giro
+    attorno all'omero. Ogni striscia è una lista appena svasata in fuori verso il fondo, con un poco di spazio
+    tra l'una e l'altra."""
+    pezzi = []
+    c, raggi = u.raggi_busto(z_alto, n * 4)
+    m = max(r for r in raggi if r is not None)
+    raggi = [m if r is None else r for r in raggi]
+    giro = 2 * math.pi
+    for k in range(n):
+        a = giro * (k + 0.5) / n
+        r = raggi[int(round((k + 0.5) * 4)) % (n * 4)] + distacco
+        largo = larghezza or (giro * r / n * 0.86)
+        d = Vector((math.cos(a), math.sin(a), 0))
+        t = Vector((-math.sin(a), math.cos(a), 0))
+        alto = Vector((c.x, c.y, z_alto)) + d * r
+        basso = alto + d * 0.035 - Vector((0, 0, lunghezza))
+        bm = bmesh.new()
+        vs = [bm.verts.new(p) for p in (alto - t * largo / 2, alto + t * largo / 2, basso + t * largo / 2,
+                                         basso - t * largo / 2)]
+        bm.faces.new(vs)
+        pezzi.append(bm)
+    if spalle:
+        for lato in ("d", "s"):
+            spalla, gomito = u.P("spalla_" + lato), u.P("gomito_" + lato)
+            asse = (gomito - spalla).normalized()
+            base = asse.orthogonal().normalized()
+            for k in range(n_spalle):
+                ang = 2 * math.pi * k / n_spalle
+                d = Matrix.Rotation(ang, 3, asse) @ base
+                p0 = spalla + asse * 0.02
+                hit = u.albero.ray_cast(p0, d, 0.2)
+                r = ((hit[0] - p0).length if hit[0] is not None else 0.06) + distacco * 0.8
+                t = asse.cross(d).normalized()
+                largo = 2 * math.pi * r / n_spalle * 0.85
+                alto = p0 + d * r
+                basso = alto + asse * lunghezza_spalle + d * 0.02
+                bm = bmesh.new()
+                vs = [bm.verts.new(p) for p in (alto - t * largo / 2, alto + t * largo / 2, basso + t * largo / 2,
+                                                 basso - t * largo / 2)]
+                bm.faces.new(vs)
+                pezzi.append(bm)
+    bm = unisci(*pezzi)
+    _verso_fuori(bm)
+    return u.oggetto(nome, bm, mat, spessore=spessore)
+
+
+def mantello_dietro(u, nome, mat, z_alto=1.43, z_basso=0.45, da=0.25, a=math.pi - 0.25, svasatura=0.18,
+                    distacco=0.035, colonne=24, righe=16, spessore=0.006, pieghe=0.012):
+    """Mantello che pende dalle spalle dietro la schiena fino a z_basso, allargandosi verso l'orlo, con pieghe.
+    Angoli da 'da' ad 'a' attorno al busto (0 = sinistra +X, pi/2 = dietro +Y, pi = destra)."""
+    angoli = np.linspace(da, a, colonne)
+    righe_p = []
+    ultimo = None
+    for i, z in enumerate(np.linspace(z_alto, z_basso, righe)):
+        t = i / (righe - 1)
+        riga = []
+        for j, ang in enumerate(angoli):
+            d = Vector((math.cos(ang), math.sin(ang), 0))
+            if z > 0.95:
+                p = u.sulla_pelle(Vector((0, 0.0, float(z))), d, distacco + 0.02 * t, 0.45)
+            else:
+                # Sotto la vita il mantello scende dritto dal punto sopra, allargandosi e senza entrare nelle gambe.
+                p = ultimo[j] + Vector((0, 0, float(z) - ultimo[j].z))
+                p = p + d * svasatura * (0.95 - float(z)) / 0.5 * 0.5
+            p = p + d * pieghe * math.sin(j * 1.7) * t
+            riga.append(p)
+        if z > 0.95:
+            ultimo = riga
+        righe_p.append(riga)
+    bm = griglia(righe_p)
+    _verso_fuori(bm)
+    return u.oggetto(nome, bm, mat, spessore=spessore)
+
+
+def corona_alloro(u, nome, mat, z=1.705, foglie=26):
+    """Corona d'alloro: due rami di foglie a mandorla attorno alla testa che si incontrano sulla fronte."""
+    pezzi = []
+    for s in (1, -1):
+        for k in range(foglie // 2):
+            t = k / (foglie // 2 - 1)
+            a = math.pi / 2 + s * (math.pi * 0.95) * t        # dalla nuca (+Y) alla fronte, di qua e di là
+            d = Vector((math.cos(a), math.sin(a), 0))
+            zz = z - 0.025 * (1 - t) + 0.01 * t
+            p = u.sulla_pelle(Vector((0, -0.02, zz)), d, 0.012, 0.2)
+            tangente = Vector((-math.sin(a), math.cos(a), 0)) * -s
+            m = Matrix((tangente.cross(d), tangente, d)).transposed().to_4x4()
+            for su in (1, -1):
+                foglia = sfera((0, 0, 0), (0.007, 0.024, 0.003), 8, 4)
+                trasforma(foglia, Matrix.Translation(p + Vector((0, 0, 0.012 * su))) @ m @
+                          Matrix.Rotation(math.radians(30 * su), 4, "Z"))
+                pezzi.append(foglia)
+    return u.oggetto(nome, unisci(*pezzi), mat)
