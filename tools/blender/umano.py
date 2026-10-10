@@ -117,12 +117,14 @@ def carica(col, donna=False):
     if donna:
         # Occhi della donna nel corpo base: il loro centro (a metà) va sul centro degli occhi dell'uomo.
         bpy.context.view_layer.update()           # matrix_world degli occhi (figli del corpo) aggiornate
-        mondi = {o: o.matrix_world.copy() for o in occhi}
+        # Nel sistema della mesh del corpo: nel pacchetto la donna sta di fianco all'uomo (x spostata).
+        inv = corpo.matrix_world.inverted()
+        mondi = {o: inv @ o.matrix_world for o in occhi}
         # Dai vertici (il riquadro dell'oggetto comprende i modificatori, specchio compreso).
         centri = {o: mondi[o] @ Vector(coordinate(o.data).mean(axis=0)) for o in occhi}
         centro_f = sum(centri.values(), Vector()) / len(centri)
         centro_m = Vector((0, (OCCHIO_UOMO[1] - SPOSTAMENTO.y) / SCALA, OCCHIO_UOMO[2] / SCALA))
-        sposta = Vector((0, centro_m.y - centro_f.y, centro_m.z - centro_f.z))
+        sposta = Vector((-centro_f.x, centro_m.y - centro_f.y, centro_m.z - centro_f.z))
         m_co = coordinate(uomo.data)
         f_co = coordinate(corpo.data)
         w = liscio(COLLO_DONNA[0], COLLO_DONNA[1], m_co[:, 2])[:, None]
