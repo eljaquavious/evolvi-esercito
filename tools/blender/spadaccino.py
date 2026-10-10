@@ -19,9 +19,9 @@ import vestiti as V
 NOME = "Spadaccino"
 SIGLA = "HU"
 
-IMPUGNATURA = 1.12
+IMPUGNATURA = 1.02
 ASSE_ASCIA = Vector((-0.25, -0.255, 0))
-TESTA_ASCIA = 1.47   # quota del centro dell'occhio dell'ascia
+TESTA_ASCIA = 1.36   # quota del centro dell'occhio dell'ascia (all'altezza della spalla)
 
 U = None
 
