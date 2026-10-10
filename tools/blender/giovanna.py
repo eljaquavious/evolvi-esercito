@@ -74,7 +74,7 @@ def armatura(u):
     # Resta (la costola) al centro del petto e il bordo del collo.
     punti = [u.sulla_pelle(Vector((0, 0, z)), Vector((0, -1, 0)), 0.026, 0.35) for z in np.linspace(1.40, 1.02, 9)]
     u.oggetto("Corazza_Costola", V.tubo_lungo(punti, 0.007, n=6), "Acciaio")
-    u.oggetto("Corazza_Collo", V.anello_sul_corpo(u, (0, 0.0, 1.53), (0, 0.1, 1), 0.016, 0.012, n=48, portata=0.25),
+    u.oggetto("Corazza_Collo", V.anello_sul_corpo(u, (0, 0.0, 1.478), (0, 0.1, 1), 0.016, 0.012, n=48, portata=0.25),
               "AcciaioScuro", spessore=0.004)
     # Spallacci: gusci tondi dalla scapola al petto sopra la spalla, in tre lame.
     pezzi = []
@@ -123,7 +123,7 @@ def gorgiera(u):
     (così dall'alto non si vede la pelle nascosta sotto la corazza)."""
     n, righe = 48, 7
     anelli = []
-    for i, z in enumerate(np.linspace(1.535, 1.43, righe)):
+    for i, z in enumerate(np.linspace(1.48, 1.40, righe)):
         c, raggi = u.raggi_busto(float(z), n)
         m = min(r for r in raggi if r is not None)
         raggi = V.liscia_cerchio([min(m * 1.6, r) if r is not None else m for r in raggi], 3)
