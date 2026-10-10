@@ -68,7 +68,7 @@ def piuma(base, punta, curvatura, larghezza):
         t = i / 30
         cx = u0 * W + du * W * t + nx * curvatura * W * math.sin(math.pi * t)
         cy = v0 * H + dv * H * t + ny * curvatura * W * math.sin(math.pi * t)
-        mezza = larghezza * W * (0.55 + 0.45 * math.sin(math.pi * min(1, t * 1.15))) * (1 - t ** 3)
+        mezza = larghezza * W * (0.5 + 0.5 * math.sin(math.pi * min(1, t * 1.1))) * math.sqrt(max(0.0, 1 - t ** 4))
         sinistra.append((cx + nx * mezza, cy + ny * mezza))
         destra.append((cx - nx * mezza, cy - ny * mezza))
     contorno = sinistra + destra[::-1]
@@ -77,23 +77,22 @@ def piuma(base, punta, curvatura, larghezza):
 
 
 def ala(alto):
-    """Ala sinistra: alto=True sopra la freccia orizzontale, altrimenti sotto (specchiata in verticale)."""
+    """Ala sinistra: alto=True sopra la freccia orizzontale, altrimenti sotto (specchiata in verticale).
+    Come nella foto: quattro penne larghe che si piegano verso l'alto e copritrici a squame vicino all'umbone."""
     tras = (lambda q: q) if alto else capovolgi
-    # Remiganti lunghe: partono vicino all'umbone e si piegano verso l'alto a sinistra, a ventaglio.
     remiganti = [
-        ((0.33, 0.395), (0.115, 0.175), 0.034, 0.030),
-        ((0.33, 0.41), (0.085, 0.225), 0.034, 0.033),
-        ((0.33, 0.425), (0.07, 0.285), 0.030, 0.034),
-        ((0.33, 0.44), (0.07, 0.35), 0.022, 0.033),
-        ((0.34, 0.455), (0.09, 0.41), 0.012, 0.028),
+        ((0.36, 0.40), (0.12, 0.19), 0.045, 0.040),
+        ((0.36, 0.415), (0.085, 0.255), 0.040, 0.044),
+        ((0.36, 0.43), (0.075, 0.325), 0.030, 0.044),
+        ((0.36, 0.445), (0.085, 0.395), 0.018, 0.040),
     ]
     for base, punta, curva, larg in remiganti:
         b, t = tras([base, punta])
         piuma(b, t, curva if alto else -curva, larg)
-    # Copritrici: due file di squame, il bordo arancio verso l'esterno.
+    # Copritrici: due file di squame grandi, il bordo arancio verso l'esterno.
     file = (
-        ((0.415, 0.465), (0.255, 0.385), 6, 0.034),
-        ((0.43, 0.47), (0.315, 0.415), 4, 0.03),
+        ((0.40, 0.455), (0.27, 0.40), 4, 0.04),
+        ((0.425, 0.47), (0.33, 0.43), 3, 0.034),
     )
     for (ua, va), (ub, vb), n, raggio in file:
         for k in range(n - 1, -1, -1):
@@ -103,7 +102,7 @@ def ala(alto):
             r = raggio * W
             d.ellipse((x - r, y - r, x + r, y + r), fill=GIALLO)
             inizio = 100 if alto else 170
-            d.arc((x - r, y - r, x + r, y + r), inizio, inizio + 150, fill=ARANCIO, width=int(0.006 * W))
+            d.arc((x - r, y - r, x + r, y + r), inizio, inizio + 150, fill=ARANCIO, width=int(0.007 * W))
 
 
 for alto in (True, False):

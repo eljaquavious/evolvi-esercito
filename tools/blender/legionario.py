@@ -41,16 +41,16 @@ def materiali():
     return {
         "pelle": materiale("Pelle", (0.60, 0.38, 0.26), ruvidita=0.55),
         "tunica": materiale("Tunica", (0.50, 0.05, 0.04), ruvidita=0.9),
-        "acciaio": materiale("Acciaio", (0.78, 0.79, 0.80), metallo=1.0, ruvidita=0.28),
+        "acciaio": materiale("Acciaio", (0.66, 0.67, 0.69), metallo=1.0, ruvidita=0.4),
         "ottone": materiale("Ottone", (0.86, 0.62, 0.26), metallo=1.0, ruvidita=0.32),
         "cuoio": materiale("Cuoio", (0.22, 0.11, 0.05), ruvidita=0.65),
-        "cuoio_chiaro": materiale("CuoioChiaro", (0.42, 0.24, 0.12), ruvidita=0.7),
+        "cuoio_chiaro": materiale("CuoioChiaro", (0.30, 0.17, 0.08), ruvidita=0.7),
         "legno": materiale("Legno", (0.42, 0.27, 0.14), ruvidita=0.7),
         "ferro": materiale("Ferro", (0.32, 0.32, 0.34), metallo=1.0, ruvidita=0.45),
         "occhi": materiale("Occhi", (0.04, 0.03, 0.02), ruvidita=0.3),
         "scudo": materiale("Scudo", (0.62, 0.10, 0.08), ruvidita=0.6, immagine=immagine),
         "scudo_retro": materiale("ScudoRetro", (0.30, 0.18, 0.09), ruvidita=0.8),
-        "osso": materiale("Osso", (0.86, 0.80, 0.66), ruvidita=0.5),
+        "osso": materiale("Osso", (0.74, 0.64, 0.46), ruvidita=0.5),
     }
 
 
@@ -518,17 +518,18 @@ def schinieri(c):
     for lato in ("d", "s"):
         ginocchio, caviglia = P("ginocchio_" + lato), P("caviglia_" + lato)
         sezioni = []
-        for i in range(8):
-            t = i / 7
-            p = ginocchio.lerp(caviglia, 0.04 + t * 0.8)
-            r = 0.072 - t * 0.016
-            sezioni.append(((p.x, p.y - 0.004, p.z), r, r * 0.95))
+        for i in range(9):
+            t = i / 8
+            p = ginocchio.lerp(caviglia, 0.03 + t * 0.78)
+            # Sagomato sul polpaccio: pieno in alto, stretto verso la caviglia.
+            r = 0.064 + 0.01 * math.sin(math.pi * min(1.0, t * 1.6)) - 0.018 * t
+            sezioni.append(((p.x, p.y - 0.004, p.z), r, r * 0.92))
         # Solo la parte davanti della gamba (da -160 a -20 gradi), come un guscio.
         gusci.append(tubo_ellittico(list(reversed(sezioni)), n=16, inizio=math.radians(200),
                                     fine=math.radians(340), chiuso=False))
         # Ginocchiera: la parte alta dello schiniere si gonfia sulla rotula.
-        rotula = ginocchio + Vector((0, -0.056, -0.006))
-        gusci.append(sfera(rotula, (0.04, 0.016, 0.042), 12, 8))
+        rotula = ginocchio + Vector((0, -0.062, -0.012))
+        gusci.append(sfera(rotula, (0.04, 0.014, 0.04), 12, 8))
         for t in (0.3, 0.7):
             p = ginocchio.lerp(caviglia, 0.12 + t * 0.72)
             r = 0.07 - t * 0.016
@@ -549,7 +550,7 @@ def calzari(c):
                 v.co.z = 0.012
         collo = cilindro((x, 0.015, 0.03), (x, 0.02, 0.15), 0.048, 0.044, n=16)
         pezzi += [piede, collo]
-        suole.append(scatola((x, -0.05, 0.007), (0.1, 0.26, 0.014)))
+        suole.append(sfera((x, -0.05, 0.008), (0.056, 0.135, 0.008), 16, 6))
         for z in (0.06, 0.10, 0.14):
             suole.append(tubo_ellittico([((x, 0.02, z - 0.006), 0.051, 0.051), ((x, 0.02, z + 0.006), 0.05, 0.05)],
                                         n=16))
@@ -839,9 +840,9 @@ def studio(larghezza=1080, altezza=1440):
         punta_a(o, Vector((0.05, 0, 1.0)))
         return o
 
-    luce("Chiave", "AREA", 900, (-2.6, -3.2, 3.6), (1.0, 0.96, 0.9), 2.0)
-    luce("Riempimento", "AREA", 350, (3.0, -2.4, 1.8), (0.85, 0.9, 1.0), 3.0)
-    luce("Controluce", "AREA", 500, (0.5, 3.0, 3.0), (1.0, 0.95, 0.85), 2.0)
+    luce("Chiave", "AREA", 600, (2.6, -3.2, 3.6), (1.0, 0.96, 0.9), 2.0)
+    luce("Riempimento", "AREA", 220, (-3.0, -2.4, 1.8), (0.85, 0.9, 1.0), 3.0)
+    luce("Controluce", "AREA", 400, (0.5, 3.0, 3.0), (1.0, 0.95, 0.85), 2.0)
     pavimento = bpy.data.meshes.new("Pavimento")
     bm = bmesh.new()
     bmesh.ops.create_circle(bm, cap_ends=True, segments=64, radius=3.0)
@@ -854,8 +855,8 @@ def studio(larghezza=1080, altezza=1440):
     scena.world = mondo
     mondo.use_nodes = True
     sfondo = mondo.node_tree.nodes.get("Background")
-    sfondo.inputs["Color"].default_value = (0.42, 0.45, 0.5, 1)
-    sfondo.inputs["Strength"].default_value = 0.7
+    sfondo.inputs["Color"].default_value = (0.36, 0.39, 0.44, 1)
+    sfondo.inputs["Strength"].default_value = 0.5
     camera = bpy.data.objects.new("Fotocamera", bpy.data.cameras.new("Fotocamera"))
     camera.data.lens = 50
     col.objects.link(camera)
@@ -866,7 +867,7 @@ def studio(larghezza=1080, altezza=1440):
     scena.render.resolution_percentage = 100
     scena.render.image_settings.file_format = "JPEG"
     scena.render.image_settings.quality = 88
-    scena.view_settings.view_transform = "AgX"
+    scena.view_settings.view_transform = "Standard"
     return camera
 
 
