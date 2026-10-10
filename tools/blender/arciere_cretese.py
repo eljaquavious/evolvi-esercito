@@ -317,7 +317,7 @@ def esporta(triangoli=4200, lato=512):
                   rigidi={"Arco_*": "arco", "Scudo_*": "bacino", "Spada_*": "bacino", "Faretra_*": "torace",
                           "Occhio*": "testa", "Benda": "testa"},
                   escludi=["Calzari_Lacci", "Faretra_Fasce", "Tunica_Orlo"],
-                  togli_dal_corpo=[SIGLA + "_Nascosta"], triangoli=triangoli,
+                  togli_dal_corpo=[SIGLA + "_Nascosta"], triangoli=triangoli, corpo=U.corpo.name,
                   extra={"arco": ("mano.L", IMPUGNATURA)})
     E.cuoci(lato=lato)
     return r
