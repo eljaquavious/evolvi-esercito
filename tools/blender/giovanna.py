@@ -32,8 +32,8 @@ U = None
 
 
 def materiali(u):
-    u.materiale("Acciaio", (0.72, 0.73, 0.75), metallo=1.0, ruvidita=0.22)
-    u.materiale("AcciaioScuro", (0.35, 0.36, 0.38), metallo=1.0, ruvidita=0.35)
+    u.materiale("Acciaio", (0.66, 0.67, 0.70), metallo=1.0, ruvidita=0.34)
+    u.materiale("AcciaioScuro", (0.40, 0.41, 0.43), metallo=1.0, ruvidita=0.4)
     u.materiale("Ottone", (0.80, 0.60, 0.26), metallo=1.0, ruvidita=0.35)
     u.materiale("Cuoio", (0.22, 0.11, 0.05), ruvidita=0.6)
     u.materiale("Suola", (0.07, 0.04, 0.02), ruvidita=0.8)
@@ -58,26 +58,27 @@ def posa(sch):
 
 def armatura(u):
     # Imbottitura sotto (non si vede), poi le piastre.
-    V.pantaloni(u, "Gambe", "Acciaio", t_inizio=0.05, t_fine=1.9, margine=0.024, spessore=0.006)
+    V.pantaloni(u, "Gambe", "Acciaio", t_inizio=0.05, t_fine=1.9, margine=0.012, spessore=0.005)
     V.calzature(u, "Scarpe", "Acciaio", "Suola", taglio=0.13, inclinazione=0.2)
     u.nascondi_pelle()
-    V.veste(u, "Corazza", 1.45, 0.97, "Acciaio", margine=0.032, svasatura=0.0, pieghe=0.0, n_pieghe=4,
-            spessore=0.008)
-    V.maniche(u, "Bracciali", "Acciaio", t_inizio=-0.1, t_fine=1.86, margine=0.02, spessore=0.006)
+    V.veste(u, "Corazza", 1.45, 0.97, "Acciaio", margine=0.018, svasatura=0.0, pieghe=0.0, n_pieghe=4,
+            spessore=0.006)
+    V.maniche(u, "Bracciali", "Acciaio", t_inizio=-0.1, t_fine=1.86, margine=0.011, spessore=0.005)
+    manopole(u)
     u.nascondi_pelle()
     # Gonnellino a lame sui fianchi: tre fasce che si allargano verso il basso.
     for i, (alto, basso) in enumerate(((1.0, 0.93), (0.95, 0.88), (0.90, 0.83))):
-        V.veste(u, "Lame_%d" % i, alto, basso, "Acciaio", margine=0.045 + 0.012 * i, svasatura=0.05,
+        V.veste(u, "Lame_%d" % i, alto, basso, "Acciaio", margine=0.03 + 0.009 * i, svasatura=0.04,
                 pieghe=0.0, n_pieghe=4, spessore=0.006)
     # Resta (la costola) al centro del petto e il bordo del collo.
-    punti = [u.sulla_pelle(Vector((0, 0, z)), Vector((0, -1, 0)), 0.042, 0.35) for z in np.linspace(1.40, 1.02, 9)]
+    punti = [u.sulla_pelle(Vector((0, 0, z)), Vector((0, -1, 0)), 0.026, 0.35) for z in np.linspace(1.40, 1.02, 9)]
     u.oggetto("Corazza_Costola", V.tubo_lungo(punti, 0.007, n=6), "Acciaio")
     u.oggetto("Corazza_Collo", V.anello_sul_corpo(u, (0, 0.0, 1.47), (0, 0.15, 1), 0.03, 0.03, n=48, portata=0.25),
               "Acciaio", spessore=0.006)
     # Spallacci: gusci tondi dalla scapola al petto sopra la spalla, in tre lame.
     pezzi = []
     for s in (1, -1):
-        for j, (largo, fuori) in enumerate(((0.15, 0.05), (0.12, 0.062), (0.09, 0.074))):
+        for j, (largo, fuori) in enumerate(((0.14, 0.03), (0.11, 0.04), (0.08, 0.05))):
             punti, normali = [], []
             for i in range(17):
                 t = i / 16
@@ -92,10 +93,23 @@ def armatura(u):
     coppe = []
     for lato in ("d", "s"):
         g = u.P("gomito_" + lato)
-        coppe.append(V.sfera(g + Vector((0, 0.03, 0)), (0.055, 0.055, 0.05), 12, 8))
+        coppe.append(V.sfera(g + Vector((0, 0.03, 0)), (0.05, 0.05, 0.045), 12, 8))
         k = u.P("ginocchio_" + lato)
-        coppe.append(V.sfera(k + Vector((0, -0.045, 0)), (0.06, 0.04, 0.06), 12, 8))
+        coppe.append(V.sfera(k + Vector((0, -0.04, 0)), (0.055, 0.035, 0.06), 12, 8))
+        # L'aletta a ventaglio sul lato esterno della ginocchiera.
+        s = -1 if lato == "d" else 1
+        coppe.append(V.sfera(k + Vector((s * 0.05, -0.012, 0.0)), (0.012, 0.045, 0.05), 10, 8))
     u.oggetto("Coppe", V.unisci(*coppe), "Acciaio")
+    # Bordi delle piastre (i ribattini arrotolati): sulle gambe e sulle braccia, dove una piastra finisce.
+    bordi = []
+    for lato in ("d", "s"):
+        for giunti, ts, distacco in ((("anca", "ginocchio", "caviglia"), (0.12, 0.8, 1.2, 1.86), 0.019),
+                                     (("spalla", "gomito", "polso"), (0.15, 0.82, 1.18, 1.8), 0.017)):
+            g0, g1, g2 = (u.P(g + "_" + lato) for g in giunti)
+            for t in ts:
+                a0, a1, f = (g0, g1, t) if t <= 1 else (g1, g2, t - 1)
+                bordi.append(V.anello_sul_corpo(u, a0.lerp(a1, f), a1 - a0, distacco, 0.012, n=28, portata=0.15))
+    u.oggetto("Bordi", V.unisci(*bordi), "AcciaioScuro", spessore=0.004)
     # Cintura di cuoio con la fibbia, e il fodero vuoto al fianco sinistro.
     u.oggetto("Cintura", V.anello_sul_corpo(u, (0, 0.0, 0.99), (0, 0, 1), 0.06, 0.035, n=64, portata=0.3), "Cuoio",
               spessore=0.004)
@@ -103,11 +117,33 @@ def armatura(u):
     u.oggetto("Fodero", V.trasforma(V.scatola((0, 0, -0.4), (0.025, 0.06, 0.8)), base), "Cuoio")
 
 
+def manopole(u):
+    """Guanti d'arme a muffola: l'involucro della mano vera (dita chiuse sull'elsa e sull'asta) un po' gonfiato,
+    con il polsino svasato."""
+    pezzi = []
+    for lato in ("d", "s"):
+        polso, gomito = u.P("polso_" + lato), u.P("gomito_" + lato)
+        asse = (polso - gomito).normalized()
+        punti = [v.co.copy() for v in u.corpo.data.vertices
+                 if (v.co - polso).length < 0.2 and (v.co - polso).dot(asse) > -0.01]
+        bm = bmesh.new()
+        for p in punti:
+            bm.verts.new(p)
+        bmesh.ops.convex_hull(bm, input=bm.verts)
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+        centro = sum((v.co for v in bm.verts), Vector()) / len(bm.verts)
+        for v in bm.verts:
+            v.co = v.co + (v.co - centro).normalized() * 0.008
+        pezzi.append(bm)
+        pezzi.append(V.cilindro(polso - asse * 0.06, polso + asse * 0.025, 0.042, 0.05, n=16, tappi=False))
+    u.oggetto("Manopole", V.unisci(*pezzi), "Acciaio", spessore=0.003, copre=True)
+
+
 def caschetto(u):
     """Capelli a scodella: frangia sulla fronte, ai lati scendono fino alla mascella, dietro fino alla nuca."""
     n, righe = 48, 12
     centro_y = -0.02
-    apice = Vector((0, -0.01, 1.80))
+    apice = u.sulla_pelle(Vector((0, -0.01, 1.6)), Vector((0, 0.08, 1)).normalized(), 0.014, 0.3)
     bordo = []
     for j in range(n):
         a = 2 * math.pi * j / n
@@ -123,8 +159,7 @@ def caschetto(u):
             radiale = Vector((q.x, q.y - centro_y, 0))
             if radiale.length > 1e-6:
                 q = q + radiale.normalized() * (0.012 * math.sin(math.pi * min(1.0, float(t) * 1.1)))
-            if t < 0.95:
-                q = u.fuori_dalla_pelle(q, 0.012)
+            q = u.fuori_dalla_pelle(q, 0.012)
             anello.append(q)
         anelli.append(anello)
     bm = V.griglia(anelli, chiusa=True)
@@ -206,32 +241,31 @@ def stendardo(u):
     lato = VERSO_ASTA.cross(dietro).normalized()
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
-    vv = []
-    for i in range(ni + 1):
-        fi = i / ni
-        riga = []
-        for k in range(nk + 1):
-            fk = k / nk
-            onda = 0.07 * math.sin(math.pi * 2.2 * fi + 0.6) * fi
-            cade = 0.10 * fi * fi
-            p = cima - VERSO_ASTA * (0.06 + alto * fk + cade) + dietro * lungo * fi + lato * onda
-            riga.append(bm.verts.new(p))
-        vv.append(riga)
-    indice = {}
-    for i in range(ni + 1):
-        for k in range(nk + 1):
-            indice[vv[i][k]] = (i, k)
-    for i in range(ni):
-        for k in range(nk):
-            # Coda di rondine: nell'ultimo quarto si toglie un cuneo in mezzo.
-            fi = (i + 0.5) / ni
-            fk = (k + 0.5) / nk
-            if fi > 0.72 and abs(fk - 0.5) < (fi - 0.72) * 1.4:
-                continue
-            f = bm.faces.new((vv[i][k], vv[i + 1][k], vv[i + 1][k + 1], vv[i][k + 1]))
-            for loop in f.loops:
-                a, b = indice[loop.vert]
-                loop[uv].uv = (a / ni, 1 - b / nk)
+    # Coda di rondine: due metà (sopra e sotto) che nell'ultimo quarto si aprono a V, saldate dove si toccano.
+    for meta in (0, 1):
+        vv, coord = [], {}
+        for i in range(ni + 1):
+            fi = i / ni
+            tacca = max(0.0, fi - 0.7) * 1.3
+            riga = []
+            for k in range(nk // 2 + 1):
+                fk = k / (nk // 2) * (0.5 - tacca)
+                if meta:
+                    fk = 1 - fk
+                onda = 0.07 * math.sin(math.pi * 2.2 * fi + 0.6) * fi
+                cade = 0.10 * fi * fi
+                p = cima - VERSO_ASTA * (0.06 + alto * fk + cade) + dietro * lungo * fi + lato * onda
+                v = bm.verts.new(p)
+                coord[v] = (fi, 1 - fk)
+                riga.append(v)
+            vv.append(riga)
+        for i in range(ni):
+            for k in range(nk // 2):
+                giro = (vv[i][k], vv[i + 1][k], vv[i + 1][k + 1], vv[i][k + 1])
+                f = bm.faces.new(giro if not meta else tuple(reversed(giro)))
+                for loop in f.loops:
+                    loop[uv].uv = coord[loop.vert]
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
     u.oggetto("Stendardo_Drappo", bm, "Stendardo", spessore=0.004)
 
 
@@ -256,7 +290,7 @@ def esporta(triangoli=5600, lato=512):
                           "Fodero*": "bacino"},
                   escludi=["Scarpe", "Scarpe.0*", "Corazza_Costola*", "Capelli_Ciocche*"],
                   quote={"Scarpe*": 220, "Occhio*": 60, "Gambe*": 380, "Corazza.*": 420, "Corazza": 420,
-                         "Bracciali*": 300, "Lame_*": 120, "Corazza_Collo*": 60, "Spallacci*": 180, "Coppe*": 120,
+                         "Bracciali*": 300, "Lame_*": 120, "Corazza_Collo*": 60, "Spallacci*": 180, "Coppe*": 140, "Bordi*": 220, "Manopole*": 180,
                          "Cintura*": 60, "Fodero*": 12, "Capelli*": 320, "Spada_*": 80, "Stendardo_Asta*": 40,
                          "Stendardo_Puntale*": 40, "Stendardo_Drappo*": 200},
                   togli_dal_corpo=[SIGLA + "_Nascosta"], triangoli=triangoli, corpo=U.corpo.name)
