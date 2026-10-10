@@ -29,7 +29,7 @@ CV = None
 def materiali(u):
     u.materiale("Chitone", (0.78, 0.74, 0.64), ruvidita=0.9)
     u.materiale("Lino", (0.85, 0.82, 0.72), ruvidita=0.85)
-    u.materiale("Porpora", (0.20, 0.02, 0.09), ruvidita=0.9)
+    u.materiale("Porpora", (0.11, 0.012, 0.05), ruvidita=0.9)
     u.materiale("Rosso", (0.45, 0.04, 0.03), ruvidita=0.85)
     u.materiale("Cuoio", (0.24, 0.12, 0.05), ruvidita=0.65)
     u.materiale("Stivali", (0.20, 0.10, 0.045), ruvidita=0.7)
@@ -124,7 +124,7 @@ def bardatura(cv):
         borchie.append(V.sfera(q, (0.022, 0.022, 0.022), 10, 6))
     if borchie:
         cv.u.oggetto("CV_Borchie", V.unisci(*borchie), "Oro")
-    cv.gualdrappa("CV_Gualdrappa", "Rosso", davanti=-0.04, dietro=0.40, angolo=75, cade=0.26)
+    cv.gualdrappa("CV_Gualdrappa", "Rosso", davanti=-0.02, dietro=0.36, angolo=70, cade=0.20)
 
 
 def costruisci():
@@ -134,7 +134,7 @@ def costruisci():
     Co.U = u
     materiali(u)
     u.costruisci_corpo(Co.posa, barba=1.0)
-    cv = C.Cavallo(u, scala=0.24, snello=0.82, sella=(0.0, 0.02, 0.86), manto=(0.16, 0.13, 0.12))
+    cv = C.Cavallo(u, scala=0.23, snello=0.78, sella=(0.0, 0.02, 0.86), manto=(0.10, 0.08, 0.075))
     CV = cv
     vestiti(u)
     Co.mantello(u, cv)
