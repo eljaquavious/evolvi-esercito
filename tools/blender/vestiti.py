@@ -426,7 +426,7 @@ def tubo_arto(u, nome, mat, giunti, t_inizio, t_fine, margine, spessore, n, port
                 hit = u.albero.ray_cast(p, d, portata)
                 raggi.append((hit[0] - p).length if hit[0] is not None else None)
             m = max([r for r in raggi if r is not None] or [0.05])
-            raggi = liscio_cerchio([m if r is None else r for r in raggi], 3)
+            raggi = liscia_cerchio([m if r is None else r for r in raggi], 3)
             pieghe = 0.001 + 0.003 * max(0.0, t) / max(t_fine, 0.1)
             anelli.append([p + (Matrix.Rotation(2 * math.pi * j / n, 3, asse) @ base) *
                            (raggi[j] + margine + pieghe * math.sin(j * 5 * 2 * math.pi / n + t * 4)) for j in range(n)])
