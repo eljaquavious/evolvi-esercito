@@ -225,7 +225,16 @@ local function tiro(attaccante, bersaglio, evento)
 		elseif stile == "arco" then
 			Effetti.freccia(da, a, volo)
 		elseif stile == "fortezza" then
-			local cima = attaccante.posizione + Vector3.new(math.random() * 8 - 4, attaccante.altezza * 0.8, math.random() * 8 - 4)
+			-- Le fortezze Blender hanno i punti di tiro (torri, feritoie) come ossa "tiro1", "tiro2"...
+			local tiri = {}
+			for i = 1, 8 do
+				local osso = attaccante.animatore.giunti["tiro" .. i]
+				if osso then
+					table.insert(tiri, osso)
+				end
+			end
+			local cima = #tiri > 0 and tiri[math.random(#tiri)].WorldPosition
+				or attaccante.posizione + Vector3.new(math.random() * 8 - 4, attaccante.altezza * 0.8, math.random() * 8 - 4)
 			if attaccante.tipo == "FortezzaNovecento" then
 				Effetti.sparo(cima, a, volo)
 			else
