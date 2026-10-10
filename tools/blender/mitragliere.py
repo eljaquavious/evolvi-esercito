@@ -71,9 +71,14 @@ def posa(sch):
 
 def abbassa(u, dz):
     """Porta giù tutto il soldato (pezzi e articolazioni)."""
+    giu = Matrix.Translation((0, 0, -dz))
     for o in u.col.objects:
         if o.type == "MESH":
-            o.data.transform(Matrix.Translation((0, 0, -dz)))
+            # Nei dati della mesh (il corpo resta con la matrice identità: le misure sulla pelle la usano).
+            mw = o.matrix_world.copy()
+            o.data.transform(mw.inverted() @ giu @ mw)
+        elif o.parent == u.radice:
+            o.matrix_world = giu @ o.matrix_world
     u.giunti = {k: (Vector(a) - Vector((0, 0, dz)), Vector(b) - Vector((0, 0, dz))) for k, (a, b) in u.giunti.items()}
     u.albero = umano.albero(u.corpo.data)
 
@@ -82,7 +87,8 @@ def abbassa(u, dz):
 
 def mitragliatrice(u):
     lato = AVANTI.cross(Vector((0, 0, 1))).normalized()
-    m = Matrix((-lato, AVANTI, Vector((0, 0, 1)))).transposed().to_4x4()
+    # Assi locali: x a sinistra del tiratore, -y in avanti lungo la canna, z in su.
+    m = Matrix((-lato, -AVANTI, Vector((0, 0, 1)))).transposed().to_4x4()
     m.translation = CULATTA
 
     def P(x, y, z):
