@@ -291,6 +291,14 @@ def cuoci(lato=512, margine=0.03):
     cottura.use_pass_indirect = False
     cottura.use_pass_color = True
     sorgenti = [bpy.data.objects[n] for n in STATO["sorgenti"] if n in bpy.data.objects]
+    # Il colore "diffuso" dei metalli è nero: per la cottura i metalli diventano opachi del loro colore.
+    metalli = {}
+    for o in sorgenti:
+        for m in o.data.materials:
+            bsdf = m and m.use_nodes and m.node_tree.nodes.get("Principled BSDF")
+            if bsdf and m.name not in metalli:
+                metalli[m.name] = (bsdf, bsdf.inputs["Metallic"].default_value)
+                bsdf.inputs["Metallic"].default_value = 0.0
     for o in sorgenti:
         o.hide_render = False
         o.select_set(True)
@@ -301,6 +309,8 @@ def cuoci(lato=512, margine=0.03):
         bpy.ops.object.bake(type="DIFFUSE", pass_filter={"COLOR"}, use_selected_to_active=True, cage_extrusion=margine,
                             max_ray_distance=margine * 3, margin=6)
     gioco.hide_render = True
+    for bsdf, valore in metalli.values():
+        bsdf.inputs["Metallic"].default_value = valore
     return {"lato": lato}
 
 
