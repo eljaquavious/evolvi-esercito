@@ -58,6 +58,7 @@ def materiali():
         "scudo": materiale("Scudo", (0.62, 0.10, 0.08), ruvidita=0.6, immagine=immagine),
         "scudo_retro": materiale("ScudoRetro", (0.30, 0.18, 0.09), ruvidita=0.8),
         "osso": materiale("Osso", (0.74, 0.64, 0.46), ruvidita=0.5),
+        "suola": materiale("Suola", (0.07, 0.04, 0.02), ruvidita=0.8),
     }
 
 
@@ -359,11 +360,11 @@ def tunica(c):
         a = math.atan2(v.co.y, v.co.x)
         d = Vector((v.co.x, v.co.y, 0)).normalized()
         v.co += d * 0.006 * math.sin(a * 7 + v.co.z * 90)
-    nodo = sfera((0, -0.093, 1.44), (0.026, 0.02, 0.022), 12, 8)
+    nodo = sfera((0, -0.092, 1.442), (0.019, 0.013, 0.015), 12, 8)
     capi = []
     for s in (-1, 1):
-        rot = Matrix.Rotation(math.radians(s * 12), 4, "Y")
-        capi.append(sfera((s * 0.014, -0.118, 1.405), (0.016, 0.007, 0.034), 10, 6, rot))
+        rot = Matrix.Rotation(math.radians(s * 16), 4, "Y") @ Matrix.Rotation(math.radians(-14), 4, "X")
+        capi.append(sfera((s * 0.012, -0.112, 1.408), (0.013, 0.0035, 0.032), 10, 6, rot))
     c.oggetto("Focale", sciarpa, "tunica", spessore=0.01)
     c.oggetto("Focale_Nodo", unisci(nodo, *capi), "tunica")
 
@@ -516,12 +517,20 @@ def balteo(c):
 
 # Gambe e piedi ---------------------------------------------------------------------------------------
 
-def sulla_pelle(centro, direzione, distacco, portata=0.11):
-    """Punto sulla pelle guardando da fuori verso 'centro' lungo -direzione, sollevato di 'distacco'."""
-    hit = ALBERO.ray_cast(centro + direzione * portata, -direzione, portata)
+def sulla_pelle(centro, direzione, distacco, portata=0.15):
+    """Punto sulla pelle partendo da 'centro' (dentro l'arto) verso 'direzione', sollevato di 'distacco'."""
+    hit = ALBERO.ray_cast(centro, direzione, portata)
     if hit[0] is None:
-        return centro + direzione * (portata * 0.6)
+        return centro + direzione * 0.06
     return hit[0] + direzione * distacco
+
+
+def fuori_dalla_pelle(v, distacco):
+    """Se il punto v è dentro la pelle o troppo vicino, lo spinge fuori a 'distacco'."""
+    loc, normale, _, _ = ALBERO.find_nearest(v)
+    if loc is not None and (v - loc).dot(normale) < distacco:
+        return loc + normale * distacco
+    return v
 
 
 def griglia(righe, chiusa=False):
@@ -577,15 +586,23 @@ def calzari(c, corpo):
                            plane_no=Vector((0, -0.25, 1)).normalized(), clear_outer=True)
     bm.normal_update()
     for v in bm.verts:
-        v.co += v.normal * 0.0035
+        v.co += v.normal * 0.004
+    # Lisciato: una scarpa non mostra le dita; poi di nuovo fuori dalla pelle dove si è ritirato.
+    bordo = {v for v in bm.verts if v.is_boundary}
+    interni = [v for v in bm.verts if not v.is_boundary]
+    for _ in range(14):
+        bmesh.ops.smooth_vert(bm, verts=interni, factor=0.6, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+    for v in bm.verts:
+        v.co = fuori_dalla_pelle(v.co, 0.004 if v in bordo else 0.005)
+    bm.normal_update()
     for f in bm.faces:
         f.material_index = 1 if f.normal.z < -0.55 else 0
     me = bpy.data.meshes.new("Calzari")
     bm.to_mesh(me)
     bm.free()
     o = bpy.data.objects.new("Calzari", me)
-    me.materials.append(c.mat["cuoio_chiaro"])
     me.materials.append(c.mat["cuoio"])
+    me.materials.append(c.mat["suola"])
     c.col.objects.link(o)
     o.parent = c.radice
     mod = o.modifiers.new("Spessore", "SOLIDIFY")
