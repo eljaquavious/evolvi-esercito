@@ -197,7 +197,8 @@ def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli
             bm.free()
         copie.append((o, me))
     quote = quote or {}
-    fissi = [next((q for schema, q in quote.items() if fnmatch.fnmatch(o.name, schema)), None) for o, _ in copie]
+    fissi = [next((min(q, sum(len(p.vertices) - 2 for p in me.polygons)) for schema, q in quote.items()
+                   if fnmatch.fnmatch(o.name, schema)), None) for o, me in copie]
     liberi = [sum(len(p.vertices) - 2 for p in me.polygons) for (_, me), f in zip(copie, fissi) if f is None]
     resto = iter(_budget(liberi, triangoli - sum(f for f in fissi if f)))
     budget = [f if f is not None else next(resto) for f in fissi]
