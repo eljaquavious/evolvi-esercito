@@ -406,7 +406,9 @@ def tubo_arto(u, nome, mat, giunti, t_inizio, t_fine, margine, spessore, n, port
     for lato in ("d", "s"):
         g0, g1, g2 = (u.P(g + "_" + lato) for g in giunti)
         anelli = []
-        for t in np.linspace(t_inizio, t_fine, righe):
+        for riga, t in enumerate(np.linspace(t_inizio, t_fine, righe)):
+            # Il polsino in fondo stringe sulla pelle: dentro non si vede la pelle nascosta.
+            stretto = margine * (0.25 if riga == righe - 1 else 0.6 if riga == righe - 2 else 1.0)
             if t <= 1:
                 a0, a1, f = g0, g1, t
             else:
@@ -423,7 +425,7 @@ def tubo_arto(u, nome, mat, giunti, t_inizio, t_fine, margine, spessore, n, port
             raggi = liscia_cerchio([m if r is None else r for r in raggi], 3)
             pieghe = 0.001 + 0.003 * max(0.0, t) / max(t_fine, 0.1)
             anelli.append([p + (Matrix.Rotation(2 * math.pi * j / n, 3, asse) @ base) *
-                           (raggi[j] + margine + pieghe * math.sin(j * 5 * 2 * math.pi / n + t * 4)) for j in range(n)])
+                           (raggi[j] + stretto + pieghe * math.sin(j * 5 * 2 * math.pi / n + t * 4)) for j in range(n)])
         bm = griglia(anelli, chiusa=True)
         _verso_fuori_locale(bm, g0, g1)
         tubi.append(bm)
