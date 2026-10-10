@@ -467,7 +467,7 @@ def pelle_dentro_maniche(corpo):
                 continue
             p = Vector(co[v.index])
             t = (p - spalla).dot(asse) / lunghezza
-            if not -0.05 <= t <= FINE_MANICA - 0.005:
+            if not -0.11 <= t <= FINE_MANICA - 0.005:
                 continue
             i = min(int(np.searchsorted(ts, t, side="right")) - 1, len(ts) - 2)
             f = (t - ts[i]) / (ts[i + 1] - ts[i])
@@ -480,7 +480,7 @@ def pelle_dentro_maniche(corpo):
             j0 = int(jf) % n
             r = raggi[j0] + (raggi[(j0 + 1) % n] - raggi[j0]) * (jf - int(jf))
             eccesso = q.length - (r - 0.005)   # le pieghe rientrano al massimo di 3,5 mm
-            if 0 < eccesso < 0.03:
+            if 0 < eccesso < 0.04:
                 co[v.index] = p - q.normalized() * eccesso
     umano.imposta_coordinate(me, co)
     ALBERO = umano.albero(me)
