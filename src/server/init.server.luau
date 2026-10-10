@@ -7,8 +7,10 @@ local Campagna = require(Shared.Config.Campagna)
 local versione = require(Shared.Versione)
 
 local Dati = require(script.Dati)
+local Ambiente = require(script.Ambiente)
 local Lobby = require(script.Lobby)
 local GestoreCampagna = require(script.GestoreCampagna)
+local Collezione = require(script.Collezione)
 local Shop = require(script.Shop)
 
 -- Crea gli eventi tra server e client.
@@ -29,15 +31,18 @@ for _, nome in ipairs(NomiRemoti.Funzioni) do
 end
 cartellaRemoti.Parent = ReplicatedStorage
 
+-- Quello che il client deve sapere del giocatore.
 local function stato(dati)
 	local livello = Campagna.livello(dati.livello)
 	return {
 		monete = dati.monete,
 		livello = dati.livello,
 		totale = Campagna.TOTALE,
-		locale = livello.locale,
 		epoca = livello.epoca.nome,
 		completata = dati.campagnaCompletata,
+		collezione = dati.collezione,
+		mazzo = dati.mazzo,
+		statistiche = dati.statistiche,
 	}
 end
 
@@ -51,14 +56,16 @@ remoti.ChiediStato.OnServerInvoke = function(player)
 end
 
 local function ranked(player)
-	remoti.Notifica:FireClient(player, "Le ranked non sono ancora disponibili: arriveranno presto!")
+	remoti.Notifica:FireClient(player, "Ranked is not available yet: coming soon!")
 end
 remoti.Ranked.OnServerInvoke = function(player)
 	ranked(player)
 	return false
 end
 
+Ambiente.imposta()
 GestoreCampagna.inizializza(remoti)
+Collezione.inizializza(remoti)
 Shop.inizializza(remoti)
 
 Lobby.costruisci({

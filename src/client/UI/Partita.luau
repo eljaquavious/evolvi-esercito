@@ -1,10 +1,12 @@
--- Interfaccia della campagna: piazzamento delle truppe, battaglia e risultato.
+-- Interfaccia della campagna: piazzamento dei reggimenti, conto alla rovescia, battaglia e risultato.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
 
 local Stile = require(script.Parent.Stile)
+local Carta = require(script.Parent.Carta)
 local Notifiche = require(script.Parent.Notifiche)
 
 local Partita = {}
@@ -15,20 +17,22 @@ local suFineLobby -- callback per tornare all'interfaccia della lobby
 
 local info -- dati del livello in corso
 local fase = "lobby"
-local selezionata
+local selezionata -- indice nel mazzo
+local usate = {} -- [indice] = true
+local carte = {} -- [indice] = carta nella barra
 local arena
 local evidenzia
 
-local barraTruppe, schedeTruppe = nil, {}
-local intestazione, titoloLivello, contatore, bottoneCombatti, avviso
-local risultato, titoloRisultato, dettaglioRisultato, bottoneContinua
+local intestazione, titoloLivello, contatore, avviso, bottoneLobby
+local barraMazzo, bottoneCombatti, scrittaConto
+local risultato, titoloRisultato, dettaglioRisultato, spazioPremio, bottoneContinua
 
-local nebbiaOriginale
+local atmosferaOriginale
 
 local function impostaCamera()
 	local camera = workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Scriptable
-	camera.CFrame = CFrame.lookAt(info.centro + Vector3.new(0, 42, -40), info.centro + Vector3.new(0, 0, 2))
+	camera.CFrame = CFrame.lookAt(info.centro + Vector3.new(0, 55, -58), info.centro)
 end
 
 local function ripristinaCamera()
@@ -41,99 +45,101 @@ local function ripristinaCamera()
 	end
 end
 
-local function impostaNebbia(colore)
-	if not nebbiaOriginale then
-		nebbiaOriginale = { Lighting.FogColor, Lighting.FogStart, Lighting.FogEnd }
+local function impostaAtmosfera(colore)
+	local atmosfera = Lighting:FindFirstChildOfClass("Atmosphere")
+	if not atmosfera or not colore then
+		return
 	end
-	Lighting.FogColor = colore
-	Lighting.FogStart = 150
-	Lighting.FogEnd = 420
+	if not atmosferaOriginale then
+		atmosferaOriginale = { atmosfera.Color, atmosfera.Decay }
+	end
+	atmosfera.Color = colore
+	atmosfera.Decay = colore:Lerp(Color3.new(0, 0, 0), 0.3)
 end
 
-local function ripristinaNebbia()
-	if nebbiaOriginale then
-		Lighting.FogColor, Lighting.FogStart, Lighting.FogEnd = table.unpack(nebbiaOriginale)
-		nebbiaOriginale = nil
+local function ripristinaAtmosfera()
+	local atmosfera = Lighting:FindFirstChildOfClass("Atmosphere")
+	if atmosfera and atmosferaOriginale then
+		atmosfera.Color, atmosfera.Decay = atmosferaOriginale[1], atmosferaOriginale[2]
+	end
+	atmosferaOriginale = nil
+end
+
+local function numeroUsate()
+	local n = 0
+	for _ in pairs(usate) do
+		n += 1
+	end
+	return n
+end
+
+local function aggiornaCarte()
+	for indice, carta in pairs(carte) do
+		Carta.spegni(carta, usate[indice] == true)
+		Carta.seleziona(carta, indice == selezionata)
+	end
+	contatore.Text = ("REGIMENTS %d/%d"):format(numeroUsate(), info.maxReggimenti)
+end
+
+local function seleziona(indice)
+	selezionata = indice
+	aggiornaCarte()
+end
+
+-- Dopo un piazzamento passa alla prima carta ancora libera.
+local function selezionaLibera()
+	if selezionata and not usate[selezionata] then
+		return
+	end
+	selezionata = nil
+	for indice = 1, #info.mazzo do
+		if not usate[indice] then
+			selezionata = indice
+			break
+		end
 	end
 end
 
-local function aggiornaContatore(numero)
-	contatore.Text = ("Truppe %d/%d"):format(numero, info.maxTruppe)
-end
-
-local function seleziona(id)
-	selezionata = id
-	for idScheda, scheda in pairs(schedeTruppe) do
-		scheda:FindFirstChildWhichIsA("UIStroke").Color = idScheda == id and Stile.Colori.Oro or Stile.Colori.Bordo
-		scheda:FindFirstChildWhichIsA("UIStroke").Thickness = idScheda == id and 3 or 1.5
+local function costruisciMazzo()
+	for _, carta in pairs(carte) do
+		carta:Destroy()
 	end
-end
-
-local function costruisciSchede()
-	for _, scheda in pairs(schedeTruppe) do
-		scheda:Destroy()
-	end
-	schedeTruppe = {}
-	for i, truppa in ipairs(info.truppe) do
-		local scheda = Stile.crea("TextButton", {
-			Size = UDim2.new(1 / #info.truppe, -10, 1, 0),
-			LayoutOrder = i,
-			BackgroundColor3 = Stile.Colori.PannelloChiaro,
-			AutoButtonColor = true,
-			Text = "",
-			Parent = barraTruppe,
-		}, { Stile.angoli(10), Stile.bordo() })
-		Stile.testo({
-			Position = UDim2.new(0, 10, 0, 6),
-			Size = UDim2.new(1, -20, 0.3, 0),
-			Text = truppa.nome,
-			Font = Stile.FontTitolo,
-			Parent = scheda,
-		})
-		Stile.testo({
-			Position = UDim2.new(0, 10, 0.34, 0),
-			Size = UDim2.new(1, -20, 0.2, 0),
-			Text = truppa.classe,
-			TextColor3 = Stile.Colori.Oro,
-			Parent = scheda,
-		})
-		Stile.testo({
-			Position = UDim2.new(0, 10, 0.56, 0),
-			Size = UDim2.new(1, -20, 0.18, 0),
-			Text = ("Vita %d · Danno %d · %s"):format(truppa.hp, truppa.danno, truppa.gittata > 2 and "a distanza" or "corpo a corpo"),
-			TextColor3 = Stile.Colori.TestoSecondario,
-			Parent = scheda,
-		})
-		Stile.testo({
-			Position = UDim2.new(0, 10, 0.77, 0),
-			Size = UDim2.new(1, -20, 0.17, 0),
-			Text = truppa.descrizione,
-			TextColor3 = Stile.Colori.TestoSecondario,
-			Parent = scheda,
-		})
-		scheda.Activated:Connect(function()
-			seleziona(truppa.id)
+	carte = {}
+	for indice, tipo in ipairs(info.mazzo) do
+		local carta = Carta.crea(tipo)
+		carta.Size = UDim2.new(1 / 6, -10, 1, 0)
+		carta.LayoutOrder = indice
+		carta.Parent = barraMazzo
+		carta.Activated:Connect(function()
+			if usate[indice] then
+				Notifiche.mostra("Already on the field: click its tile to take it back.")
+				return
+			end
+			seleziona(indice)
 		end)
-		schedeTruppe[truppa.id] = scheda
+		carte[indice] = carta
 	end
-	seleziona(info.truppe[1].id)
 end
 
 local function casellaSotto(posizioneSchermo)
-	if not arena then
-		return nil
-	end
-	local tabellone = arena:FindFirstChild("Tabellone")
+	local tabellone = arena and arena:FindFirstChild("Tabellone")
 	if not tabellone then
 		return nil
 	end
-	local camera = workspace.CurrentCamera
-	local raggio = camera:ViewportPointToRay(posizioneSchermo.X, posizioneSchermo.Y)
+	local raggio = workspace.CurrentCamera:ViewportPointToRay(posizioneSchermo.X, posizioneSchermo.Y)
 	local parametri = RaycastParams.new()
 	parametri.FilterType = Enum.RaycastFilterType.Include
 	parametri.FilterDescendantsInstances = { tabellone }
 	local colpo = workspace:Raycast(raggio.Origin, raggio.Direction * 500, parametri)
-	return colpo and colpo.Instance
+	local casella = colpo and colpo.Instance
+	if casella and casella:GetAttribute("Col") then
+		return casella
+	end
+	return nil
+end
+
+local function casellaValida(casella)
+	return casella and casella:GetAttribute("Riga") <= info.righeGiocatore and not casella:GetAttribute("Ostacolo")
 end
 
 local function clic(posizioneSchermo)
@@ -141,14 +147,22 @@ local function clic(posizioneSchermo)
 	if not casella then
 		return
 	end
-	local col, riga = casella:GetAttribute("Col"), casella:GetAttribute("Riga")
-	if riga > 4 then
-		Notifiche.mostra("Puoi piazzare le truppe solo nella tua metà del campo.")
+	if casella:GetAttribute("Riga") > info.righeGiocatore then
+		Notifiche.mostra("You can only deploy on the blue tiles.")
 		return
 	end
-	local ok, messaggio, numero = remoti.Casella:InvokeServer(selezionata, col, riga)
+	if casella:GetAttribute("Ostacolo") then
+		Notifiche.mostra("That tile is blocked.")
+		return
+	end
+	local ok, messaggio, lista = remoti.Casella:InvokeServer(selezionata, casella:GetAttribute("Col"), casella:GetAttribute("Riga"))
 	if ok then
-		aggiornaContatore(numero)
+		usate = {}
+		for _, indice in ipairs(lista or {}) do
+			usate[indice] = true
+		end
+		selezionaLibera()
+		aggiornaCarte()
 	elseif messaggio then
 		Notifiche.mostra(messaggio, Stile.Colori.Rosso)
 	end
@@ -156,8 +170,9 @@ end
 
 local function mostraPiazzamento(visibile)
 	intestazione.Visible = visibile
-	barraTruppe.Visible = visibile
+	barraMazzo.Visible = visibile
 	bottoneCombatti.Visible = visibile
+	bottoneLobby.Visible = visibile
 	avviso.Visible = visibile
 end
 
@@ -165,40 +180,103 @@ local function entraPiazzamento(dati)
 	info = dati
 	fase = "piazzamento"
 	risultato.Visible = false
+	scrittaConto.Visible = false
 	arena = workspace:WaitForChild("Arene"):WaitForChild(dati.arena, 10)
 	impostaCamera()
-	impostaNebbia(dati.nebbia)
-	titoloLivello.Text = ("Livello %d/%d · Epoca %s · %s"):format(dati.livello, dati.totale, dati.epoca, dati.bioma)
-	aggiornaContatore(0)
-	costruisciSchede()
-	avviso.Text = "Scegli una truppa e clicca una casella della tua metà. Clicca una truppa piazzata per toglierla. Il nemico si vedrà all'inizio della battaglia."
+	impostaAtmosfera(dati.atmosfera)
+	titoloLivello.Text = ("LEVEL %d/%d  ·  %s  ·  %s"):format(dati.livello, dati.totale, string.upper(dati.epoca), string.upper(dati.bioma))
+	usate = {}
+	costruisciMazzo()
+	selezionata = nil
+	selezionaLibera()
+	aggiornaCarte()
+	avviso.Text = "Pick a card, then click a blue tile. Click a placed regiment to take it back. The enemy is revealed when the battle starts."
 	mostraPiazzamento(true)
 end
 
-local function entraBattaglia()
-	fase = "battaglia"
-	barraTruppe.Visible = false
-	bottoneCombatti.Visible = false
-	avviso.Text = "Battaglia in corso…"
-	if evidenzia then
-		evidenzia.Adornee = nil
+local function contoAllaRovescia(conto)
+	scrittaConto.Visible = true
+	local scala = scrittaConto:FindFirstChildOfClass("UIScale")
+	for numero = conto, 0, -1 do
+		if fase ~= "battaglia" then
+			break
+		end
+		scrittaConto.Text = numero > 0 and tostring(numero) or "FIGHT!"
+		scrittaConto.TextColor3 = numero > 0 and Stile.Colori.Testo or Stile.Colori.Oro
+		scala.Scale = 1.8
+		TweenService:Create(scala, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+		task.wait(numero > 0 and 1 or 0.8)
 	end
+	scrittaConto.Visible = false
+end
+
+local function entraBattaglia(dati)
+	fase = "battaglia"
+	barraMazzo.Visible = false
+	bottoneCombatti.Visible = false
+	bottoneLobby.Visible = false
+	avviso.Text = "The enemy army is revealed!"
+	evidenzia.Adornee = nil
+	task.spawn(contoAllaRovescia, dati.conto or 3)
+	task.delay((dati.conto or 3) + 0.2, function()
+		if fase == "battaglia" then
+			avviso.Text = "Battle in progress..."
+		end
+	end)
 end
 
 local function mostraRisultato(dati)
 	fase = "risultato"
 	mostraPiazzamento(false)
+	scrittaConto.Visible = false
 	risultato.Visible = true
-	titoloRisultato.Text = dati.vittoria and "VITTORIA!" or "SCONFITTA"
+	titoloRisultato.Text = dati.vittoria and "VICTORY!" or "DEFEAT"
 	titoloRisultato.TextColor3 = dati.vittoria and Stile.Colori.Oro or Stile.Colori.Rosso
-	local righe = { "+" .. dati.monete .. " monete" }
+	local righe = {
+		("+%d coins"):format(dati.monete),
+		("Enemy regiments defeated: %d"):format(dati.sconfitti or 0),
+		("Regiments lost: %d"):format(dati.persi or 0),
+	}
 	if dati.nuovaEpoca then
-		table.insert(righe, "Il tuo esercito evolve: epoca " .. dati.nuovaEpoca .. " sbloccata!")
+		table.insert(righe, "")
+		table.insert(righe, "Your army evolves: " .. dati.nuovaEpoca .. " era unlocked! Check your new cards in ARMY.")
 	elseif dati.completata and dati.vittoria then
-		table.insert(righe, "Hai completato la campagna! Nuove epoche in arrivo.")
+		table.insert(righe, "")
+		table.insert(righe, "Campaign complete! New eras are coming soon.")
+	elseif not dati.vittoria then
+		table.insert(righe, "")
+		table.insert(righe, "Tip: Infantry beats Cavalry, Cavalry beats Ranged, Ranged beats Infantry.")
 	end
 	dettaglioRisultato.Text = table.concat(righe, "\n")
-	bottoneContinua.Text = dati.vittoria and "Prossimo livello" or "Riprova"
+
+	for _, figlio in ipairs(spazioPremio:GetChildren()) do
+		if figlio:IsA("GuiObject") then
+			figlio:Destroy()
+		end
+	end
+	spazioPremio.Visible = dati.premio ~= nil
+	if dati.premio then
+		Stile.titolo({
+			Size = UDim2.new(1, 0, 0, 24),
+			Text = "NEW CARD!",
+			TextColor3 = Stile.Colori.Oro,
+			ZIndex = 22,
+			Parent = spazioPremio,
+		})
+		local carta = Carta.crea(dati.premio)
+		carta.AnchorPoint = Vector2.new(0.5, 0)
+		carta.Position = UDim2.new(0.5, 0, 0, 30)
+		carta.Size = UDim2.new(1, 0, 1, -30)
+		carta.ZIndex = 22
+		carta.Parent = spazioPremio
+	end
+	dettaglioRisultato.Size = dati.premio and UDim2.new(0.62, -20, 1, -170) or UDim2.new(1, -40, 1, -170)
+
+	if dati.vittoria then
+		bottoneContinua.Text = dati.completata and "PLAY AGAIN" or "NEXT LEVEL"
+	else
+		bottoneContinua.Text = "RETRY"
+	end
 end
 
 local function tornaLobby()
@@ -207,8 +285,10 @@ local function tornaLobby()
 	arena = nil
 	mostraPiazzamento(false)
 	risultato.Visible = false
+	scrittaConto.Visible = false
+	evidenzia.Adornee = nil
 	ripristinaCamera()
-	ripristinaNebbia()
+	ripristinaAtmosfera()
 	if suFineLobby then
 		suFineLobby()
 	end
@@ -234,23 +314,22 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Name = "Intestazione",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 10),
-		Size = UDim2.new(0, 560, 0, 40),
+		Size = UDim2.fromOffset(640, 46),
 		BackgroundColor3 = Stile.Colori.Sfondo,
-		BackgroundTransparency = 0.15,
+		BackgroundTransparency = 0.1,
 		Visible = false,
 		Parent = gui,
 	})
-	titoloLivello = Stile.testo({
-		Position = UDim2.fromOffset(14, 8),
-		Size = UDim2.new(0.72, -14, 1, -16),
+	titoloLivello = Stile.titolo({
+		Position = UDim2.fromOffset(16, 9),
+		Size = UDim2.new(0.7, -16, 1, -18),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		Font = Stile.FontTitolo,
 		Parent = intestazione,
 	})
-	contatore = Stile.testo({
+	contatore = Stile.titolo({
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -14, 0, 8),
-		Size = UDim2.new(0.28, -14, 1, -16),
+		Position = UDim2.new(1, -16, 0, 11),
+		Size = UDim2.new(0.3, -16, 1, -22),
 		TextXAlignment = Enum.TextXAlignment.Right,
 		TextColor3 = Stile.Colori.Oro,
 		Parent = intestazione,
@@ -258,20 +337,30 @@ function Partita.inizializza(gui, r, callbackLobby)
 
 	avviso = Stile.testo({
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 58),
-		Size = UDim2.new(0, 560, 0, 34),
-		TextColor3 = Stile.Colori.Testo,
-		TextStrokeTransparency = 0.4,
-		TextWrapped = true,
+		Position = UDim2.new(0.5, 0, 0, 62),
+		Size = UDim2.fromOffset(640, 22),
+		Font = Stile.FontTesto,
+		TextStrokeTransparency = 0.3,
 		Visible = false,
 		Parent = gui,
 	})
 
-	barraTruppe = Stile.crea("Frame", {
-		Name = "Truppe",
+	bottoneLobby = Stile.bottone({
+		Position = UDim2.fromOffset(16, 10),
+		Size = UDim2.fromOffset(110, 46),
+		Text = "LOBBY",
+		Visible = false,
+		Parent = gui,
+	}, Stile.Colori.PannelloChiaro)
+	bottoneLobby.Activated:Connect(function()
+		remoti.TornaLobby:InvokeServer()
+	end)
+
+	barraMazzo = Stile.crea("Frame", {
+		Name = "Mazzo",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, -90, 1, -16),
-		Size = UDim2.new(0.6, 0, 0, 120),
+		Position = UDim2.new(0.5, -100, 1, -14),
+		Size = UDim2.fromScale(0.62, 0.27),
 		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = gui,
@@ -279,17 +368,18 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Stile.crea("UIListLayout", {
 			FillDirection = Enum.FillDirection.Horizontal,
 			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			VerticalAlignment = Enum.VerticalAlignment.Bottom,
 			Padding = UDim.new(0, 10),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
-		Stile.crea("UISizeConstraint", { MaxSize = Vector2.new(640, 120) }),
+		Stile.crea("UISizeConstraint", { MaxSize = Vector2.new(860, 210) }),
 	})
 
 	bottoneCombatti = Stile.bottone({
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -16, 1, -16),
-		Size = UDim2.fromOffset(170, 60),
-		Text = "COMBATTI!",
+		Position = UDim2.new(1, -18, 1, -18),
+		Size = UDim2.fromOffset(190, 70),
+		Text = "FIGHT!",
 		Visible = false,
 		Parent = gui,
 	}, Stile.Colori.Rosso)
@@ -300,68 +390,78 @@ function Partita.inizializza(gui, r, callbackLobby)
 		end
 	end)
 
-	local esci = Stile.bottone({
-		AnchorPoint = Vector2.new(0, 0),
-		Position = UDim2.new(0, 16, 0, 10),
-		Size = UDim2.fromOffset(110, 40),
-		Text = "Lobby",
-		Parent = intestazione.Parent,
-	}, Stile.Colori.PannelloChiaro)
-	esci.Visible = false
-	intestazione:GetPropertyChangedSignal("Visible"):Connect(function()
-		esci.Visible = intestazione.Visible and fase == "piazzamento"
-	end)
-	esci.Activated:Connect(function()
-		remoti.TornaLobby:InvokeServer()
-	end)
+	scrittaConto = Stile.titolo({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.42),
+		Size = UDim2.fromOffset(500, 140),
+		Text = "",
+		Visible = false,
+		ZIndex = 30,
+		Parent = gui,
+	})
+	Stile.crea("UIScale", { Parent = scrittaConto })
+	scrittaConto:FindFirstChildOfClass("UIStroke").Thickness = 4
 
 	risultato = Stile.pannello({
 		Name = "Risultato",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(380, 240),
+		Size = UDim2.fromOffset(540, 400),
 		BackgroundColor3 = Stile.Colori.Sfondo,
 		Visible = false,
 		ZIndex = 20,
 		Parent = gui,
 	})
-	titoloRisultato = Stile.testo({
+	titoloRisultato = Stile.titolo({
 		Position = UDim2.fromOffset(20, 16),
-		Size = UDim2.new(1, -40, 0, 54),
-		Font = Stile.FontTitolo,
+		Size = UDim2.new(1, -40, 0, 64),
 		ZIndex = 21,
 		Parent = risultato,
 	})
 	dettaglioRisultato = Stile.testo({
-		Position = UDim2.fromOffset(20, 78),
-		Size = UDim2.new(1, -40, 0, 70),
+		Position = UDim2.fromOffset(28, 92),
+		Size = UDim2.new(1, -40, 1, -170),
+		Font = Stile.FontTesto,
+		TextScaled = false,
+		TextSize = 20,
 		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		ZIndex = 21,
+		Parent = risultato,
+	})
+	spazioPremio = Stile.crea("Frame", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -24, 0, 84),
+		Size = UDim2.new(0.34, 0, 1, -160),
+		BackgroundTransparency = 1,
+		Visible = false,
 		ZIndex = 21,
 		Parent = risultato,
 	})
 	bottoneContinua = Stile.bottone({
 		Position = UDim2.new(0, 20, 1, -70),
-		Size = UDim2.new(0.5, -26, 0, 50),
+		Size = UDim2.new(0.5, -26, 0, 52),
 		ZIndex = 21,
 		Parent = risultato,
 	}, Stile.Colori.Blu)
 	bottoneContinua.Activated:Connect(Partita.avvia)
-	local bottoneLobby = Stile.bottone({
+	local esci = Stile.bottone({
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -20, 1, -70),
-		Size = UDim2.new(0.5, -26, 0, 50),
-		Text = "Lobby",
+		Size = UDim2.new(0.5, -26, 0, 52),
+		Text = "LOBBY",
 		ZIndex = 21,
 		Parent = risultato,
 	}, Stile.Colori.PannelloChiaro)
-	bottoneLobby.Activated:Connect(function()
+	esci.Activated:Connect(function()
 		remoti.TornaLobby:InvokeServer()
 	end)
 
 	evidenzia = Stile.crea("SelectionBox", {
 		Color3 = Stile.Colori.Oro,
 		LineThickness = 0.15,
-		SurfaceTransparency = 0.8,
+		SurfaceTransparency = 0.75,
 		SurfaceColor3 = Stile.Colori.Oro,
 		Parent = gui,
 	})
@@ -379,18 +479,14 @@ function Partita.inizializza(gui, r, callbackLobby)
 			return
 		end
 		local casella = casellaSotto(Vector2.new(input.Position.X, input.Position.Y))
-		if casella and casella:GetAttribute("Riga") <= 4 then
-			evidenzia.Adornee = casella
-		else
-			evidenzia.Adornee = nil
-		end
+		evidenzia.Adornee = casellaValida(casella) and casella or nil
 	end)
 
 	remoti.Fase.OnClientEvent:Connect(function(dati)
 		if dati.fase == "piazzamento" then
 			entraPiazzamento(dati)
 		elseif dati.fase == "battaglia" then
-			entraBattaglia()
+			entraBattaglia(dati)
 		elseif dati.fase == "risultato" then
 			mostraRisultato(dati)
 		elseif dati.fase == "lobby" then

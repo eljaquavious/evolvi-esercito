@@ -15,5 +15,6 @@ return {
 		"TornaLobby",
 		"AcquistaCassa",
 		"Ranked",
+		"SalvaMazzo",
 	},
 }

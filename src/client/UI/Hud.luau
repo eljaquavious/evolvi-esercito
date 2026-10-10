@@ -4,50 +4,109 @@ local Stile = require(script.Parent.Stile)
 
 local Hud = {}
 
-local etichettaMonete, etichettaProgresso, menu, barra
+local etichettaMonete, etichettaEpoca, etichettaLivello, riempimento, menu, barra
 
--- azioni: { campagna = fn, ranked = fn, shop = fn }
+local function moneta(genitore)
+	-- Moneta disegnata: niente emoji, che su alcuni dispositivi diventano quadratini.
+	local disco = Stile.crea("Frame", {
+		Position = UDim2.fromOffset(10, 9),
+		Size = UDim2.fromOffset(32, 32),
+		BackgroundColor3 = Stile.Colori.Oro,
+		Parent = genitore,
+	}, {
+		Stile.angoli(16),
+		Stile.bordo(Stile.Colori.OroScuro, 2.5),
+		Stile.sfumatura(Color3.fromRGB(255, 236, 150), Stile.Colori.OroScuro, 120),
+	})
+	Stile.titolo({
+		Size = UDim2.fromScale(1, 1),
+		Text = "C",
+		TextColor3 = Color3.fromRGB(255, 248, 210),
+		Parent = disco,
+	})
+end
+
+-- azioni: { campagna, esercito, shop, profilo, ranked } (funzioni)
 function Hud.inizializza(gui, azioni)
-	barra = Stile.pannello({
+	barra = Stile.crea("Frame", {
 		Name = "Barra",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 10),
-		Size = UDim2.new(0, 460, 0, 46),
-		BackgroundColor3 = Stile.Colori.Sfondo,
-		BackgroundTransparency = 0.15,
+		Size = UDim2.fromOffset(560, 50),
+		BackgroundTransparency = 1,
 		Parent = gui,
 	})
-	etichettaMonete = Stile.testo({
-		Size = UDim2.new(0.34, -10, 1, -14),
-		Position = UDim2.fromOffset(12, 7),
-		Text = "0 monete",
+
+	local monete = Stile.pannello({
+		Size = UDim2.new(0, 180, 1, 0),
+		BackgroundColor3 = Stile.Colori.Sfondo,
+		BackgroundTransparency = 0.1,
+		Parent = barra,
+	})
+	moneta(monete)
+	etichettaMonete = Stile.titolo({
+		Position = UDim2.fromOffset(50, 9),
+		Size = UDim2.new(1, -62, 1, -18),
+		Text = "0",
 		TextColor3 = Stile.Colori.Oro,
-		Font = Stile.FontTitolo,
 		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = monete,
+	})
+
+	local progresso = Stile.pannello({
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(1, 0),
+		Size = UDim2.new(1, -192, 1, 0),
+		BackgroundColor3 = Stile.Colori.Sfondo,
+		BackgroundTransparency = 0.1,
 		Parent = barra,
 	})
-	etichettaProgresso = Stile.testo({
-		Size = UDim2.new(0.66, -14, 1, -16),
-		Position = UDim2.new(0.34, 0, 0, 8),
-		Text = "Caricamento…",
+	etichettaEpoca = Stile.titolo({
+		Position = UDim2.fromOffset(14, 5),
+		Size = UDim2.new(0.55, -14, 0, 22),
+		Text = "Loading...",
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = progresso,
+	})
+	etichettaLivello = Stile.testo({
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -14, 0, 7),
+		Size = UDim2.new(0.45, -14, 0, 18),
+		Text = "",
+		TextColor3 = Stile.Colori.TestoSecondario,
 		TextXAlignment = Enum.TextXAlignment.Right,
-		Parent = barra,
+		Parent = progresso,
 	})
+	local binario = Stile.crea("Frame", {
+		Position = UDim2.new(0, 14, 1, -17),
+		Size = UDim2.new(1, -28, 0, 9),
+		BackgroundColor3 = Stile.Colori.PannelloChiaro,
+		BorderSizePixel = 0,
+		Parent = progresso,
+	}, { Stile.angoli(5) })
+	riempimento = Stile.crea("Frame", {
+		Size = UDim2.fromScale(0, 1),
+		BackgroundColor3 = Stile.Colori.Oro,
+		BorderSizePixel = 0,
+		Parent = binario,
+	}, { Stile.angoli(5), Stile.sfumatura(Stile.Colori.Oro, Stile.Colori.OroScuro, 0) })
 
 	menu = Stile.crea("Frame", {
 		Name = "Menu",
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -16, 0.5, 0),
-		Size = UDim2.new(0, 190, 0, 3 * 58),
+		Size = UDim2.fromOffset(200, 5 * 56),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
-		Stile.crea("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+		Stile.crea("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	local voci = {
-		{ "Campagna", Stile.Colori.Blu, azioni.campagna },
-		{ "Ranked", Stile.Colori.Rosso, azioni.ranked },
-		{ "Shop", Color3.fromRGB(196, 150, 40), azioni.shop },
+		{ "CAMPAIGN", Stile.Colori.Blu, azioni.campagna },
+		{ "ARMY", Stile.Colori.Verde, azioni.esercito },
+		{ "SHOP", Color3.fromRGB(214, 160, 40), azioni.shop },
+		{ "PROFILE", Stile.Colori.Viola, azioni.profilo },
+		{ "RANKED", Stile.Colori.Rosso, azioni.ranked },
 	}
 	for i, voce in ipairs(voci) do
 		local bottone = Stile.bottone({
@@ -64,11 +123,15 @@ function Hud.aggiorna(stato)
 	if not stato then
 		return
 	end
-	etichettaMonete.Text = stato.monete .. " monete"
+	etichettaMonete.Text = tostring(stato.monete)
 	if stato.completata then
-		etichettaProgresso.Text = "Campagna completata!"
+		etichettaEpoca.Text = "Campaign complete!"
+		etichettaLivello.Text = ("Level %d/%d"):format(stato.totale, stato.totale)
+		riempimento.Size = UDim2.fromScale(1, 1)
 	else
-		etichettaProgresso.Text = ("Epoca %s · Livello %d/%d"):format(stato.epoca, stato.livello, stato.totale)
+		etichettaEpoca.Text = string.upper(stato.epoca) .. " ERA"
+		etichettaLivello.Text = ("Level %d/%d"):format(stato.livello, stato.totale)
+		riempimento.Size = UDim2.fromScale((stato.livello - 1) / stato.totale, 1)
 	end
 end
 

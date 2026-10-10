@@ -6,6 +6,8 @@ local Stile = require(script.UI.Stile)
 local Notifiche = require(script.UI.Notifiche)
 local Hud = require(script.UI.Hud)
 local Shop = require(script.UI.Shop)
+local Inventario = require(script.UI.Inventario)
+local Profilo = require(script.UI.Profilo)
 local Partita = require(script.UI.Partita)
 
 local player = Players.LocalPlayer
@@ -25,34 +27,60 @@ local gui = Stile.crea("ScreenGui", {
 
 Notifiche.inizializza(gui)
 Shop.inizializza(gui, remoti)
+Inventario.inizializza(gui, remoti)
+Profilo.inizializza(gui)
+
+-- Una sola finestra aperta alla volta.
+local finestre = { Shop, Inventario, Profilo }
+local function chiudiFinestre(tranne)
+	for _, finestra in ipairs(finestre) do
+		if finestra ~= tranne then
+			finestra.chiudi()
+		end
+	end
+end
+local function alterna(finestra)
+	return function()
+		chiudiFinestre(finestra)
+		finestra.alterna()
+	end
+end
+
 Hud.inizializza(gui, {
 	campagna = function()
-		Shop.chiudi()
+		chiudiFinestre()
 		Partita.avvia()
 	end,
+	esercito = alterna(Inventario),
+	shop = alterna(Shop),
+	profilo = alterna(Profilo),
 	ranked = function()
 		remoti.Ranked:InvokeServer()
-	end,
-	shop = function()
-		Shop.alterna()
 	end,
 })
 Partita.inizializza(gui, remoti, function()
 	Hud.mostraLobby(true)
 end)
 
+local function aggiornaStato(stato)
+	Hud.aggiorna(stato)
+	Inventario.aggiorna(stato)
+	Profilo.aggiorna(stato)
+end
+
 remoti.Fase.OnClientEvent:Connect(function(dati)
 	if dati.fase ~= "lobby" then
 		Hud.mostraLobby(false)
-		Shop.chiudi()
+		chiudiFinestre()
 	end
 end)
-remoti.Stato.OnClientEvent:Connect(Hud.aggiorna)
+remoti.Stato.OnClientEvent:Connect(aggiornaStato)
 remoti.Notifica.OnClientEvent:Connect(function(messaggio)
 	Notifiche.mostra(messaggio)
 end)
 remoti.ApriShop.OnClientEvent:Connect(function()
 	if not Partita.inCorso() then
+		chiudiFinestre(Shop)
 		Shop.apri()
 	end
 end)
@@ -62,7 +90,7 @@ task.spawn(function()
 	for _ = 1, 20 do
 		local stato = remoti.ChiediStato:InvokeServer()
 		if stato then
-			Hud.aggiorna(stato)
+			aggiornaStato(stato)
 			return
 		end
 		task.wait(0.5)

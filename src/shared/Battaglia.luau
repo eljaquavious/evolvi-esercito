@@ -1,7 +1,6 @@
--- Simulazione della battaglia automatica, a passi di tempo fissi.
+-- Simulazione della battaglia automatica tra reggimenti, a passi di tempo fissi.
 -- Non usa API di Roblox: gira uguale sul server e nei test.
--- Le posizioni sono in caselle: x = colonna (1-8), y = riga (1-8).
--- Le righe 1-4 sono del giocatore, le righe 5-8 del nemico.
+-- Le posizioni sono in caselle: x = colonna, y = riga. Il giocatore parte dalle righe basse.
 
 local Battaglia = {}
 Battaglia.__index = Battaglia
@@ -15,10 +14,15 @@ Battaglia.BATTE = {
 Battaglia.BONUS = 1.5
 Battaglia.MALUS = 0.75
 Battaglia.DURATA_MASSIMA = 90
+-- I tiratori presi in mischia colpiscono a metà.
+Battaglia.MALUS_TIRATORE_IN_MISCHIA = 0.5
+-- Un reggimento decimato colpisce meno forte: a vita zero farebbe questa quota del danno.
+Battaglia.FORZA_MINIMA = 0.4
 
-local RAGGIO = 0.45
-local MIN_X, MAX_X, MIN_Y, MAX_Y = 1, 8, 1, 8
-local ANGOLI = { 0, 0.6, -0.6, 1.2, -1.2 }
+local RAGGIO = 0.42
+local RAGGIO_OSTACOLO = 0.5
+local RAGGIO_AREA = 1.0
+local ANGOLI = { 0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8 }
 
 function Battaglia.moltiplicatore(classeAttacco, classeDifesa)
 	if Battaglia.BATTE[classeAttacco] == classeDifesa then
@@ -35,9 +39,14 @@ local function distanza(a, b)
 	return math.sqrt(dx * dx + dy * dy)
 end
 
--- unita: lista di { id = numero, squadra = "giocatore" | "nemico", def = truppa, x, y, forza = moltiplicatore opzionale }
-function Battaglia.nuova(unita)
+-- unita: lista di { id = numero, squadra = "giocatore" | "nemico", def = reggimento, x, y, forza = moltiplicatore opzionale }
+-- opzioni: { colonne, righe, ostacoli = { { x, y } } }
+function Battaglia.nuova(unita, opzioni)
+	opzioni = opzioni or {}
 	local self = setmetatable({}, Battaglia)
+	self.colonne = opzioni.colonne or 6
+	self.righe = opzioni.righe or 6
+	self.ostacoli = opzioni.ostacoli or {}
 	self.unita = {}
 	self.tempo = 0
 	self.finita = false
@@ -56,6 +65,7 @@ function Battaglia.nuova(unita)
 			ricarica = 0,
 			vivo = true,
 			bersaglio = nil,
+			caricaUsata = false,
 		})
 	end
 	table.sort(self.unita, function(a, b)
@@ -87,10 +97,16 @@ function Battaglia:_bersaglio(u)
 	return migliore
 end
 
--- Una posizione è libera se è nel tabellone e non si avvicina troppo a un'altra truppa.
+-- Una posizione è libera se è nel tabellone, fuori dagli ostacoli e non si avvicina troppo a un altro reggimento.
 function Battaglia:_libero(u, x, y)
-	if x < MIN_X or x > MAX_X or y < MIN_Y or y > MAX_Y then
+	if x < 1 or x > self.colonne or y < 1 or y > self.righe then
 		return false
+	end
+	for _, o in ipairs(self.ostacoli) do
+		local dx, dy = o.x - x, o.y - y
+		if dx * dx + dy * dy < (RAGGIO + RAGGIO_OSTACOLO) ^ 2 then
+			return false
+		end
 	end
 	local minimo = (RAGGIO * 2) ^ 2
 	for _, altro in ipairs(self.unita) do
@@ -127,6 +143,33 @@ function Battaglia:_muovi(u, bersaglio, dt)
 	end
 end
 
+-- Danno di un colpo, prima dell'armatura del bersaglio.
+function Battaglia:_dannoBase(u, b, d)
+	local forza = Battaglia.FORZA_MINIMA + (1 - Battaglia.FORZA_MINIMA) * (u.hp / u.hpMax)
+	local danno = u.danno * forza * Battaglia.moltiplicatore(u.def.classe, b.def.classe)
+	if u.def.gittata > 2 and d < 1.3 then
+		danno = danno * Battaglia.MALUS_TIRATORE_IN_MISCHIA
+	end
+	local carica = false
+	if u.def.carica and not u.caricaUsata and d < 1.5 then
+		danno = danno * u.def.carica
+		u.caricaUsata = true
+		carica = true
+	end
+	return danno, carica
+end
+
+function Battaglia:_ferisci(b, danno, eventi, attaccante)
+	local reale = danno * (1 - (b.def.armatura or 0))
+	b.hp = b.hp - reale
+	if b.hp <= 0 then
+		b.hp = 0
+		b.vivo = false
+		table.insert(eventi, { tipo = "morte", id = b.id, da = attaccante })
+	end
+	return reale
+end
+
 function Battaglia:_controllaFine()
 	local vivi = { giocatore = 0, nemico = 0 }
 	local vita = { giocatore = 0, nemico = 0 }
@@ -146,7 +189,7 @@ function Battaglia:_controllaFine()
 end
 
 -- Avanza di dt secondi. Restituisce gli eventi del passo:
--- { tipo = "attacco", da, a, danno, distanza } e { tipo = "morte", id }.
+-- { tipo = "attacco", da, a, danno, distanza, carica, area = { { id, danno } } } e { tipo = "morte", id, da }.
 function Battaglia:passo(dt)
 	local eventi = {}
 	if self.finita then
@@ -160,20 +203,26 @@ function Battaglia:passo(dt)
 			if b then
 				if self:_inGittata(u, b) then
 					if u.ricarica <= 0 then
-						local danno = u.danno * Battaglia.moltiplicatore(u.def.classe, b.def.classe)
-						b.hp = b.hp - danno
+						local d = distanza(u, b)
+						local base, carica = self:_dannoBase(u, b, d)
 						u.ricarica = 1 / u.def.cadenza
-						table.insert(eventi, {
+						local evento = {
 							tipo = "attacco",
 							da = u.id,
 							a = b.id,
-							danno = danno,
-							distanza = distanza(u, b) > 1.5,
-						})
-						if b.hp <= 0 then
-							b.hp = 0
-							b.vivo = false
-							table.insert(eventi, { tipo = "morte", id = b.id })
+							distanza = d > 1.5,
+							carica = carica,
+							area = {},
+						}
+						table.insert(eventi, evento)
+						evento.danno = self:_ferisci(b, base, eventi, u.id)
+						if u.def.area then
+							for _, vicino in ipairs(self.unita) do
+								if vicino ~= b and vicino.vivo and vicino.squadra == b.squadra and distanza(vicino, b) <= RAGGIO_AREA then
+									local inflitto = self:_ferisci(vicino, base * u.def.area, eventi, u.id)
+									table.insert(evento.area, { id = vicino.id, danno = inflitto })
+								end
+							end
 						end
 					end
 				else

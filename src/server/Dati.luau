@@ -1,21 +1,42 @@
 -- Progressi dei giocatori, salvati in un DataStore.
--- In Studio il DataStore funziona solo con "Enable Studio Access to API Services" attivo;
--- senza, il gioco va lo stesso ma non salva.
+-- In Studio il DataStore funziona solo se il place è pubblicato e
+-- "Enable Studio Access to API Services" è attivo; senza, il gioco va lo stesso ma non salva.
 
 local DataStoreService = game:GetService("DataStoreService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Epoche = require(ReplicatedStorage.Shared.Config.Epoche)
 
 local Dati = {}
 
-local PREDEFINITI = {
-	monete = 100,
-	livello = 1, -- prossimo livello della campagna da giocare
-	campagnaCompletata = false,
-}
+local function predefiniti()
+	local iniziale = Epoche.Lista[1].mazzoIniziale
+	local collezione = {}
+	for _, tipo in ipairs(iniziale) do
+		collezione[tipo] = (collezione[tipo] or 0) + 1
+	end
+	return {
+		monete = 100,
+		livello = 1, -- prossimo livello della campagna da giocare
+		campagnaCompletata = false,
+		collezione = collezione, -- tipo -> copie possedute
+		mazzo = table.clone(iniziale), -- lista di tipi, una voce per carta
+		statistiche = {
+			battaglie = 0,
+			vittorie = 0,
+			sconfitte = 0,
+			reggimentiSconfitti = 0,
+			reggimentiPersi = 0,
+			moneteGuadagnate = 0,
+			livelloMassimo = 1,
+		},
+	}
+end
 
 local negozio
 do
 	local ok, errore = pcall(function()
-		negozio = DataStoreService:GetDataStore("Giocatori_v1")
+		negozio = DataStoreService:GetDataStore("Giocatori_v2")
 	end)
 	if not ok then
 		warn("[Dati] DataStore non disponibile, i progressi non verranno salvati: " .. tostring(errore))
@@ -31,8 +52,20 @@ local function chiave(player)
 	return "giocatore_" .. player.UserId
 end
 
+-- Copia i valori salvati sopra i predefiniti, così i campi aggiunti in versioni nuove esistono sempre.
+local function unisci(base, salvati)
+	for k, v in pairs(salvati) do
+		if type(v) == "table" and type(base[k]) == "table" and #base[k] == 0 then
+			unisci(base[k], v)
+		else
+			base[k] = v
+		end
+	end
+	return base
+end
+
 function Dati.carica(player)
-	local dati = table.clone(PREDEFINITI)
+	local dati = predefiniti()
 	local ok = false
 	if negozio then
 		local salvati
@@ -40,9 +73,7 @@ function Dati.carica(player)
 			return negozio:GetAsync(chiave(player))
 		end)
 		if ok and type(salvati) == "table" then
-			for k, v in pairs(salvati) do
-				dati[k] = v
-			end
+			unisci(dati, salvati)
 		elseif not ok then
 			warn("[Dati] Caricamento fallito per " .. player.Name .. ": " .. tostring(salvati))
 		end
@@ -84,6 +115,14 @@ function Dati.rilascia(player)
 	Dati.salva(player)
 	cache[player] = nil
 	caricatoBene[player] = nil
+end
+
+-- Aggiunge una carta alla collezione; se il mazzo ha posto, la mette anche nel mazzo.
+function Dati.aggiungiCarta(dati, tipo)
+	dati.collezione[tipo] = (dati.collezione[tipo] or 0) + 1
+	if #dati.mazzo < 6 then
+		table.insert(dati.mazzo, tipo)
+	end
 end
 
 return Dati

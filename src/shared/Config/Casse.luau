@@ -8,8 +8,8 @@ local Casse = {}
 Casse.Lista = {
 	{
 		id = "CassaMedievale",
-		nome = "Cassa Medievale",
-		descrizione = "Truppe e stendardi dell'era medievale.",
+		nome = "Medieval Crate",
+		descrizione = "Regiments and banners of the Middle Ages.",
 		prezzo = 250,
 		valuta = "Monete",
 		colore = Color3.fromRGB(176, 128, 74),
@@ -17,8 +17,8 @@ Casse.Lista = {
 	},
 	{
 		id = "CassaNovecento",
-		nome = "Cassa del Novecento",
-		descrizione = "Truppe e mezzi del Novecento.",
+		nome = "20th Century Crate",
+		descrizione = "Regiments and vehicles of the 20th century.",
 		prezzo = 500,
 		valuta = "Monete",
 		richiedeEpoca = "Novecento",
@@ -27,8 +27,8 @@ Casse.Lista = {
 	},
 	{
 		id = "CassaLeggendaria",
-		nome = "Cassa Leggendaria",
-		descrizione = "Le ricompense più rare di tutte le epoche.",
+		nome = "Legendary Crate",
+		descrizione = "The rarest rewards from every era.",
 		prezzo = 99,
 		valuta = "Robux",
 		colore = Color3.fromRGB(214, 170, 52),

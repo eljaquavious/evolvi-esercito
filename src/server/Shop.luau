@@ -18,26 +18,26 @@ function Shop.acquista(player, idCassa)
 	local cassa = Casse.trova(idCassa)
 	local dati = Dati.ottieni(player)
 	if not cassa or not dati then
-		return false, "Cassa non trovata."
+		return false, "Crate not found."
 	end
 	if cassa.richiedeEpoca and not epocaSbloccata(dati, cassa.richiedeEpoca) then
-		return false, "Sblocca l'epoca " .. cassa.richiedeEpoca .. " nella campagna per aprire questa cassa."
+		return false, "Unlock the " .. Epoche.epoca(cassa.richiedeEpoca).nome .. " era in the campaign to open this crate."
 	end
 	if not cassa.disponibile then
-		return false, "I contenuti della " .. cassa.nome .. " arriveranno presto!"
+		return false, cassa.nome .. ": contents coming soon!"
 	end
 	if cassa.valuta == "Robux" then
 		-- Qui andrà MarketplaceService:PromptProductPurchase con il prodotto sviluppatore della cassa.
-		return false, "Acquisti in Robux non ancora attivi."
+		return false, "Robux purchases are not active yet."
 	end
 	if dati.monete < cassa.prezzo then
-		return false, "Monete insufficienti."
+		return false, "Not enough coins."
 	end
 	Dati.modifica(player, function(d)
 		d.monete -= cassa.prezzo
 	end)
 	-- Qui andrà l'estrazione del contenuto.
-	return true, "Hai aperto la " .. cassa.nome .. "!"
+	return true, "You opened the " .. cassa.nome .. "!"
 end
 
 function Shop.inizializza(remoti)

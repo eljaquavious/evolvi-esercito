@@ -1,4 +1,4 @@
--- Biomi delle mappe di battaglia. La decorazione di ogni bioma è costruita da Server/Arena.
+-- Biomi delle mappe di battaglia. Terreno e decorazioni sono costruiti da Server/Arena.
 
 local Biomi = {}
 
@@ -6,44 +6,44 @@ Biomi.Ordine = { "Pianeggiante", "Collinoso", "Desertico", "Montagnoso", "Inneva
 
 Biomi.Dati = {
 	Pianeggiante = {
-		nome = "Pianeggiante",
-		terreno = Color3.fromRGB(98, 150, 70),
+		nome = "Plains",
 		materiale = Enum.Material.Grass,
-		casellaA = Color3.fromRGB(122, 170, 88),
-		casellaB = Color3.fromRGB(108, 156, 76),
-		nebbia = Color3.fromRGB(190, 220, 240),
+		materialeRilievi = Enum.Material.Grass,
+		casella = Color3.fromRGB(150, 196, 110),
+		atmosfera = Color3.fromRGB(199, 220, 236),
+		ostacolo = "albero",
 	},
 	Collinoso = {
-		nome = "Collinoso",
-		terreno = Color3.fromRGB(86, 136, 66),
+		nome = "Hills",
 		materiale = Enum.Material.Grass,
-		casellaA = Color3.fromRGB(140, 164, 92),
-		casellaB = Color3.fromRGB(124, 150, 80),
-		nebbia = Color3.fromRGB(200, 222, 230),
+		materialeRilievi = Enum.Material.LeafyGrass,
+		casella = Color3.fromRGB(160, 186, 104),
+		atmosfera = Color3.fromRGB(206, 222, 226),
+		ostacolo = "roccia",
 	},
 	Desertico = {
-		nome = "Desertico",
-		terreno = Color3.fromRGB(222, 192, 130),
+		nome = "Desert",
 		materiale = Enum.Material.Sand,
-		casellaA = Color3.fromRGB(236, 208, 150),
-		casellaB = Color3.fromRGB(220, 190, 132),
-		nebbia = Color3.fromRGB(245, 225, 190),
+		materialeRilievi = Enum.Material.Sand,
+		casella = Color3.fromRGB(240, 214, 160),
+		atmosfera = Color3.fromRGB(246, 222, 184),
+		ostacolo = "cactus",
 	},
 	Montagnoso = {
-		nome = "Montagnoso",
-		terreno = Color3.fromRGB(112, 110, 104),
-		materiale = Enum.Material.Slate,
-		casellaA = Color3.fromRGB(150, 146, 136),
-		casellaB = Color3.fromRGB(132, 128, 120),
-		nebbia = Color3.fromRGB(180, 186, 196),
+		nome = "Mountains",
+		materiale = Enum.Material.Ground,
+		materialeRilievi = Enum.Material.Rock,
+		casella = Color3.fromRGB(170, 160, 146),
+		atmosfera = Color3.fromRGB(184, 192, 204),
+		ostacolo = "roccia",
 	},
 	Innevato = {
-		nome = "Innevato",
-		terreno = Color3.fromRGB(236, 242, 248),
+		nome = "Snow",
 		materiale = Enum.Material.Snow,
-		casellaA = Color3.fromRGB(226, 234, 242),
-		casellaB = Color3.fromRGB(206, 216, 228),
-		nebbia = Color3.fromRGB(230, 236, 244),
+		materialeRilievi = Enum.Material.Glacier,
+		casella = Color3.fromRGB(226, 236, 246),
+		atmosfera = Color3.fromRGB(228, 236, 246),
+		ostacolo = "pino",
 	},
 }
 
