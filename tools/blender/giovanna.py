@@ -65,6 +65,7 @@ def armatura(u):
             spessore=0.006)
     V.maniche(u, "Bracciali", "Acciaio", t_inizio=-0.1, t_fine=1.86, margine=0.011, spessore=0.005)
     manopole(u)
+    gorgiera(u)
     u.nascondi_pelle()
     # Gonnellino a lame sui fianchi: tre fasce che si allargano verso il basso.
     for i, (alto, basso) in enumerate(((1.0, 0.93), (0.95, 0.88), (0.90, 0.83))):
@@ -73,8 +74,8 @@ def armatura(u):
     # Resta (la costola) al centro del petto e il bordo del collo.
     punti = [u.sulla_pelle(Vector((0, 0, z)), Vector((0, -1, 0)), 0.026, 0.35) for z in np.linspace(1.40, 1.02, 9)]
     u.oggetto("Corazza_Costola", V.tubo_lungo(punti, 0.007, n=6), "Acciaio")
-    u.oggetto("Corazza_Collo", V.anello_sul_corpo(u, (0, 0.0, 1.47), (0, 0.15, 1), 0.03, 0.03, n=48, portata=0.25),
-              "Acciaio", spessore=0.006)
+    u.oggetto("Corazza_Collo", V.anello_sul_corpo(u, (0, 0.0, 1.53), (0, 0.1, 1), 0.016, 0.012, n=48, portata=0.25),
+              "AcciaioScuro", spessore=0.004)
     # Spallacci: gusci tondi dalla scapola al petto sopra la spalla, in tre lame.
     pezzi = []
     for s in (1, -1):
@@ -117,6 +118,23 @@ def armatura(u):
     u.oggetto("Fodero", V.trasforma(V.scatola((0, 0, -0.4), (0.025, 0.06, 0.8)), base), "Cuoio")
 
 
+def gorgiera(u):
+    """Collo d'acciaio: stretto sul collo in alto, si allarga in basso fino a coprire l'orlo del petto
+    (così dall'alto non si vede la pelle nascosta sotto la corazza)."""
+    n, righe = 48, 7
+    anelli = []
+    for i, z in enumerate(np.linspace(1.535, 1.43, righe)):
+        c, raggi = u.raggi_busto(float(z), n)
+        m = min(r for r in raggi if r is not None)
+        raggi = V.liscia_cerchio([min(m * 1.6, r) if r is not None else m for r in raggi], 3)
+        margine = 0.009 + 0.026 * (i / (righe - 1)) ** 1.5
+        anelli.append([Vector((c.x, c.y, float(z))) + Vector((math.cos(a), math.sin(a), 0)) * (raggi[j] + margine)
+                       for j, a in enumerate(2 * math.pi * np.arange(n) / n)])
+    bm = V.griglia(anelli, chiusa=True)
+    V._verso_fuori(bm)
+    u.oggetto("Gorgiera", bm, "Acciaio", spessore=0.005, copre=True)
+
+
 def manopole(u):
     """Guanti d'arme a muffola: l'involucro della mano vera (dita chiuse sull'elsa e sull'asta) un po' gonfiato,
     con il polsino svasato."""
@@ -149,7 +167,7 @@ def caschetto(u):
         a = 2 * math.pi * j / n
         d = Vector((math.cos(a), math.sin(a), 0))
         f = min(1.0, max(0.0, (d.y + 0.8) / 0.55))        # 0 davanti, 1 dai lati in giù
-        z = 1.69 - 0.12 * f * f * (3 - 2 * f) - 0.015 * max(0.0, d.y)
+        z = 1.69 - 0.12 * f * f * (3 - 2 * f) - 0.015 * max(0.0, d.y) - 0.004 * (1 - f) * abs(math.sin(j * 1.7))
         bordo.append(u.sulla_pelle(Vector((0, centro_y, z)), d, 0.012, 0.2))
     anelli = []
     for t in np.linspace(0, 1, righe):
@@ -171,6 +189,8 @@ def caschetto(u):
     ciocche = []
     for j in range(0, n, 2):
         p = bordo[j]
+        if p.y < centro_y - 0.04:
+            continue
         r = Vector((p.x, p.y - centro_y, 0)).normalized()
         ciocche.append(V.tubo_lungo([p + Vector((0, 0, 0.02)), p + r * 0.004 - Vector((0, 0, 0.012))],
                                     [0.009, 0.002], n=5))
@@ -290,7 +310,7 @@ def esporta(triangoli=5600, lato=512):
                           "Fodero*": "bacino"},
                   escludi=["Scarpe", "Scarpe.0*", "Corazza_Costola*", "Capelli_Ciocche*"],
                   quote={"Scarpe*": 220, "Occhio*": 60, "Gambe*": 380, "Corazza.*": 420, "Corazza": 420,
-                         "Bracciali*": 300, "Lame_*": 120, "Corazza_Collo*": 60, "Spallacci*": 180, "Coppe*": 140, "Bordi*": 220, "Manopole*": 180,
+                         "Bracciali*": 300, "Lame_*": 120, "Corazza_Collo*": 60, "Gorgiera*": 140, "Spallacci*": 180, "Coppe*": 140, "Bordi*": 220, "Manopole*": 180,
                          "Cintura*": 60, "Fodero*": 12, "Capelli*": 320, "Spada_*": 80, "Stendardo_Asta*": 40,
                          "Stendardo_Puntale*": 40, "Stendardo_Drappo*": 200},
                   togli_dal_corpo=[SIGLA + "_Nascosta"], triangoli=triangoli, corpo=U.corpo.name)

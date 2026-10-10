@@ -97,52 +97,50 @@ def carica(col, donna=False):
 
     donna=True: la testa (viso, dettagli del Multires compresi) è quella del corpo femminile, montata sul corpo
     maschile allineando gli occhi; le due mesh hanno la stessa topologia, quindi si mescolano vertice per vertice
-    con un passaggio morbido sul collo. Il resto (giunti, mani, piedi) resta quello misurato sull'uomo."""
+    con un passaggio morbido sul collo. Il resto (giunti, mani, piedi) resta quello misurato sull'uomo. Gli
+    occhi sono sempre quelli dell'uomo (il materiale è fatto su di loro), messi al centro di quelli della donna."""
     global OCCHIO
     assicura_pacchetto()
     base = CORPO_DONNA if donna else CORPO_BASE
-    nomi = [base, base + ".eye.L", base + ".eye.R"] + ([CORPO_BASE] if donna else [])
+    nomi = [base, CORPO_BASE + ".eye.L", CORPO_BASE + ".eye.R"]
+    if donna:
+        nomi += [CORPO_DONNA + ".eye.L", CORPO_DONNA + ".eye.R", CORPO_BASE]
     with bpy.data.libraries.load(PACCHETTO, link=False) as (sorgente, destinazione):
         destinazione.objects = nomi
-    corpo, occhi, uomo = None, [], None
-    for o in destinazione.objects:
-        if o.name.startswith(base + ".eye"):
-            col.objects.link(o)
-            occhi.append(o)
-        elif o.name.startswith(base):
-            col.objects.link(o)
-            corpo = o
-        else:
-            uomo = o
+    caricati = list(destinazione.objects)           # nello stesso ordine dei nomi
+    corpo, occhi = caricati[0], caricati[1:3]
+    for o in [corpo] + occhi:
+        col.objects.link(o)
+    OCCHIO = OCCHIO_UOMO
     if donna:
-        # Occhi della donna nel corpo base: il loro centro (a metà) va sul centro degli occhi dell'uomo.
+        occhi_f, uomo = caricati[3:5], caricati[5]
+        for o in occhi_f:
+            col.objects.link(o)
         bpy.context.view_layer.update()           # matrix_world degli occhi (figli del corpo) aggiornate
         # Nel sistema della mesh del corpo: nel pacchetto la donna sta di fianco all'uomo (x spostata).
         inv = corpo.matrix_world.inverted()
-        mondi = {o: inv @ o.matrix_world for o in occhi}
         # Dai vertici (il riquadro dell'oggetto comprende i modificatori, specchio compreso).
-        centri = {o: mondi[o] @ Vector(coordinate(o.data).mean(axis=0)) for o in occhi}
-        centro_f = sum(centri.values(), Vector()) / len(centri)
+        centri = [inv @ o.matrix_world @ Vector(coordinate(o.data).mean(axis=0)) for o in occhi_f]
+        centro_f = sum(centri, Vector()) / len(centri)
         centro_m = Vector((0, (OCCHIO_UOMO[1] - SPOSTAMENTO.y) / SCALA, OCCHIO_UOMO[2] / SCALA))
         sposta = Vector((-centro_f.x, centro_m.y - centro_f.y, centro_m.z - centro_f.z))
         m_co = coordinate(uomo.data)
         f_co = coordinate(corpo.data)
         w = liscio(COLLO_DONNA[0], COLLO_DONNA[1], m_co[:, 2])[:, None]
         imposta_coordinate(corpo.data, m_co * (1 - w) + (f_co + np.array(sposta)) * w)
-        bpy.data.meshes.remove(uomo.data)
         trasforma = Matrix.Translation(SPOSTAMENTO) @ Matrix.Scale(SCALA, 4) @ Matrix.Translation(sposta)
-        for o in occhi:
-            o.parent = None
-            o.matrix_world = trasforma @ mondi[o]
-        sinistro = next(o for o in occhi if ".eye.L" in o.name)
-        OCCHIO = tuple(trasforma @ centri[sinistro])
-    else:
-        OCCHIO = OCCHIO_UOMO
-        for o in occhi:
-            s = 1 if o.name.split(".eye.")[1].startswith("L") else -1
-            o.parent = None
-            o.matrix_world = (Matrix.Translation(lato(OCCHIO, s)) @ Matrix.Rotation(math.pi / 2, 4, "X")
-                              @ Matrix.Diagonal((0.862 * SCALA,) * 3 + (1,)))
+        sinistro = max(range(2), key=lambda k: centri[k].x)
+        c = trasforma @ centri[sinistro]
+        OCCHIO = (abs(c.x), c.y, c.z)
+        for o in occhi_f + [uomo]:
+            me = o.data
+            bpy.data.objects.remove(o, do_unlink=True)
+            bpy.data.meshes.remove(me)
+    for o in occhi:
+        s = 1 if o.name.split(".eye.")[1].startswith("L") else -1
+        o.parent = None
+        o.matrix_world = (Matrix.Translation(lato(OCCHIO, s)) @ Matrix.Rotation(math.pi / 2, 4, "X")
+                          @ Matrix.Diagonal((0.862 * SCALA,) * 3 + (1,)))
     corpo.matrix_world = Matrix.Identity(4)
     corpo.data.transform(Matrix.Translation(SPOSTAMENTO) @ Matrix.Scale(SCALA, 4))
     corpo.name, corpo.data.name = "Corpo", "Corpo"
@@ -523,7 +521,7 @@ def colora(corpo, barba=0.55, capelli=True, seme=3):
 
 # Sopracciglia (peli veri, come curve) -------------------------------------------------------------
 
-def sopracciglia(col, corpo, materiale, peli=320, seme=7):
+def sopracciglia(col, corpo, materiale, peli=320, seme=7, fine=1.0):
     me = corpo.data
     t = albero(me)
     rng = random.Random(seme)
@@ -532,7 +530,7 @@ def sopracciglia(col, corpo, materiale, peli=320, seme=7):
     for s in (1, -1):
         for _ in range(peli):
             u = rng.random()                        # 0 = vicino al naso, 1 = verso la tempia
-            spessore = 0.0095 * (1 - u) + 0.0042 * u
+            spessore = (0.0095 * (1 - u) + 0.0042 * u) * fine
             x = s * (ex - 0.017 + u * 0.044)
             zc = ez + 0.0165 + 0.007 * math.sin(math.pi * min(1.0, u * 1.25)) - 0.004 * max(0.0, u - 0.8) / 0.2
             v = (rng.random() - 0.5) * spessore * (0.8 + 0.4 * rng.random())
@@ -584,5 +582,8 @@ def costruisci_corpo(col, posa, livello=2, pelle=(0.46, 0.25, 0.155), donna=Fals
         o.data.materials.clear()
         o.data.materials.append(materiale_occhio())
     colora(corpo)
-    peli = sopracciglia(col, corpo, materiale_peli())
+    if donna:
+        peli = sopracciglia(col, corpo, materiale_peli("UM_PeliDonna", (0.075, 0.045, 0.025)), peli=170, fine=0.6)
+    else:
+        peli = sopracciglia(col, corpo, materiale_peli())
     return corpo, occhi + [peli], giunti
