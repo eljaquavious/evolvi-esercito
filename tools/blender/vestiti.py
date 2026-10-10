@@ -505,6 +505,12 @@ def calzature(u, nome, mat, mat_suola, taglio=0.115, inclinazione=0.25, distacco
     me.materials.append(u.mat[mat_suola])
     u.col.objects.link(o)
     o.parent = u.radice
+    # La pelle ad alta definizione è troppo fitta per una scarpa: si alleggerisce prima dello spessore
+    # (così anche la versione da gioco resta intera).
+    facce = len(me.polygons)
+    if facce > 3000:
+        dec = o.modifiers.new("Leggera", "DECIMATE")
+        dec.ratio = 3000 / facce
     mod = o.modifiers.new("Spessore", "SOLIDIFY")
     mod.thickness = 0.003
     mod.offset = 1.0
