@@ -51,6 +51,7 @@ def materiali():
         "acciaio": materiale("Acciaio", (0.66, 0.67, 0.69), metallo=1.0, ruvidita=0.4),
         "ottone": materiale("Ottone", (0.86, 0.62, 0.26), metallo=1.0, ruvidita=0.32),
         "cuoio": materiale("Cuoio", (0.22, 0.11, 0.05), ruvidita=0.65),
+        "calcei": materiale("Calcei", (0.11, 0.05, 0.022), ruvidita=0.55),
         "cuoio_chiaro": materiale("CuoioChiaro", (0.30, 0.17, 0.08), ruvidita=0.7),
         "legno": materiale("Legno", (0.42, 0.27, 0.14), ruvidita=0.7),
         "ferro": materiale("Ferro", (0.32, 0.32, 0.34), metallo=1.0, ruvidita=0.45),
@@ -544,6 +545,19 @@ def griglia(righe, chiusa=False):
     return bm
 
 
+def centro_sezione(p, asse, raggi=24):
+    """Centro della sezione della gamba alla quota di p (le ossa stanno vicino al davanti, non al centro)."""
+    punti = []
+    for j in range(raggi):
+        a = 2 * math.pi * j / raggi
+        d = Vector((math.cos(a), math.sin(a), 0))
+        d = (d - asse * d.dot(asse)).normalized()
+        hit = ALBERO.ray_cast(p, d, 0.15)
+        if hit[0] is not None:
+            punti.append(hit[0])
+    return sum(punti, Vector()) / len(punti) if punti else p
+
+
 def schinieri(c):
     """Schinieri modellati sulla gamba vera: davanti, dal ginocchio fin quasi alla caviglia."""
     gusci, lacci = [], []
@@ -552,7 +566,7 @@ def schinieri(c):
         asse = (k - g).normalized()
         righe = []
         for i in range(16):
-            p = g.lerp(k, -0.07 + 0.87 * i / 15)
+            p = centro_sezione(g.lerp(k, -0.07 + 0.87 * i / 15), asse)
             riga = []
             for j in range(17):
                 a = math.radians(205 + 130 * j / 16)        # solo il davanti (270 gradi = -Y)
@@ -563,7 +577,7 @@ def schinieri(c):
         gusci.append(griglia(righe))
         # Due cinghie di cuoio che girano dietro il polpaccio.
         for t in (0.3, 0.68):
-            p = g.lerp(k, t)
+            p = centro_sezione(g.lerp(k, t), asse)
             punti, normali = [], []
             for j in range(19):
                 a = math.radians(-25 + 230 * j / 18)
@@ -590,8 +604,8 @@ def calzari(c, corpo):
     # Lisciato: una scarpa non mostra le dita; poi di nuovo fuori dalla pelle dove si è ritirato.
     bordo = {v for v in bm.verts if v.is_boundary}
     interni = [v for v in bm.verts if not v.is_boundary]
-    for _ in range(14):
-        bmesh.ops.smooth_vert(bm, verts=interni, factor=0.6, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+    for _ in range(60):
+        bmesh.ops.smooth_vert(bm, verts=interni, factor=0.8, use_axis_x=True, use_axis_y=True, use_axis_z=True)
     for v in bm.verts:
         v.co = fuori_dalla_pelle(v.co, 0.004 if v in bordo else 0.005)
     bm.normal_update()
@@ -601,7 +615,7 @@ def calzari(c, corpo):
     bm.to_mesh(me)
     bm.free()
     o = bpy.data.objects.new("Calzari", me)
-    me.materials.append(c.mat["cuoio"])
+    me.materials.append(c.mat["calcei"])
     me.materials.append(c.mat["suola"])
     c.col.objects.link(o)
     o.parent = c.radice
