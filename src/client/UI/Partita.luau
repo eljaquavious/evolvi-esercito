@@ -31,20 +31,39 @@ local prossimoLivello
 
 local atmosferaOriginale
 
-local function impostaCamera()
-	local camera = workspace.CurrentCamera
-	camera.CameraType = Enum.CameraType.Scriptable
-	-- Più dall'alto e puntata verso il lato del giocatore: la fila più vicina resta sopra la barra delle carte.
-	camera.CFrame = CFrame.lookAt(info.centro + Vector3.new(0, 64, -50), info.centro + Vector3.new(0, 0, -9))
-end
+local ZOOM_INIZIALE = 42
+local zoomOriginale
 
-local function ripristinaCamera()
+local function seguiPersonaggio()
 	local camera = workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Custom
 	local character = player.Character
 	local umanoide = character and character:FindFirstChildOfClass("Humanoid")
 	if umanoide then
 		camera.CameraSubject = umanoide
+	end
+end
+
+-- Nel campo il giocatore cammina: telecamera normale che lo segue, ma si può allontanare molto
+-- per vedere tutta la battaglia. All'arrivo parte da dietro le file blu, guardando il nemico.
+local function impostaCamera()
+	seguiPersonaggio()
+	if not zoomOriginale then
+		zoomOriginale = { player.CameraMinZoomDistance, player.CameraMaxZoomDistance }
+	end
+	player.CameraMaxZoomDistance = 160
+	player.CameraMinZoomDistance = ZOOM_INIZIALE
+	task.delay(0.2, function()
+		player.CameraMinZoomDistance = zoomOriginale and zoomOriginale[1] or 0.5
+	end)
+	workspace.CurrentCamera.CFrame = CFrame.lookAt(info.centro + Vector3.new(0, 34, -112), info.centro + Vector3.new(0, 0, -16))
+end
+
+local function ripristinaCamera()
+	seguiPersonaggio()
+	if zoomOriginale then
+		player.CameraMinZoomDistance, player.CameraMaxZoomDistance = zoomOriginale[1], zoomOriginale[2]
+		zoomOriginale = nil
 	end
 end
 
@@ -129,7 +148,7 @@ local function casellaSotto(posizioneSchermo)
 	if not tabellone then
 		return nil
 	end
-	local raggio = workspace.CurrentCamera:ViewportPointToRay(posizioneSchermo.X, posizioneSchermo.Y)
+	local raggio = workspace.CurrentCamera:ScreenPointToRay(posizioneSchermo.X, posizioneSchermo.Y)
 	local parametri = RaycastParams.new()
 	parametri.FilterType = Enum.RaycastFilterType.Include
 	parametri.FilterDescendantsInstances = { tabellone }
@@ -205,12 +224,16 @@ local function mostraEsploratori(tipi)
 end
 
 local function entraPiazzamento(dati)
+	local nuovoCampo = not info or info.arena ~= dati.arena or info.livello ~= dati.livello or dati.round == 1
 	info = dati
 	fase = "piazzamento"
 	risultato.Visible = false
 	scrittaConto.Visible = false
 	arena = workspace:WaitForChild("Arene"):WaitForChild(dati.arena, 10)
-	impostaCamera()
+	-- Tra un round e l'altro la telecamera resta dove l'ha messa il giocatore.
+	if nuovoCampo then
+		impostaCamera()
+	end
 	impostaAtmosfera(dati.atmosfera)
 	titoloLivello.Text = ("%d. %s  ·  %s"):format(dati.livello, string.upper(dati.nome), dati.anno)
 	punteggio.Text = testoPunteggio(dati)
@@ -228,7 +251,7 @@ local function entraPiazzamento(dati)
 		avviso.Text = "SIEGE! The enemy hides in a fortress: destroy it and win the battle."
 		avviso.TextColor3 = Stile.Colori.Oro
 	elseif dati.round == 1 then
-		avviso.Text = "Pick a card, then a blue tile. Rivers can't hold troops; hills protect them and help archers."
+		avviso.Text = "Walk around the field. Pick a card, then click a blue tile. Hills protect troops and help archers."
 		avviso.TextColor3 = Stile.Colori.Testo
 	else
 		avviso.Text = "Your regiments are back in position: change them or press FIGHT!"
@@ -640,8 +663,14 @@ function Partita.inizializza(gui, r, callbackLobby)
 		if usatoDaGui or fase ~= "piazzamento" then
 			return
 		end
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			clic(Vector2.new(input.Position.X, input.Position.Y))
+		end
+	end)
+	-- Sul telefono si trascina per girare la telecamera: si piazza solo con un tocco secco.
+	UserInputService.TouchTap:Connect(function(posizioni, usatoDaGui)
+		if not usatoDaGui and fase == "piazzamento" and posizioni[1] then
+			clic(posizioni[1])
 		end
 	end)
 	UserInputService.InputChanged:Connect(function(input)

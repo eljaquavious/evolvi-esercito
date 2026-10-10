@@ -30,14 +30,16 @@ local effetti = Instance.new("Folder")
 effetti.Name = "Effetti"
 effetti.Parent = workspace
 
-local function teletrasporta(player, posizione, blocca)
+-- destinazione: Vector3 o CFrame (che dice anche dove guardare).
+local function teletrasporta(player, destinazione, blocca)
 	local character = player.Character
 	local radice = character and character:FindFirstChild("HumanoidRootPart")
 	if not radice then
 		return
 	end
 	radice.Anchored = false
-	character:PivotTo(CFrame.new(posizione))
+	character:PivotTo(typeof(destinazione) == "CFrame" and destinazione or CFrame.new(destinazione))
+	radice.AssemblyLinearVelocity = Vector3.zero
 	radice.Anchored = blocca
 end
 
@@ -47,7 +49,9 @@ local function chiudiSessione(player)
 		return
 	end
 	sessione.attiva = false
-	Arena.distruggi(sessione.arena)
+	if sessione.arena then
+		Arena.distruggi(sessione.arena)
+	end
 	sessioni[player] = nil
 end
 
@@ -76,6 +80,7 @@ local function inizioRound(player, sessione)
 	for _, piazzata in pairs(sessione.piazzate) do
 		piazzata.modello = modelloGiocatore(sessione, piazzata.tipo, piazzata.col, piazzata.riga)
 	end
+	Arena.mostraCaselle(sessione.arena, true)
 	local esploratori = {}
 	for _, nemico in ipairs(sessione.armata) do
 		table.insert(esploratori, nemico.tipo)
@@ -111,7 +116,7 @@ function GestoreCampagna.avvia(player, numero)
 		return false, "Loading your data, try again in a moment."
 	end
 	local esistente = sessioni[player]
-	if esistente and esistente.fase == "battaglia" then
+	if esistente and (esistente.fase == "battaglia" or esistente.fase == "costruzione") then
 		return false, "You already have a battle in progress."
 	end
 	if #dati.mazzo == 0 then
@@ -126,13 +131,13 @@ function GestoreCampagna.avvia(player, numero)
 	end
 	chiudiSessione(player)
 
+	-- Il campo si costruisce in qualche istante: intanto la sessione esiste già, così un secondo
+	-- clic non ne apre un'altra e se il giocatore esce il campo viene distrutto.
 	local livello = Campagna.livello(numero)
-	local arena = Arena.crea(player, livello)
 	local sessione = {
 		attiva = true,
-		fase = "piazzamento",
+		fase = "costruzione",
 		livello = livello,
-		arena = arena,
 		mazzo = table.clone(dati.mazzo),
 		piazzate = {}, -- ["col,riga"] = { indice, tipo, modello, col, riga }
 		usate = {}, -- indice del mazzo -> chiave della casella
@@ -144,7 +149,15 @@ function GestoreCampagna.avvia(player, numero)
 		caduti = 0,
 	}
 	sessioni[player] = sessione
-	teletrasporta(player, arena.belvedere, true)
+	local arena = Arena.crea(player, livello)
+	if not sessione.attiva or sessioni[player] ~= sessione or not player.Parent then
+		Arena.distruggi(arena)
+		return false
+	end
+	sessione.arena = arena
+	sessione.fase = "piazzamento"
+	-- Il giocatore entra nel campo a piedi: si muove liberamente anche durante la battaglia.
+	teletrasporta(player, arena.arrivo, false)
 	inizioRound(player, sessione)
 	return true
 end
@@ -305,7 +318,7 @@ local COLPI = {
 }
 
 local function mostraAttacco(arena, evento, attaccante, bersaglio)
-	local altezza = Vector3.new(0, 2, 0)
+	local altezza = Vector3.new(0, 2.6, 0)
 	local da = Arena.posizione(arena, attaccante.x, attaccante.y) + altezza
 	local a = Arena.posizione(arena, bersaglio.x, bersaglio.y) + altezza
 	local colpo = COLPI[attaccante.def.id]
@@ -361,6 +374,7 @@ local function combattiRound(player, sessione)
 		end
 	end
 
+	Arena.mostraCaselle(arena, false)
 	remoti.Fase:FireClient(player, { fase = "battaglia", conto = 3, assedio = sessione.assedio })
 	task.wait(3.2) -- conto alla rovescia sul client, intanto si vede lo schieramento nemico
 	if not sessione.attiva then

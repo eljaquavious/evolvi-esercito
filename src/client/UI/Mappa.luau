@@ -2,6 +2,7 @@
 -- i livelli collegati da un sentiero, le stelle conquistate e il pannello per attaccare.
 -- Livelli e sentiero sono parti locali di questo client.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -92,7 +93,7 @@ local function etichettaMare(testo, lat, lon)
 	local ancora = parteLocale({ Size = Vector3.one * 0.2, Transparency = 1, Position = MappaEuropa.posizione(lat, lon) + Vector3.new(0, 2, 0) })
 	local gui = Instance.new("BillboardGui")
 	-- Misure in studs: la scritta rimpicciolisce con la distanza e i mari vicini non si sovrappongono.
-	gui.Size = UDim2.new(#testo * 4.5, 0, 9, 0)
+	gui.Size = UDim2.new(#testo * 8, 0, 16, 0)
 	gui.LightInfluence = 0
 	gui.Parent = ancora
 	Stile.testo({
@@ -116,7 +117,7 @@ local function costruisci()
 	for numero, battaglia in ipairs(Campagna.Battaglie) do
 		local posizione = posizioneLivello(numero)
 		local boss = battaglia.comandante ~= nil
-		local diametro = boss and 7 or 5
+		local diametro = boss and 9 or 6.5
 		local base = parteLocale({
 			Name = "Livello" .. numero,
 			Shape = Enum.PartType.Cylinder,
@@ -135,7 +136,7 @@ local function costruisci()
 		})
 		local gui = Instance.new("BillboardGui")
 		gui.Size = UDim2.fromOffset(120, 70)
-		gui.StudsOffset = Vector3.new(0, 5, 0)
+		gui.StudsOffset = Vector3.new(0, 6, 0)
 		gui.LightInfluence = 0
 		gui.AlwaysOnTop = true
 		gui.Parent = base
@@ -165,24 +166,30 @@ local function costruisci()
 		})
 		nodi[numero] = { base = base, gui = gui, stelle = stelle, numero = numeroTesto, nome = nome }
 
-		-- Puntini del sentiero dal livello precedente.
+		-- Tratto di sentiero dal livello precedente (calcolato insieme alla mappa). Sulla terra è tracciato
+		-- nel Terrain dal server; qui si aggiungono le tratte per mare e le luci del prossimo tratto.
 		puntini[numero] = {}
-		if numero > 1 then
-			local da = posizioneLivello(numero - 1)
-			local distanza = (posizione - da).Magnitude
-			local quanti = math.max(2, math.floor(distanza / 5))
-			for i = 1, quanti - 1 do
-				local t = i / quanti
-				local punto = da:Lerp(posizione, t)
-				-- Sopra le montagne che il tratto attraversa, con un piccolo arco.
-				local quota = math.max(punto.Y, MappaEuropa.superficie(punto)) + 1.2 + math.sin(t * math.pi) * distanza * 0.04
-				punto = Vector3.new(punto.X, quota, punto.Z)
-				table.insert(puntini[numero], parteLocale({
+		local celle = MappaEuropa.Sentieri[numero] or {}
+		local passo = 0
+		for i = 1, #celle, 2 do
+			local colonna, riga = celle[i], celle[i + 1]
+			local centro = MappaEuropa.posizioneCella(colonna, riga)
+			passo += 1
+			if not MappaEuropa.terra(colonna, riga) then
+				if passo % 2 == 0 then
+					table.insert(puntini[numero], { mare = true, parte = parteLocale({
+						Size = Vector3.new(2.2, 0.3, 2.2),
+						Position = centro + Vector3.new(0, 0.25, 0),
+						Material = Enum.Material.SmoothPlastic,
+					}) })
+				end
+			elseif passo % 3 == 0 then
+				table.insert(puntini[numero], { mare = false, parte = parteLocale({
 					Shape = Enum.PartType.Ball,
-					Size = Vector3.one * 1.1,
-					Position = punto,
+					Size = Vector3.one * 1.4,
+					Position = Vector3.new(centro.X, MappaEuropa.superficie(centro) + 0.3, centro.Z),
 					Material = Enum.Material.Neon,
-				}))
+				}) })
 			end
 		end
 	end
@@ -204,16 +211,24 @@ local function aggiornaNodi()
 		nodo.stelle.Text = sbloccato(numero) and string.rep("★", stelle) .. string.rep("☆", Campagna.STELLE_MASSIME - stelle) or ""
 		nodo.numero.TextColor3 = sbloccato(numero) and Color3.new(1, 1, 1) or Color3.fromRGB(170, 170, 180)
 		nodo.nome.Visible = numero == selezionato
-		-- Solo il sentiero già percorso (oro) e il prossimo tratto (bianco): tutto il resto confonderebbe.
+		-- Le tratte per mare si vedono sempre (oro se già fatte); le luci solo sul prossimo tratto da fare.
+		local prossimo = sbloccato(numero) and stelle == 0
 		for _, punto in ipairs(puntini[numero]) do
-			punto.Color = stelle > 0 and ORO or Color3.fromRGB(245, 245, 245)
-			punto.Transparency = sbloccato(numero) and 0 or 1
+			if punto.mare then
+				punto.parte.Color = stelle > 0 and ORO or Color3.fromRGB(245, 245, 245)
+				punto.parte.Transparency = sbloccato(numero) and 0.1 or 0.55
+			else
+				punto.parte.Color = ARANCIO
+				punto.parte.Transparency = prossimo and 0 or 1
+			end
 		end
 	end
 end
 
 local function aggiornaCamera(istantanea)
 	local bersaglio = posizioneLivello(selezionato)
+	-- Il giocatore aspetta a sud del plastico: chiede di caricare il terreno attorno al livello guardato.
+	task.spawn(pcall, Players.LocalPlayer.RequestStreamAroundAsync, Players.LocalPlayer, bersaglio)
 	local cframe = CFrame.lookAt(bersaglio + Vector3.new(0, 120, -95) * zoom, bersaglio)
 	local camera = workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Scriptable
@@ -321,7 +336,7 @@ local function ripristinaAmbiente()
 end
 
 local function nodoSotto(posizioneSchermo)
-	local raggio = workspace.CurrentCamera:ViewportPointToRay(posizioneSchermo.X, posizioneSchermo.Y)
+	local raggio = workspace.CurrentCamera:ScreenPointToRay(posizioneSchermo.X, posizioneSchermo.Y)
 	local parametri = RaycastParams.new()
 	parametri.FilterType = Enum.RaycastFilterType.Include
 	parametri.FilterDescendantsInstances = { cartella }
@@ -502,6 +517,8 @@ function Mappa.inizializza(gui, r)
 			Notifiche.mostra("Win the previous battles to unlock this one.")
 			return
 		end
+		-- Il server costruisce il campo di battaglia: qualche istante.
+		Notifiche.mostra("Marching to " .. Campagna.Battaglie[selezionato].nome .. "...")
 		local ok, messaggio = remoti.AvviaCampagna:InvokeServer(selezionato)
 		if not ok and messaggio then
 			Notifiche.mostra(messaggio, Stile.Colori.Rosso)

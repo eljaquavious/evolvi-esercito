@@ -1,5 +1,6 @@
--- Mappe di battaglia: un tabellone 6x6 su terreno del bioma, con rilievi e vegetazione intorno.
--- Ogni giocatore in battaglia ha la sua arena, lontana dalla lobby.
+-- Campi di battaglia: un grande terreno naturale del bioma (rilievi, fiume, vegetazione) con dentro la
+-- griglia 6x6 dove si schierano i reggimenti. Le caselle si vedono solo durante lo schieramento.
+-- Ogni giocatore in battaglia ha il suo campo, lontano dalla lobby, e ci cammina dentro.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -8,15 +9,33 @@ local Campagna = require(ReplicatedStorage.Shared.Config.Campagna)
 
 local Arena = {}
 
-Arena.CASELLA = 10
+Arena.CASELLA = 16
 Arena.COLONNE = Campagna.COLONNE
 Arena.RIGHE = Campagna.RIGHE
-Arena.ALTEZZA_CASELLE = 0.4
-Arena.ALTEZZA_COLLINA = 2
 
-local DISTANZA_TRA_ARENE = 600
+local DISTANZA_TRA_ARENE = 1200
 local INIZIO_ARENE = 3000
-local LATO_TERRENO = 400
+local LATO = 640 -- lato del terreno naturale
+local VOXEL = 4
+local Y_MIN, Y_MAX = -24, 80 -- quote del terreno scritto (relative all'arena)
+local META_CAMPO = Arena.CASELLA * Arena.COLONNE / 2
+local ALTEZZA_BASE = 3 -- quota del campo
+local ALTEZZA_COLLINA = 7
+local RAGGIO_COLLINA = Arena.CASELLA * 1.4
+local ACQUA = 1.2 -- pelo dell'acqua del fiume
+local FONDO_FIUME = -1.5
+local LARGHEZZA_FIUME = 13
+local MEZZO_QUOTE = 80 -- le quote si misurano su questo quadrato attorno al centro
+local PASSO_QUOTE = 4
+
+-- Forma del terreno e materiali per bioma.
+local RILIEVI = {
+	Pianeggiante = { ondulazione = 3, bordo = 28, base = Enum.Material.Grass, campo = Enum.Material.LeafyGrass, chiazze = Enum.Material.Ground, alto = Enum.Material.Grass, roccia = Enum.Material.Rock, sponda = Enum.Material.Mud },
+	Collinoso = { ondulazione = 9, bordo = 42, base = Enum.Material.Grass, campo = Enum.Material.LeafyGrass, chiazze = Enum.Material.Ground, alto = Enum.Material.LeafyGrass, roccia = Enum.Material.Rock, sponda = Enum.Material.Mud },
+	Desertico = { ondulazione = 5, bordo = 30, dune = true, base = Enum.Material.Sand, campo = Enum.Material.Sand, chiazze = Enum.Material.Sandstone, alto = Enum.Material.Sandstone, roccia = Enum.Material.Sandstone, sponda = Enum.Material.Mud },
+	Montagnoso = { ondulazione = 12, bordo = 64, neve = 52, base = Enum.Material.Ground, campo = Enum.Material.Ground, chiazze = Enum.Material.Pebble, alto = Enum.Material.Rock, roccia = Enum.Material.Rock, sponda = Enum.Material.Ground },
+	Innevato = { ondulazione = 8, bordo = 48, neve = -100, base = Enum.Material.Snow, campo = Enum.Material.Snow, chiazze = Enum.Material.Ground, alto = Enum.Material.Snow, roccia = Enum.Material.Rock, sponda = Enum.Material.Ground },
+}
 
 local terrain = workspace.Terrain
 
@@ -25,10 +44,6 @@ cartella.Name = "Arene"
 cartella.Parent = workspace
 
 local slotOccupati = {}
-
--- Un FillBlock con la cima a y = 0 dà una superficie a y = 2 (voxel da 4 studs).
--- Costante e non misurata: subito dopo FillBlock il terreno nuovo non si può ancora colpire con un raycast.
-local SUPERFICIE = 2
 
 local function blocco(genitore, proprieta)
 	local p = Instance.new("Part")
@@ -129,76 +144,214 @@ function OGGETTI.roccia(g, pos, rng, s, neve)
 	end
 end
 
--- Cosa mettere intorno al tabellone, per bioma: { tipo, quantità, distanza minima, distanza massima }.
--- "collina", "duna" e "montagna" sono rilievi di Terrain; gli altri sono parti.
+
+-- Cosa mettere attorno al campo, per bioma: { tipo, quantità, scala minima, scala massima }.
 local PAESAGGI = {
-	Pianeggiante = { { "albero", 34, 46, 170 }, { "roccia", 12, 44, 150 }, { "collina", 4, 150, 190 } },
-	Collinoso = { { "collina", 16, 80, 190 }, { "albero", 22, 46, 150 }, { "roccia", 8, 44, 140 } },
-	Desertico = { { "duna", 16, 70, 190 }, { "cactus", 22, 44, 150 }, { "roccia", 8, 44, 140 } },
-	Montagnoso = { { "montagna", 12, 120, 200 }, { "roccia", 24, 44, 130 }, { "pino", 12, 50, 140 } },
-	Innevato = { { "montagna", 9, 120, 200 }, { "pino", 34, 44, 160 }, { "roccia", 8, 44, 130 } },
+	Pianeggiante = { { "albero", 90, 1.1, 1.9 }, { "roccia", 22, 1, 1.8 } },
+	Collinoso = { { "albero", 80, 1.1, 1.8 }, { "roccia", 30, 1, 2 } },
+	Desertico = { { "cactus", 50, 1, 1.6 }, { "roccia", 26, 1, 2.2 } },
+	Montagnoso = { { "pino", 70, 1.2, 2 }, { "roccia", 45, 1.2, 2.6 } },
+	Innevato = { { "pino", 90, 1.2, 2 }, { "roccia", 14, 1, 1.8 } },
 }
 
-local function rilievo(tipo, pos, rng, bioma, neve)
-	if tipo == "collina" then
-		local raggio = rng:NextNumber(18, 32)
-		terrain:FillBall(pos - Vector3.new(0, raggio * 0.55, 0), raggio, bioma.materialeRilievi)
-	elseif tipo == "duna" then
-		local raggio = rng:NextNumber(16, 28)
-		terrain:FillBall(pos - Vector3.new(0, raggio * 0.7, 0), raggio, Enum.Material.Sand)
-	elseif tipo == "montagna" then
-		local raggio = rng:NextNumber(30, 46)
-		local centro = pos - Vector3.new(0, raggio * 0.35, 0)
-		terrain:FillBall(centro, raggio, Enum.Material.Rock)
-		terrain:FillBall(centro + Vector3.new(rng:NextNumber(-8, 8), raggio * 0.55, rng:NextNumber(-8, 8)), raggio * 0.55, neve and Enum.Material.Snow or Enum.Material.Rock)
-		if neve then
-			terrain:FillBall(centro + Vector3.new(0, raggio * 0.9, 0), raggio * 0.25, Enum.Material.Snow)
+local function liscio(a, b, x)
+	local t = math.clamp((x - a) / (b - a), 0, 1)
+	return t * t * (3 - 2 * t)
+end
+
+-- Centro di una casella (anche con coordinate non intere) rispetto al centro del campo.
+local function centroCasella(col, riga)
+	return (col - (Arena.COLONNE + 1) / 2) * Arena.CASELLA, (riga - (Arena.RIGHE + 1) / 2) * Arena.CASELLA
+end
+
+-- Linea del fiume: dritta sulla sua riga dentro il campo, poi fa anse.
+local function zFiume(arena, x)
+	local _, z0 = centroCasella(1, arena.rigaFiume)
+	local fuori = liscio(META_CAMPO, META_CAMPO + 80, math.abs(x))
+	return z0 + math.sin(x / 70 + arena.seme) * 34 * fuori
+end
+
+local function nelFiume(arena, x, z, margine)
+	return arena.rigaFiume ~= nil and math.abs(z - zFiume(arena, x)) < LARGHEZZA_FIUME / 2 + margine
+end
+
+-- Altezza calcolata del terreno in un punto (x, z relativi al centro del campo).
+local function altezza(arena, x, z)
+	local r = arena.rilievo
+	local s = arena.seme
+	local n = math.noise(x / 110 + s, z / 110 - s, 0.31) + 0.4 * math.noise(x / 40 - s, z / 40 + s, 0.77)
+	local distanza = math.max(math.abs(x), math.abs(z))
+	local fuoriCampo = liscio(META_CAMPO + 8, META_CAMPO + 90, distanza)
+	local h = ALTEZZA_BASE + n * r.ondulazione * (0.15 + 0.85 * fuoriCampo)
+	if r.dune then
+		h += math.abs(math.noise(x / 30, z / 55, s)) * 7 * fuoriCampo
+	end
+	-- Rilievi verso il bordo: il campo sta in una valle.
+	h += r.bordo * liscio(190, LATO / 2 - 20, distanza) * (0.7 + 0.5 * math.noise(x / 60 + s, z / 60, 2.1))
+	for _, c in ipairs(arena.colline) do
+		local d = math.sqrt((x - c.X) ^ 2 + (z - c.Y) ^ 2)
+		if d < RAGGIO_COLLINA then
+			h += ALTEZZA_COLLINA * (0.5 + 0.5 * math.cos(math.pi * d / RAGGIO_COLLINA))
+		end
+	end
+	if arena.rigaFiume then
+		local dz = math.abs(z - zFiume(arena, x))
+		local fondo = FONDO_FIUME
+		local colonna = math.floor((x + META_CAMPO) / Arena.CASELLA) + 1
+		if math.abs(x) < META_CAMPO and arena.guadi[colonna] then
+			fondo = ACQUA + 0.4 -- guado: banco di ghiaia appena fuori dall'acqua
+		end
+		h = fondo + (h - fondo) * liscio(LARGHEZZA_FIUME / 2, LARGHEZZA_FIUME / 2 + 7, dz)
+	end
+	return math.min(h, Y_MAX - 2)
+end
+
+local function materiale(arena, x, z, h, pendenza)
+	local r = arena.rilievo
+	if nelFiume(arena, x, z, 4) then
+		return r.sponda
+	end
+	if r.neve and h > r.neve then
+		return Enum.Material.Snow
+	end
+	if pendenza > 0.9 then
+		return r.roccia
+	end
+	if math.max(math.abs(x), math.abs(z)) < META_CAMPO + 10 then
+		return math.noise(x / 18, z / 18, arena.seme) > 0.25 and r.chiazze or r.campo
+	end
+	if h > ALTEZZA_BASE + 26 then
+		return r.alto
+	end
+	return math.noise(x / 26, z / 26, arena.seme + 3) > 0.35 and r.chiazze or r.base
+end
+
+-- Scrive il terreno a blocchi (meno memoria e niente blocchi lunghi del server).
+local function scriviTerreno(arena)
+	local perLato = LATO / VOXEL
+	local strati = (Y_MAX - Y_MIN) / VOXEL
+	local lato = 40
+	for bx = 0, perLato / lato - 1 do
+		for bz = 0, perLato / lato - 1 do
+			local materiali, occupazione = {}, {}
+			for i = 1, lato do
+				materiali[i], occupazione[i] = {}, {}
+				local x = -LATO / 2 + (bx * lato + i - 0.5) * VOXEL
+				for j = 1, strati do
+					materiali[i][j], occupazione[i][j] = {}, {}
+				end
+				for k = 1, lato do
+					local z = -LATO / 2 + (bz * lato + k - 0.5) * VOXEL
+					local h = altezza(arena, x, z)
+					local pendenza = (math.abs(altezza(arena, x + VOXEL, z) - altezza(arena, x - VOXEL, z))
+						+ math.abs(altezza(arena, x, z + VOXEL) - altezza(arena, x, z - VOXEL))) / (2 * VOXEL)
+					local cima = materiale(arena, x, z, h, pendenza)
+					local sotto = arena.rilievo.roccia == Enum.Material.Sandstone and Enum.Material.Sandstone or Enum.Material.Ground
+					local acqua = nelFiume(arena, x, z, 6)
+					for j = 1, strati do
+						local y0 = Y_MIN + (j - 1) * VOXEL
+						local m, o = Enum.Material.Air, 0
+						if y0 + VOXEL <= h then
+							m, o = h - (y0 + VOXEL) < VOXEL and cima or sotto, 1
+						elseif y0 < h then
+							m, o = cima, (h - y0) / VOXEL
+						end
+						if acqua and o < 0.5 and y0 < ACQUA then
+							m, o = Enum.Material.Water, math.min(1, (ACQUA - y0) / VOXEL)
+						end
+						materiali[i][j][k] = m
+						occupazione[i][j][k] = o
+					end
+				end
+			end
+			local minimo = arena.origine + Vector3.new(-LATO / 2 + bx * lato * VOXEL, Y_MIN, -LATO / 2 + bz * lato * VOXEL)
+			terrain:WriteVoxels(Region3.new(minimo, minimo + Vector3.new(lato * VOXEL, strati * VOXEL, lato * VOXEL)), VOXEL, materiali, occupazione)
+			task.wait()
 		end
 	end
 end
 
--- zFiume: se c'è un fiume, niente alberi o colline nell'acqua.
-local function decora(g, biomaId, bioma, origine, rng, zFiume)
-	local neve = biomaId == "Innevato"
-	for _, voce in ipairs(PAESAGGI[biomaId] or {}) do
-		local tipo, quantita, minimo, massimo = voce[1], voce[2], voce[3], voce[4]
+-- Quota del terreno sul campo: misurata se possibile (il Terrain liscia i voxel e non segue
+-- esattamente l'altezza calcolata), altrimenti calcolata.
+local function quota(arena, x, z)
+	local q = arena.quote
+	if q then
+		local fi, fk = (x + MEZZO_QUOTE) / PASSO_QUOTE, (z + MEZZO_QUOTE) / PASSO_QUOTE
+		local i, k = math.floor(fi), math.floor(fk)
+		if q[i] and q[i + 1] and q[i][k] and q[i][k + 1] then
+			local tx, tz = fi - i, fk - k
+			local a = q[i][k] + (q[i + 1][k] - q[i][k]) * tx
+			local b = q[i][k + 1] + (q[i + 1][k + 1] - q[i][k + 1]) * tx
+			return a + (b - a) * tz
+		end
+	end
+	return altezza(arena, x, z)
+end
+
+-- Misura le quote con raycast. Subito dopo WriteVoxels il raycast non vede ancora il terreno nuovo: si aspetta.
+local function misuraQuote(arena)
+	local parametri = RaycastParams.new()
+	parametri.FilterType = Enum.RaycastFilterType.Include
+	parametri.FilterDescendantsInstances = { terrain }
+	parametri.IgnoreWater = true
+	local function colpo(x, z)
+		local risultato = workspace:Raycast(arena.origine + Vector3.new(x, Y_MAX + 10, z), Vector3.new(0, Y_MIN - Y_MAX - 20, 0), parametri)
+		return risultato and risultato.Position.Y - arena.origine.Y
+	end
+	for _ = 1, 50 do
+		if colpo(0, 0) then
+			break
+		end
+		task.wait(0.1)
+	end
+	local quote = {}
+	local n = MEZZO_QUOTE * 2 / PASSO_QUOTE
+	for i = 0, n do
+		quote[i] = {}
+		for k = 0, n do
+			local x, z = -MEZZO_QUOTE + i * PASSO_QUOTE, -MEZZO_QUOTE + k * PASSO_QUOTE
+			quote[i][k] = colpo(x, z) or altezza(arena, x, z)
+		end
+	end
+	arena.quote = quote
+end
+
+-- Punto a terra per coordinate del campo (colonna, riga), anche non intere.
+function Arena.posizione(arena, x, y)
+	local cx, cz = centroCasella(x, y)
+	return arena.origine + Vector3.new(cx, quota(arena, cx, cz), cz)
+end
+
+-- Casella sagomata sul terreno: inclinata come il pendio sotto di lei.
+local function cframeCasella(arena, col, riga)
+	local cx, cz = centroCasella(col, riga)
+	local d = 6
+	local inclinazioneX = quota(arena, cx + d, cz) - quota(arena, cx - d, cz)
+	local inclinazioneZ = quota(arena, cx, cz + d) - quota(arena, cx, cz - d)
+	local su = Vector3.new(-inclinazioneX, 2 * d, -inclinazioneZ).Unit
+	local destra = (Vector3.xAxis - su * su.X).Unit
+	local posizione = arena.origine + Vector3.new(cx, quota(arena, cx, cz) + 0.35, cz)
+	return CFrame.fromMatrix(posizione, destra, su)
+end
+
+local function decora(arena, g, rng)
+	local paesaggio = PAESAGGI[arena.biomaId] or {}
+	local neve = arena.biomaId == "Innevato"
+	for _, voce in ipairs(paesaggio) do
+		local tipo, quantita, scalaMin, scalaMax = voce[1], voce[2], voce[3], voce[4]
 		local piazzati, tentativi = 0, 0
 		while piazzati < quantita and tentativi < quantita * 10 do
 			tentativi += 1
-			local angolo = rng:NextNumber(0, math.pi * 2)
-			local raggio = rng:NextNumber(minimo, massimo)
-			local x, z = math.cos(angolo) * raggio, math.sin(angolo) * raggio
-			-- Lascia libera la visuale tra la telecamera (dietro al lato del giocatore) e il tabellone.
-			local nelFiume = zFiume and math.abs(z - zFiume) < 12
-			if not (z < -30 and math.abs(x) < 60 + (-z) * 0.4) and not nelFiume then
+			local x = rng:NextNumber(-LATO / 2 + 30, LATO / 2 - 30)
+			local z = rng:NextNumber(-LATO / 2 + 30, LATO / 2 - 30)
+			local lontano = math.max(math.abs(x), math.abs(z)) > META_CAMPO + 22
+			if lontano and not nelFiume(arena, x, z, 6) then
 				piazzati += 1
-				local pos = origine + Vector3.new(x, 0, z)
-				if tipo == "collina" or tipo == "duna" or tipo == "montagna" then
-					rilievo(tipo, pos, rng, bioma, neve)
-				else
-					OGGETTI[tipo](g, pos, rng, rng:NextNumber(0.9, 1.5), neve)
-				end
+				local pos = arena.origine + Vector3.new(x, altezza(arena, x, z) - 0.6, z)
+				OGGETTI[tipo](g, pos, rng, rng:NextNumber(scalaMin, scalaMax), neve)
 			end
 		end
 	end
-end
-
--- Posizione a terra (sopra le caselle, e sopra le colline) per coordinate del tabellone, anche non intere.
-function Arena.posizione(arena, x, y)
-	local cx = (x - (Arena.COLONNE + 1) / 2) * Arena.CASELLA
-	local cz = (y - (Arena.RIGHE + 1) / 2) * Arena.CASELLA
-	local tipo = arena.terreno and arena.terreno[math.floor(x + 0.5) .. "," .. math.floor(y + 0.5)]
-	local collina = tipo == "collina" and Arena.ALTEZZA_COLLINA or 0
-	return arena.origine + Vector3.new(cx, Arena.ALTEZZA_CASELLE + collina, cz)
-end
-
--- Fiume che attraversa tutta la mappa lungo una riga del tabellone.
-local function scavaFiume(origine, riga)
-	local z = origine.Z + (riga - (Arena.RIGHE + 1) / 2) * Arena.CASELLA
-	local centro = Vector3.new(origine.X, 0, z)
-	terrain:FillBlock(CFrame.new(centro + Vector3.new(0, 2, 0)), Vector3.new(LATO_TERRENO, 12, Arena.CASELLA - 1), Enum.Material.Air)
-	terrain:FillBlock(CFrame.new(centro - Vector3.new(0, 4, 0)), Vector3.new(LATO_TERRENO, 4, Arena.CASELLA + 3), Enum.Material.Mud)
-	terrain:FillBlock(CFrame.new(centro - Vector3.new(0, 1, 0)), Vector3.new(LATO_TERRENO, 2, Arena.CASELLA - 1), Enum.Material.Water)
 end
 
 function Arena.crea(player, livello)
@@ -209,67 +362,59 @@ function Arena.crea(player, livello)
 	slotOccupati[slot] = true
 
 	local biomaId = livello.bioma
-	local bioma = Biomi.Dati[biomaId]
-	local origine = Vector3.new(INIZIO_ARENE + slot * DISTANZA_TRA_ARENE, 0, 0)
-	local arena = { slot = slot, origine = origine, bioma = bioma, biomaId = biomaId }
-
-	-- Terreno: un blocco piatto intorno a y = 0. Sotto il tabellone niente erba, che coprirebbe caselle e soldati.
-	terrain:FillBlock(CFrame.new(origine - Vector3.new(0, 8, 0)), Vector3.new(LATO_TERRENO, 16, LATO_TERRENO), bioma.materiale)
-	if bioma.materiale == Enum.Material.Grass then
-		terrain:FillBlock(CFrame.new(origine - Vector3.new(0, 8, 0)), Vector3.new(Arena.COLONNE * Arena.CASELLA + 16, 16, Arena.RIGHE * Arena.CASELLA + 16), Enum.Material.Ground)
+	local arena = {
+		slot = slot,
+		origine = Vector3.new(INIZIO_ARENE + slot * DISTANZA_TRA_ARENE, 0, 0),
+		bioma = Biomi.Dati[biomaId],
+		biomaId = biomaId,
+		rilievo = RILIEVI[biomaId] or RILIEVI.Pianeggiante,
+		seme = (livello.numero * 0.618) % 1 * 100,
+		terreno = {}, -- "col,riga" -> tipo (ostacolo, fiume, guado, collina)
+		colline = {},
+		guadi = {},
+	}
+	for _, t in ipairs(livello.terreno) do
+		arena.terreno[t.col .. "," .. t.riga] = t.tipo
+		if t.tipo == "fiume" or t.tipo == "guado" then
+			arena.rigaFiume = t.riga
+		end
+		if t.tipo == "guado" then
+			arena.guadi[t.col] = true
+		elseif t.tipo == "collina" then
+			table.insert(arena.colline, Vector2.new(centroCasella(t.col, t.riga)))
+		end
 	end
-	-- Il tabellone poggia sulla superficie vera del terreno.
-	origine = Vector3.new(origine.X, SUPERFICIE + 0.15, origine.Z)
-	arena.origine = origine
+
+	scriviTerreno(arena)
+	misuraQuote(arena)
 
 	local modello = Instance.new("Model")
 	modello.Name = "Arena_" .. player.UserId
 	modello.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 	arena.modello = modello
 
-	-- terreno: "col,riga" -> tipo (ostacolo, fiume, guado, collina)
-	arena.terreno = {}
-	local rigaFiume
-	for _, t in ipairs(livello.terreno) do
-		arena.terreno[t.col .. "," .. t.riga] = t.tipo
-		if t.tipo == "fiume" or t.tipo == "guado" then
-			rigaFiume = t.riga
-		end
-	end
-	if rigaFiume then
-		scavaFiume(origine, rigaFiume)
-	end
-
+	-- Caselle: solo un segno sul terreno, che sparisce quando si combatte.
 	local tabellone = Instance.new("Folder")
 	tabellone.Name = "Tabellone"
 	tabellone.Parent = modello
-	local lato = Arena.CASELLA
-	-- Cornice del tabellone.
-	blocco(modello, {
-		Name = "Cornice",
-		Size = Vector3.new(Arena.COLONNE * lato + 2, 0.3, Arena.RIGHE * lato + 2),
-		Position = origine + Vector3.new(0, 0.1, 0),
-		Color = Color3.fromRGB(60, 52, 44),
-		Material = Enum.Material.WoodPlanks,
-		Transparency = 0.2,
-	})
+	arena.caselle = {}
 	for col = 1, Arena.COLONNE do
 		for riga = 1, Arena.RIGHE do
 			local delGiocatore = riga <= Campagna.RIGHE_GIOCATORE
-			local colore = bioma.casella:Lerp(delGiocatore and Color3.fromRGB(60, 120, 255) or Color3.fromRGB(235, 50, 50), 0.7)
+			local colore = delGiocatore and Color3.fromRGB(70, 140, 255) or Color3.fromRGB(235, 70, 60)
 			if (col + riga) % 2 == 0 then
-				colore = colore:Lerp(Color3.new(1, 1, 1), 0.12)
+				colore = colore:Lerp(Color3.new(1, 1, 1), 0.15)
 			end
 			local tipo = arena.terreno[col .. "," .. riga]
-			local spessore = Arena.ALTEZZA_CASELLE + (tipo == "collina" and Arena.ALTEZZA_COLLINA or 0)
 			local casella = blocco(tabellone, {
 				Name = "Casella_" .. col .. "_" .. riga,
-				Size = Vector3.new(lato - 0.5, spessore, lato - 0.5),
-				Position = Arena.posizione(arena, col, riga) - Vector3.new(0, spessore / 2, 0),
+				Size = Vector3.new(Arena.CASELLA - 1.2, 0.2, Arena.CASELLA - 1.2),
+				CFrame = cframeCasella(arena, col, riga),
 				Color = colore,
 				Material = Enum.Material.SmoothPlastic,
-				Transparency = 0.25,
+				Transparency = 0.5,
 				CanQuery = true,
+				CastShadow = false,
 			})
 			casella:SetAttribute("Col", col)
 			casella:SetAttribute("Riga", riga)
@@ -278,53 +423,62 @@ function Arena.crea(player, livello)
 			end
 			if tipo == "ostacolo" then
 				casella:SetAttribute("Ostacolo", true)
-				casella.Color = colore:Lerp(Color3.new(0, 0, 0), 0.35)
+				casella.Color = colore:Lerp(Color3.new(0, 0, 0), 0.45)
 			elseif tipo == "fiume" then
-				-- Il fiume si attraversa ma non ci si schiera sopra.
+				-- Il fiume si attraversa ma non ci si schiera dentro.
 				casella:SetAttribute("Ostacolo", true)
-				casella.Color = Color3.fromRGB(70, 150, 210)
-				casella.Material = Enum.Material.Glass
-				casella.Transparency = 0.55
+				casella.Color = Color3.fromRGB(90, 200, 255)
 			elseif tipo == "guado" then
-				casella.Color = Color3.fromRGB(196, 176, 130):Lerp(colore, 0.35)
-				casella.Material = Enum.Material.Sand
-				casella.Transparency = 0.1
+				casella.Color = Color3.fromRGB(226, 204, 150):Lerp(colore, 0.3)
 			elseif tipo == "collina" then
-				casella.Material = Enum.Material.Grass
-				casella.Transparency = 0
-				casella.Color = colore:Lerp(Color3.fromRGB(110, 150, 70), 0.45)
-				-- Niente terreno a palla sotto: sbucava sopra la casella della collina.
+				casella.Color = colore:Lerp(Color3.fromRGB(120, 200, 80), 0.4)
 			end
+			local bordo = Instance.new("SelectionBox")
+			bordo.Adornee = casella
+			bordo.LineThickness = 0.08
+			bordo.Color3 = colore:Lerp(Color3.new(1, 1, 1), 0.5)
+			bordo.SurfaceTransparency = 1
+			bordo.Parent = casella
+			arena.caselle[casella] = casella.Transparency
 		end
 	end
-	blocco(modello, {
-		Name = "Confine",
-		Size = Vector3.new(Arena.COLONNE * lato, 0.15, 0.5),
-		Position = origine + Vector3.new(0, Arena.ALTEZZA_CASELLE + 0.08, 0),
-		Color = Color3.fromRGB(255, 240, 200),
-		Material = Enum.Material.Neon,
-	})
 
 	local decorazioni = Instance.new("Folder")
 	decorazioni.Name = "Decorazioni"
 	decorazioni.Parent = modello
 	local rng = Random.new(livello.numero * 31 + 7)
+	-- Ostacoli naturali sulle caselle bloccate: un gruppo di alberi, rocce o cactus.
 	for _, t in ipairs(livello.terreno) do
 		if t.tipo == "ostacolo" then
-			local pos = Arena.posizione(arena, t.col, t.riga)
-			OGGETTI[bioma.ostacolo](decorazioni, pos, rng, 1.2, biomaId == "Innevato")
+			local centro = Arena.posizione(arena, t.col, t.riga) - Vector3.new(0, 0.4, 0)
+			local oggetto = OGGETTI[arena.bioma.ostacolo]
+			oggetto(decorazioni, centro, rng, 1.7, biomaId == "Innevato")
+			for _ = 1, 2 do
+				local scarto = Vector3.new(rng:NextNumber(-4.5, 4.5), 0, rng:NextNumber(-4.5, 4.5))
+				oggetto(decorazioni, centro + scarto, rng, rng:NextNumber(0.9, 1.2), biomaId == "Innevato")
+			end
 		end
 	end
-	decora(decorazioni, biomaId, bioma, origine, rng, rigaFiume and (rigaFiume - (Arena.RIGHE + 1) / 2) * Arena.CASELLA)
+	decora(arena, decorazioni, rng)
+	-- Tronchi e rocce sono solidi: il giocatore ci gira attorno.
+	for _, parte in ipairs(decorazioni:GetDescendants()) do
+		if parte:IsA("BasePart") and (parte.Material == Enum.Material.Wood or parte.Material == Enum.Material.Slate) then
+			parte.CanCollide = true
+		end
+	end
 
-	blocco(modello, {
-		Name = "Belvedere",
-		Size = Vector3.new(10, 1, 10),
-		Position = origine + Vector3.new(0, 0.5, -95),
-		Color = Color3.fromRGB(120, 110, 100),
-		Material = Enum.Material.Cobblestone,
-		CanCollide = true,
-	})
+	-- Muri invisibili sul bordo: si cammina solo nella valle.
+	local limite = LATO / 2 - 24
+	for _, lato in ipairs({ { limite, 0, 4, LATO }, { -limite, 0, 4, LATO }, { 0, limite, LATO, 4 }, { 0, -limite, LATO, 4 } }) do
+		blocco(modello, {
+			Name = "Limite",
+			Size = Vector3.new(lato[3], 400, lato[4]),
+			Position = arena.origine + Vector3.new(lato[1], 150, lato[2]),
+			Transparency = 1,
+			CanCollide = true,
+			CanQuery = false,
+		})
+	end
 
 	local truppe = Instance.new("Folder")
 	truppe.Name = "Truppe"
@@ -332,15 +486,33 @@ function Arena.crea(player, livello)
 
 	modello.Parent = cartella
 	arena.truppe = truppe
-	arena.belvedere = origine + Vector3.new(0, 4, -95)
+	-- Il giocatore arriva dietro le sue file, rivolto verso il nemico.
+	local zArrivo = -META_CAMPO - 22
+	local arrivo = arena.origine + Vector3.new(0, quota(arena, 0, zArrivo) + 4, zArrivo)
+	arena.arrivo = CFrame.lookAt(arrivo, arrivo + Vector3.zAxis)
 	return arena
+end
+
+-- Mostra o nasconde le caselle: si vedono solo mentre si schiera.
+function Arena.mostraCaselle(arena, visibile)
+	for casella, trasparenza in pairs(arena.caselle or {}) do
+		if casella.Parent then
+			casella.Transparency = visibile and trasparenza or 1
+			casella.CanQuery = visibile
+			local bordo = casella:FindFirstChildOfClass("SelectionBox")
+			if bordo then
+				bordo.Visible = visibile
+			end
+		end
+	end
 end
 
 function Arena.distruggi(arena)
 	if arena.modello then
 		arena.modello:Destroy()
 	end
-	terrain:FillBlock(CFrame.new(arena.origine + Vector3.new(0, 30, 0)), Vector3.new(LATO_TERRENO + 120, 140, LATO_TERRENO + 120), Enum.Material.Air)
+	local centro = arena.origine + Vector3.new(0, (Y_MIN + Y_MAX) / 2, 0)
+	terrain:FillBlock(CFrame.new(centro), Vector3.new(LATO + 8, Y_MAX - Y_MIN + 8, LATO + 8), Enum.Material.Air)
 	slotOccupati[arena.slot] = nil
 end
 

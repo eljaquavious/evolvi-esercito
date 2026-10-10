@@ -18,34 +18,35 @@ Campagna.STELLE_MASSIME = 3
 
 -- Battaglie, in ordine. lat/lon servono a metterle sulla mappa (spostate di poco nell'entroterra se cadono sul mare); fiume = un fiume attraversa il campo.
 -- comandante = il boss del livello (deve stare nei comandanti dell'epoca).
+-- L'ordine segue un sentiero sulla mappa, senza salti avanti e indietro: per questo non è sempre cronologico.
 Campagna.Battaglie = {
-	-- Antichità
-	{ nome = "Marathon", anno = "490 BC", lat = 38.15, lon = 23.96, bioma = "Pianeggiante" },
-	{ nome = "Thermopylae", anno = "480 BC", lat = 38.8, lon = 22.53, bioma = "Montagnoso" },
+	-- Antichità: dalla Mesopotamia alla Grecia, poi Italia, Africa e Gallia.
 	{ nome = "Gaugamela", anno = "331 BC", lat = 36.36, lon = 43.25, bioma = "Desertico" },
+	{ nome = "Thermopylae", anno = "480 BC", lat = 38.8, lon = 22.53, bioma = "Montagnoso" },
+	{ nome = "Marathon", anno = "490 BC", lat = 38.15, lon = 23.96, bioma = "Pianeggiante" },
 	{ nome = "Heraclea", anno = "280 BC", lat = 40.39, lon = 16.44, bioma = "Collinoso", fiume = true },
 	{ nome = "Cannae", anno = "216 BC", lat = 41.14, lon = 15.89, bioma = "Pianeggiante", fiume = true, comandante = "Annibale" },
 	{ nome = "Zama", anno = "202 BC", lat = 36.3, lon = 9.4, bioma = "Desertico" },
-	{ nome = "Cynoscephalae", anno = "197 BC", lat = 39.4, lon = 22.6, bioma = "Collinoso" },
 	{ nome = "Carthage", anno = "146 BC", lat = 36.68, lon = 10.09, bioma = "Desertico" },
 	{ nome = "Aquae Sextiae", anno = "102 BC", lat = 43.53, lon = 5.45, bioma = "Collinoso", fiume = true },
+	{ nome = "Gergovia", anno = "52 BC", lat = 45.71, lon = 3.13, bioma = "Collinoso" },
 	{ nome = "Alesia", anno = "52 BC", lat = 47.54, lon = 4.5, bioma = "Collinoso", comandante = "Cesare" },
-	-- Medioevo
-	{ nome = "Tours", anno = "732", lat = 47.0, lon = 0.6, bioma = "Pianeggiante", fiume = true },
-	{ nome = "Roncevaux Pass", anno = "778", lat = 43.0, lon = -1.32, bioma = "Montagnoso" },
-	{ nome = "Lechfeld", anno = "955", lat = 48.3, lon = 10.9, bioma = "Pianeggiante", fiume = true },
-	{ nome = "Stamford Bridge", anno = "1066", lat = 53.99, lon = -0.91, bioma = "Collinoso", fiume = true },
-	{ nome = "Hastings", anno = "1066", lat = 50.91, lon = 0.49, bioma = "Collinoso", comandante = "Guglielmo" },
-	{ nome = "Manzikert", anno = "1071", lat = 39.14, lon = 42.54, bioma = "Montagnoso" },
-	{ nome = "Legnano", anno = "1176", lat = 45.6, lon = 8.9, bioma = "Pianeggiante" },
+	-- Medioevo: dalla Terrasanta al Baltico, poi Inghilterra e Francia.
 	{ nome = "Hattin", anno = "1187", lat = 32.8, lon = 35.45, bioma = "Desertico" },
+	{ nome = "Manzikert", anno = "1071", lat = 39.14, lon = 42.54, bioma = "Montagnoso" },
 	{ nome = "Lake Peipus", anno = "1242", lat = 58.7, lon = 27.5, bioma = "Innevato" },
+	{ nome = "Lechfeld", anno = "955", lat = 48.3, lon = 10.9, bioma = "Pianeggiante", fiume = true },
+	{ nome = "Hastings", anno = "1066", lat = 50.91, lon = 0.49, bioma = "Collinoso", comandante = "Guglielmo" },
+	{ nome = "Stamford Bridge", anno = "1066", lat = 53.99, lon = -0.91, bioma = "Collinoso", fiume = true },
+	{ nome = "Crecy", anno = "1346", lat = 50.25, lon = 1.9, bioma = "Pianeggiante" },
+	{ nome = "Roncevaux Pass", anno = "778", lat = 43.0, lon = -1.32, bioma = "Montagnoso" },
+	{ nome = "Tours", anno = "732", lat = 47.0, lon = 0.6, bioma = "Pianeggiante", fiume = true },
 	{ nome = "Orleans", anno = "1429", lat = 47.9, lon = 1.9, bioma = "Pianeggiante", fiume = true, comandante = "Giovanna" },
-	-- Novecento
-	{ nome = "The Marne", anno = "1914", lat = 49.0, lon = 3.4, bioma = "Pianeggiante", fiume = true },
-	{ nome = "Tannenberg", anno = "1914", lat = 53.5, lon = 20.1, bioma = "Collinoso" },
+	-- Novecento: la Grande Guerra da Gallipoli alla Somme, poi la Seconda da El Alamein a Parigi.
 	{ nome = "Gallipoli", anno = "1915", lat = 40.13, lon = 26.78, bioma = "Collinoso" },
+	{ nome = "Tannenberg", anno = "1914", lat = 53.5, lon = 20.1, bioma = "Collinoso" },
 	{ nome = "Verdun", anno = "1916", lat = 49.16, lon = 5.38, bioma = "Collinoso", fiume = true },
+	{ nome = "The Marne", anno = "1914", lat = 49.0, lon = 3.4, bioma = "Pianeggiante", fiume = true },
 	{ nome = "Amiens", anno = "1918", lat = 49.9, lon = 2.3, bioma = "Pianeggiante", comandante = "Foch" },
 	{ nome = "El Alamein", anno = "1942", lat = 30.83, lon = 28.95, bioma = "Desertico" },
 	{ nome = "Stalingrad", anno = "1942", lat = 48.7, lon = 44.5, bioma = "Innevato", fiume = true },

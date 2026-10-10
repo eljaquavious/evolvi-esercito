@@ -1,5 +1,6 @@
--- Plastico della campagna: l'Europa e il Mediterraneo in Terrain, su un grande tavolo di legno.
--- Costruito una volta all'avvio; i livelli e il sentiero li disegna ogni client per conto suo (stelle diverse).
+-- Plastico della campagna: l'Europa e il Mediterraneo in Terrain (quote e costa vere), su un grande tavolo
+-- di legno, con il sentiero tra le battaglie tracciato sul terreno. Costruito una volta all'avvio;
+-- i livelli e le tratte per mare li disegna ogni client per conto suo (stelle diverse).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -25,21 +26,38 @@ local function costaVicina(colonna, riga)
 	return false
 end
 
--- Materiale della superficie per una cella di terra.
-local function materialeCima(colonna, riga, altezza)
+-- Materiale della superficie per una cella di terra; h in studs (le montagne vere sono sopra i 15).
+local function materialeCima(colonna, riga, h)
 	local lat, lon = MappaEuropa.coordinate(colonna, riga)
-	if altezza >= 4.2 or lat > 59.5 and altezza >= 1.5 then
+	local variazione = math.noise(colonna * 0.11, riga * 0.11, 3.7)
+	if h >= 22 or (lat > 59 and h >= 9) then
 		return Enum.Material.Snow
-	elseif altezza >= 3 then
+	elseif h >= 16 then
 		return Enum.Material.Rock
-	elseif lat < 34.5 or (lat < 37.5 and lon > 30) then
-		return Enum.Material.Sand
+	elseif lat < 34.5 or (lat < 37.5 and lon > 30) or (lat < 38.5 and lon > 38) then
+		return h >= 9 and Enum.Material.Sandstone or Enum.Material.Sand
 	elseif costaVicina(colonna, riga) and lat < 44 then
 		return Enum.Material.Sand
-	elseif lat > 50 then
+	elseif h >= 11 then
+		return variazione > 0.1 and Enum.Material.Ground or Enum.Material.LeafyGrass
+	elseif lat > 52 then
 		return Enum.Material.LeafyGrass
 	end
-	return Enum.Material.Grass
+	return variazione > 0.3 and Enum.Material.LeafyGrass or Enum.Material.Grass
+end
+
+-- Celle di terra dove passa il sentiero tra due battaglie della stessa epoca.
+local function celleSentiero()
+	local celle = {}
+	for _, sentiero in ipairs(MappaEuropa.Sentieri) do
+		for i = 1, #sentiero, 2 do
+			local colonna, riga = sentiero[i], sentiero[i + 1]
+			if MappaEuropa.terra(colonna, riga) then
+				celle[colonna * 1000 + riga] = true
+			end
+		end
+	end
+	return celle
 end
 
 local function tavolo()
@@ -107,46 +125,66 @@ end
 
 function MappaCampagna.costruisci()
 	local nx, nz = MappaEuropa.COLONNE, MappaEuropa.RIGHE
-	local ny = MappaEuropa.VOXEL_SOTTO + MappaEuropa.VOXEL_SOPRA
-	local materiali, occupazione = {}, {}
-	for x = 1, nx do
-		materiali[x], occupazione[x] = {}, {}
-		for y = 1, ny do
-			materiali[x][y], occupazione[x][y] = {}, {}
-		end
-	end
-	-- Indici dei voxel: x cresce con la X del mondo (verso ovest), z con la Z (verso nord).
-	for colonna = 0, nx - 1 do
-		local x = nx - colonna
-		for riga = 0, nz - 1 do
-			local z = nz - riga
-			local altezza = MappaEuropa.altezza(colonna, riga)
-			local cima = altezza > 0 and materialeCima(colonna, riga, altezza) or nil
-			for y = 1, ny do
-				local livello = y - MappaEuropa.VOXEL_SOTTO -- 1 = primo voxel sopra il mare
-				local materiale, pieno = Enum.Material.Air, 0
-				if altezza <= 0 then
-					if livello <= 0 then
-						materiale, pieno = Enum.Material.Water, 1
-					end
-				elseif livello <= math.floor(altezza) then
-					materiale, pieno = livello == math.floor(altezza) and cima or Enum.Material.Ground, 1
-				elseif livello == math.floor(altezza) + 1 then
-					-- Ultimo voxel parzialmente pieno: pendii morbidi invece di gradini.
-					materiale, pieno = cima, altezza % 1
+	local sotto = MappaEuropa.VOXEL_SOTTO
+	local ny = sotto + MappaEuropa.VOXEL_SOPRA
+	local sentiero = celleSentiero()
+	-- A blocchi di colonne: meno memoria e il server non si blocca.
+	local lato = 40
+	for bx = 0, math.ceil(nx / lato) - 1 do
+		for bz = 0, math.ceil(nz / lato) - 1 do
+			local lx, lz = math.min(lato, nx - bx * lato), math.min(lato, nz - bz * lato)
+			local materiali, occupazione = {}, {}
+			for i = 1, lx do
+				materiali[i], occupazione[i] = {}, {}
+				for j = 1, ny do
+					materiali[i][j], occupazione[i][j] = {}, {}
 				end
-				if livello <= 0 and altezza > 0 then
-					materiale, pieno = Enum.Material.Ground, 1
-				end
-				materiali[x][y][z] = materiale
-				occupazione[x][y][z] = pieno
 			end
+			-- Indici dei voxel: x cresce con la X del mondo (verso ovest), z con la Z (verso nord).
+			for i = 1, lx do
+				local colonna = nx - (bx * lato + i)
+				for k = 1, lz do
+					local riga = nz - (bz * lato + k)
+					local h = MappaEuropa.altezzaStuds(colonna, riga)
+					local cima
+					if h > 0 then
+						cima = sentiero[colonna * 1000 + riga] and Enum.Material.Ground or materialeCima(colonna, riga, h)
+					end
+					local fondale = -MappaEuropa.profondita(colonna, riga)
+					for j = 1, ny do
+						local y0 = (j - 1 - sotto) * CELLA -- base del voxel
+						local materiale, pieno = Enum.Material.Air, 0
+						if h > 0 then
+							if y0 + CELLA <= h then
+								materiale, pieno = h - (y0 + CELLA) < CELLA and cima or Enum.Material.Ground, 1
+							elseif y0 < h then
+								materiale, pieno = cima, (h - y0) / CELLA
+							end
+						elseif y0 + CELLA <= fondale then
+							materiale, pieno = Enum.Material.Sand, 1
+						elseif y0 < fondale then
+							materiale, pieno = Enum.Material.Sand, (fondale - y0) / CELLA
+							if pieno < 0.5 then
+								materiale, pieno = Enum.Material.Water, 1
+							end
+						elseif y0 < 0 then
+							materiale, pieno = Enum.Material.Water, 1
+						end
+						materiali[i][j][k] = materiale
+						occupazione[i][j][k] = pieno
+					end
+				end
+			end
+			-- Angolo del blocco: il voxel i = 1 è quello con la X minore (il più a est), k = 1 il più a sud.
+			local minimo = MappaEuropa.CENTRO + Vector3.new(
+				-nx * CELLA / 2 + bx * lato * CELLA,
+				-sotto * CELLA,
+				-nz * CELLA / 2 + bz * lato * CELLA
+			)
+			terrain:WriteVoxels(Region3.new(minimo, minimo + Vector3.new(lx * CELLA, ny * CELLA, lz * CELLA)), CELLA, materiali, occupazione)
+			task.wait()
 		end
 	end
-	local minimo = MappaEuropa.CENTRO - Vector3.new(nx * CELLA / 2, MappaEuropa.VOXEL_SOTTO * CELLA, nz * CELLA / 2)
-	local massimo = minimo + Vector3.new(nx * CELLA, ny * CELLA, nz * CELLA)
-	local regione = Region3.new(minimo, massimo):ExpandToGrid(CELLA)
-	terrain:WriteVoxels(regione, CELLA, materiali, occupazione)
 	tavolo()
 	task.spawn(misuraAltezze)
 end

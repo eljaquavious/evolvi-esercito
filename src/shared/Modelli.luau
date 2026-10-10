@@ -380,29 +380,29 @@ local function formazione(numero)
 	return lista
 end
 
--- Scala dei soldati nel reggimento, per farli stare nella casella.
+-- Scala dei soldati nel reggimento: alti più o meno come l'avatar del giocatore, che cammina tra loro.
 local SCALE = {
-	Spadaccino = 0.82,
-	Arciere = 0.82,
-	Cavaliere = 0.8,
-	Fante = 0.82,
-	Mitragliere = 0.85,
-	CarroArmato = 1.4,
-	Legionario = 0.82,
-	ArciereCretese = 0.82,
-	Compagno = 0.8,
-	Annibale = 1.15,
-	Cesare = 1.2,
-	Guglielmo = 1.15,
-	Giovanna = 1.2,
-	Foch = 1.2,
-	DeGaulle = 1.2,
-	FortezzaAntica = 1,
-	FortezzaMedievale = 1,
-	FortezzaNovecento = 1,
+	Spadaccino = 0.98,
+	Arciere = 0.98,
+	Cavaliere = 0.96,
+	Fante = 0.98,
+	Mitragliere = 1.02,
+	CarroArmato = 1.68,
+	Legionario = 0.98,
+	ArciereCretese = 0.98,
+	Compagno = 0.96,
+	Annibale = 1.38,
+	Cesare = 1.44,
+	Guglielmo = 1.38,
+	Giovanna = 1.44,
+	Foch = 1.44,
+	DeGaulle = 1.44,
+	FortezzaAntica = 1.5,
+	FortezzaMedievale = 1.5,
+	FortezzaNovecento = 1.5,
 }
--- Le formazioni sono pensate per la scala 0.62: con soldati più grandi si allargano in proporzione.
-local ALLARGAMENTO = 1.25
+-- Le formazioni sono pensate per la scala 0.62 e caselle da 10: con soldati e caselle più grandi si allargano.
+local ALLARGAMENTO = 1.7
 
 local function figura(genitore, base, tipo, colore, origine, s)
 	local p = scalatore(genitore, base, origine, s)
@@ -427,10 +427,10 @@ local function barraVita(radice, colore, numero)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Vita"
 	gui.Size = UDim2.fromOffset(70, 16)
-	gui.StudsOffset = Vector3.new(0, 7, 0)
+	gui.StudsOffset = Vector3.new(0, 8.5, 0)
 	gui.AlwaysOnTop = true
 	gui.LightInfluence = 0
-	gui.MaxDistance = 250
+	gui.MaxDistance = 400
 
 	local sfondo = Instance.new("Frame")
 	sfondo.Name = "Sfondo"
