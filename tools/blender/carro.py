@@ -32,8 +32,8 @@ BOCCA = None
 
 
 def materiali(u):
-    u.materiale("Oliva", (0.17, 0.18, 0.09), ruvidita=0.75)
-    u.materiale("OlivaScuro", (0.11, 0.12, 0.06), ruvidita=0.75)
+    u.materiale("Oliva", (0.075, 0.085, 0.035), ruvidita=0.75)
+    u.materiale("OlivaScuro", (0.04, 0.045, 0.02), ruvidita=0.75)
     u.materiale("Cingolo", (0.08, 0.075, 0.07), metallo=0.6, ruvidita=0.6)
     u.materiale("Gomma", (0.04, 0.04, 0.04), ruvidita=0.8)
     u.materiale("Acciaio", (0.20, 0.20, 0.21), metallo=1.0, ruvidita=0.45)
@@ -119,8 +119,8 @@ def _giro_cingolo():
     for y in np.linspace(2.30, -2.10, 22):
         punti.append((y, 0.04))
     # Risalita davanti attorno alla motrice.
-    for a in np.linspace(-math.pi * 0.62, -math.pi * 1.5, 10):
-        punti.append((motrice[0] + rm * math.cos(a), motrice[1] - rm * math.sin(a)))
+    for a in np.linspace(-math.pi * 0.62, -math.pi * 1.5, 12):
+        punti.append((motrice[0] + rm * math.cos(a), motrice[1] + rm * math.sin(a)))
     # Ritorno sopra i rulli, un poco cadente.
     for y in np.linspace(-2.45, 2.40, 22):
         t = (y + 2.45) / 4.85
