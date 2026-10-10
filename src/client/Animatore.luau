@@ -59,7 +59,79 @@ function Animatore.nuovo(modello, info, tipo)
 	self.morte = nil
 	self.lanciaVia = false
 	self.gladioInMano = false
+	self.riposo = Animatore._posizioniRiposo(self.giunti)
+	-- Cavallo del modello Blender (zampe in tre pezzi), diverso da quello a blocchi (zampe intere).
+	self.cavalloMesh = self.giunti["zampa.AR1"] ~= nil
 	return self
+end
+
+-- Dove stanno le articolazioni a riposo (nello spazio del modello, studs): servono per mettere una mano
+-- in un punto preciso (la corda dell'arco al mento, l'affondo della lancia). Solo per i modelli Blender.
+function Animatore._posizioniRiposo(giunti)
+	local posizioni = {}
+	local function posizione(osso)
+		if posizioni[osso] then
+			return posizioni[osso]
+		end
+		local padre = osso.Parent
+		local base = (padre and padre:IsA("Bone")) and posizione(padre) or Vector3.zero
+		posizioni[osso] = base + osso.CFrame.Position
+		return posizioni[osso]
+	end
+	local risultato = {}
+	for nome, osso in pairs(giunti) do
+		if osso:IsA("Bone") then
+			risultato[nome] = posizione(osso)
+		end
+	end
+	return next(risultato) and risultato or nil
+end
+
+-- Rotazione minima che porta la direzione "da" sulla direzione "a".
+local function minima(da, a)
+	local d1, d2 = da.Unit, a.Unit
+	local asse = d1:Cross(d2)
+	local s = asse.Magnitude
+	if s < 1e-6 then
+		return CFrame.identity
+	end
+	return CFrame.fromAxisAngle(asse / s, math.atan2(s, d1:Dot(d2)))
+end
+
+-- IK a due ossa: rotazioni di braccio e avambraccio del lato ("L" o "R") che portano il polso sul punto
+-- "bersaglio" (spazio del busto a riposo), con il gomito verso "polo". Restituisce le due rotazioni.
+function Animatore:_braccio(lato, bersaglio, polo)
+	local R = self.riposo
+	local spalla, gomito0, polso0 = R["braccio." .. lato], R["avambraccio." .. lato], R["mano." .. lato]
+	local l1, l2 = (gomito0 - spalla).Magnitude, (polso0 - gomito0).Magnitude
+	local d = bersaglio - spalla
+	local distanza = math.clamp(d.Magnitude, math.abs(l1 - l2) + 1e-3, (l1 + l2) * 0.999)
+	local u = d.Unit
+	local a = (l1 * l1 - l2 * l2 + distanza * distanza) / (2 * distanza)
+	local h = math.sqrt(math.max(0, l1 * l1 - a * a))
+	local piano = polo - u * polo:Dot(u)
+	piano = piano.Magnitude > 1e-4 and piano.Unit or Vector3.yAxis
+	local gomito = spalla + u * a + piano * h
+	local polso = spalla + u * distanza
+	local r1 = minima(gomito0 - spalla, gomito - spalla)
+	local r2 = minima(polso0 - gomito0, r1:VectorToObjectSpace(polso - gomito))
+	return r1, r2
+end
+
+-- Porta la mano del lato sul bersaglio (spazio del modello), tenendo conto del busto già girato (p.torace),
+-- dosata con peso (0-1). Con "tieni" la mano non cambia orientamento (l'arco resta dritto, la lancia in linea).
+function Animatore:_mano(p, lato, bersaglio, polo, peso, tieni)
+	local busto = p.torace or CFrame.identity
+	local perno = self.riposo.torace
+	local locale = perno + busto:VectorToObjectSpace(bersaglio - perno)
+	local r1, r2 = self:_braccio(lato, locale, busto:VectorToObjectSpace(polo))
+	r1 = CFrame.identity:Lerp(r1, peso)
+	r2 = CFrame.identity:Lerp(r2, peso)
+	p["braccio." .. lato] = r1
+	p["avambraccio." .. lato] = r2
+	if tieni then
+		p["mano." .. lato] = CFrame.identity:Lerp((busto.Rotation * r1 * r2):Inverse() * tieni, peso)
+	end
 end
 
 -- Il colpo parte ora: "gesto" è il tempo (secondi reali) prima che la freccia o la lama partano.
@@ -161,8 +233,12 @@ function POSE.ascia(p, _a, k, r, ritorno)
 	p.torace = ruota(-0.2 * su + 0.3 * giu, -0.3 * su + 0.3 * giu, 0)
 end
 
--- Arciere: tende l'arco verso il nemico, scocca, torna giù.
-function POSE.arco(p, _a, k, r, ritorno)
+-- Arciere: si gira di fianco, alza l'arco dritto davanti a sé col braccio teso e porta la corda al mento;
+-- scocca (la mano destra scatta indietro) e torna giù.
+function POSE.arco(p, a, k, r, ritorno, self)
+	if self.riposo and self.riposo["mano.L"] then
+		return POSE.arcoMesh(p, a, k, r, ritorno, self)
+	end
 	local tende = k * (1 - r * 0.2) * ritorno + (1 - ritorno) * 0
 	local scocca = r * ritorno
 	p.torace = ruota(0, -0.55 * tende, 0)
@@ -174,8 +250,28 @@ function POSE.arco(p, _a, k, r, ritorno)
 	p.testa = ruota(0, 0.5 * tende, 0)
 end
 
+function POSE.arcoMesh(p, _a, k, r, ritorno, self)
+	local R = self.riposo
+	local tende = k * ritorno
+	local scocca = r * ritorno
+	p.torace = ruota(0, -0.5 * tende, 0)
+	p.testa = ruota(0.05 * tende, 0.45 * tende, 0)
+	local spalla = R["braccio.L"]
+	local braccio = (R["avambraccio.L"] - spalla).Magnitude + (R["mano.L"] - R["avambraccio.L"]).Magnitude
+	local collo = R.testa
+	-- Il pugno dell'arco davanti al viso, all'altezza della spalla; la corda all'angolo della bocca.
+	local arco = Vector3.new(collo.X - 0.12, spalla.Y + 0.08, collo.Z - braccio * 0.92)
+	local mento = Vector3.new(collo.X - 0.06, collo.Y + 0.2, collo.Z - 0.3)
+	self:_mano(p, "L", arco, Vector3.new(-1, -0.4, 0.2), tende, CFrame.identity)
+	local tiro = mento + Vector3.new(0.12, 0.02, 0.35) * scocca
+	self:_mano(p, "R", tiro, Vector3.new(1, 0.15, 0.6), tende)
+end
+
 -- Cavaliere: affondo con la lancia, il cavallo si impenna un poco.
-function POSE.cavalleria(p, _a, k, r, ritorno)
+function POSE.cavalleria(p, a, k, r, ritorno, self)
+	if self.cavalloMesh then
+		return POSE.cavalleriaMesh(p, a, k, r, ritorno, self)
+	end
 	local indietro = k * (1 - r)
 	local avanti = r * ritorno
 	p["braccio.R"] = ruota(0.4 * indietro + 1.1 * avanti, 0, 0)
@@ -186,7 +282,28 @@ function POSE.cavalleria(p, _a, k, r, ritorno)
 	p["zampa.AL"] = ruota(0.7 * indietro, 0, 0)
 end
 
--- Fucile: lo porta alla spalla, mira, rinculo.
+-- Modello Blender: la lancia arretra e poi affonda lungo il suo asse (la mano la tiene in linea),
+-- il busto ruota col colpo, il cavallo si alza un poco sulle zampe dietro.
+local LANCIA = Vector3.new(0, -0.2, -1).Unit
+function POSE.cavalleriaMesh(p, _a, k, r, ritorno, self)
+	local indietro = k * (1 - r)
+	local avanti = r * ritorno
+	p.torace = ruota(0.04 * avanti, -0.25 * indietro + 0.3 * avanti, 0)
+	if self.riposo["mano.R"] then
+		local presa = self.riposo["mano.R"] + LANCIA * (-1.0 * indietro + 1.4 * avanti) + Vector3.new(0, 0.35 * indietro, 0)
+		self:_mano(p, "R", presa, Vector3.new(1, -0.3, 0.6), math.max(indietro, avanti), CFrame.identity)
+	end
+	local alza = indietro * 0.8 + avanti * 0.4
+	p.cavallo = CFrame.new(0, 0.35 * alza, 0) * ruota(0.14 * alza, 0, 0)
+	p["cavallo.collo"] = ruota(0.12 * alza, 0, 0)
+	for _, lato in ipairs({ "R", "L" }) do
+		p["zampa.A" .. lato .. "1"] = ruota(0.55 * alza, 0, 0)
+		p["zampa.A" .. lato .. "2"] = ruota(0.25 * alza, 0, 0)
+		p["zampa.A" .. lato .. "3"] = ruota(-1.3 * alza, 0, 0)
+		p["zampa.P" .. lato .. "1"] = ruota(-0.12 * alza, 0, 0)
+	end
+end
+
 -- Fucile: a riposo è basso e pronto (calcio al fianco); per mirare le braccia lo portano su all'altezza
 -- della spalla tenendolo in piano (braccio su, avambraccio che compensa), poi il rinculo.
 function POSE.fucile(p, _a, k, r, ritorno)
@@ -225,7 +342,32 @@ local function marcia(self, p, intensita)
 	end
 	local s = math.sin(self.fase * 2 * PI)
 	local c = math.cos(self.fase * 2 * PI)
-	if self.stile == "cavalleria" then
+	if self.cavalloMesh then
+		-- Trotto: zampe a coppie diagonali; quella in avanti si alza piegando ginocchio o garretto.
+		local fasi = { AR = 0, PL = 0, AL = PI, PR = PI }
+		for zampa, f in pairs(fasi) do
+			local angolo = self.fase * 2 * PI + f
+			local spinta = math.sin(angolo)
+			local alza = math.max(0, math.cos(angolo))
+			local davanti = zampa:sub(1, 1) == "A"
+			p["zampa." .. zampa .. "1"] = ruota((davanti and 0.4 or 0.35) * spinta * intensita, 0, 0)
+			if davanti then
+				p["zampa." .. zampa .. "2"] = ruota(0.35 * alza * intensita, 0, 0)
+				p["zampa." .. zampa .. "3"] = ruota(-1.3 * alza * intensita, 0, 0)
+			else
+				p["zampa." .. zampa .. "2"] = ruota(-0.35 * alza * intensita, 0, 0)
+				p["zampa." .. zampa .. "3"] = ruota(0.9 * alza * intensita, 0, 0)
+			end
+		end
+		local battuta = math.abs(math.cos(self.fase * 2 * PI))
+		p.cavallo = CFrame.new(0, 0.18 * battuta * intensita, 0) * ruota(0.03 * s * intensita, 0, 0)
+		p["cavallo.collo"] = ruota(0.08 * c * intensita, 0, 0)
+		p["cavallo.coda"] = ruota(0.25 * intensita, 0, 0.12 * s * intensita)
+		-- Il cavaliere assorbe il trotto.
+		p.bacino = CFrame.new(0, -0.08 * battuta * intensita, 0)
+		p.torace = ruota(-0.05 * c * intensita, 0, 0)
+		return
+	elseif self.stile == "cavalleria" then
 		p["zampa.AR"] = ruota(0.6 * s * intensita, 0, 0)
 		p["zampa.PL"] = ruota(0.6 * s * intensita, 0, 0)
 		p["zampa.AL"] = ruota(-0.6 * s * intensita, 0, 0)
@@ -270,22 +412,40 @@ local function caduta(self, p)
 		p.bacino = CFrame.new(0, -1.2 * f, 0) * ruota(-0.12 * f, 0, 0.08 * f)
 		return
 	end
-	if self.stile == "cavalleria" then
+	if self.cavalloMesh then
+		-- Il cavallo crolla sul fianco, con le zampe piegate; il cavaliere va giù con lui.
+		p.cavallo = CFrame.new(0.4 * f, -2.5 * f, 0) * ruota(0, 0, -1.4 * f)
+		p["cavallo.collo"] = ruota(-0.3 * f, 0, 0)
+		for _, zampa in ipairs({ "AR", "AL", "PR", "PL" }) do
+			local davanti = zampa:sub(1, 1) == "A"
+			p["zampa." .. zampa .. "3"] = ruota((davanti and -0.9 or 0.6) * f, 0, 0)
+		end
+		p.torace = ruota(-0.5 * f, 0, 0)
+		p["braccio.R"] = ruota(1.0 * f, 0, 0.3 * f)
+		return
+	elseif self.stile == "cavalleria" then
 		p.bacino = CFrame.new(0, -1.1 * f, 0) * ruota(0, 0, 1.2 * f)
 		p.torace = ruota(-0.6 * f, 0, 0)
 		return
 	end
-	p.bacino = CFrame.new(0, -0.9 * f, 0.6 * f) * ruota(-1.35 * f, 0, 0.15 * f)
-	p["coscia.R"] = ruota(0.5 * f, 0, 0)
-	p["coscia.L"] = ruota(0.9 * f, 0, 0)
-	p["stinco.L"] = ruota(-1.0 * f, 0, 0)
-	p["braccio.R"] = ruota(1.2 * f, 0, 0.4 * f)
-	p["braccio.L"] = ruota(0.9 * f, 0, -0.5 * f)
-	p.testa = ruota(-0.3 * f, 0.3 * f, 0)
+	-- Il bacino (alto circa 2,2 studs) scende a terra e tutto il corpo si rovescia indietro: la schiena a terra,
+	-- le gambe distese in avanti, le braccia aperte.
+	p.bacino = CFrame.new(0, -1.85 * f, 0.9 * f) * ruota(1.4 * f, 0, 0.12 * f)
+	p["coscia.R"] = ruota(0.15 * f, 0, 0)
+	p["coscia.L"] = ruota(0.45 * f, 0, 0)
+	p["stinco.L"] = ruota(-0.8 * f, 0, 0)
+	p["braccio.R"] = ruota(0.6 * f, 0, 0.9 * f)
+	p["braccio.L"] = ruota(0.4 * f, 0, -0.8 * f)
+	p.testa = ruota(0.25 * f, 0.4 * f, 0)
 end
 
--- Respiro da fermi.
+-- Respiro da fermi (e il cavallo che muove la testa e la coda).
 local function respiro(self, p)
+	if self.cavalloMesh then
+		p["cavallo.collo"] = ruota(0.05 * math.sin(self.tempo * 0.6), 0.06 * math.sin(self.tempo * 0.23), 0)
+		p["cavallo.muso"] = ruota(0.05 * math.sin(self.tempo * 1.1 + 1), 0, 0)
+		p["cavallo.coda"] = ruota(0.05, 0, 0.18 * math.sin(self.tempo * 0.9) * math.max(0, math.sin(self.tempo * 0.31)))
+	end
 	local b = math.sin(self.tempo * 1.7) * 0.025
 	p.torace = (p.torace or CFrame.identity) * ruota(b, 0, 0)
 	p.testa = (p.testa or CFrame.identity) * ruota(-b * 0.6, math.sin(self.tempo * 0.37) * 0.12, 0)
@@ -311,7 +471,7 @@ function Animatore:aggiorna(dt, velocita)
 				self.attacco = nil
 			else
 				local colpo = {}
-				POSE[self.stile](colpo, a, k, r, ritorno)
+				POSE[self.stile](colpo, a, k, r, ritorno, self)
 				-- Il colpo comanda braccia e busto; le gambe restano quelle della marcia.
 				for nome, cf in pairs(colpo) do
 					p[nome] = cf

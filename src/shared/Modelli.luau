@@ -488,8 +488,9 @@ local function cerchio(modello, radice, diametro, colore, comandante)
 	local disco = Instance.new("Part")
 	disco.Name = "Cerchio"
 	disco.Shape = Enum.PartType.Cylinder
-	disco.Size = Vector3.new(0.12, diametro, diametro)
-	disco.CFrame = radice.CFrame * CFrame.new(0, 0.08, 0) * CFrame.Angles(0, 0, math.rad(90))
+	-- Sottile e appena sopra il terreno: non deve coprire i piedi.
+	disco.Size = Vector3.new(0.04, diametro, diametro)
+	disco.CFrame = radice.CFrame * CFrame.new(0, 0.025, 0) * CFrame.Angles(0, 0, math.rad(90))
 	disco.Color = comandante and Color3.fromRGB(255, 200, 70) or colore
 	disco.Material = Enum.Material.Neon
 	disco.Transparency = 0.55

@@ -69,7 +69,7 @@ local function barraVita(s)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Vita"
 	-- In pixel: da vicino non diventa enorme.
-	gui.Size = UDim2.fromOffset(30, 4)
+	gui.Size = UDim2.fromOffset(40, 6)
 	gui.StudsOffset = Vector3.new(0, s.altezza + 0.9, 0)
 	gui.LightInfluence = 0
 	gui.MaxDistance = 160
@@ -79,6 +79,10 @@ local function barraVita(s)
 	sfondo.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
 	sfondo.BorderSizePixel = 0
 	sfondo.Parent = gui
+	local bordo = Instance.new("UIStroke")
+	bordo.Color = Color3.fromRGB(0, 0, 0)
+	bordo.Thickness = 1
+	bordo.Parent = sfondo
 	local riempimento = Instance.new("Frame")
 	riempimento.Name = "Riempimento"
 	riempimento.Size = UDim2.fromScale(1, 1)

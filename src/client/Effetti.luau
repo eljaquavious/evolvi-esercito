@@ -39,8 +39,8 @@ local function asta(lunghezza, spessore, punta, piume)
 	ferro.CFrame = CFrame.new(0, 0, -lunghezza / 2 - punta / 2 + 0.05)
 	ferro.Parent = modello
 	if piume then
-		local penne = parte({ Size = Vector3.new(spessore * 3, spessore * 0.3, 0.35), Color = PIUME })
-		penne.CFrame = CFrame.new(0, 0, lunghezza / 2 - 0.25)
+		local penne = parte({ Size = Vector3.new(spessore * 3, spessore * 0.3, lunghezza * 0.16), Color = PIUME })
+		penne.CFrame = CFrame.new(0, 0, lunghezza * 0.38)
 		penne.Parent = modello
 		local penne2 = penne:Clone()
 		penne2.CFrame = penne.CFrame * CFrame.Angles(0, 0, math.pi / 2)
@@ -51,13 +51,15 @@ end
 
 -- Fa volare un modello da "da" ad "a" in "durata" secondi, ad arco alto "arco" studs, girato secondo la traiettoria.
 -- Arrivato resta piantato per un po', poi sparisce.
-local function vola(modello, da, a, durata, arco, piantato)
-	modello.Parent = cartella
+local function vola(modello, da, a, durata, arco, piantato, affonda)
 	local inizio = os.clock()
 	local function posizione(t)
 		local p = da:Lerp(a, t)
 		return p + Vector3.new(0, arco * 4 * t * (1 - t), 0)
 	end
+	-- Già al suo posto prima di entrare nel mondo (altrimenti per un fotogramma sta nell'origine).
+	modello:PivotTo(CFrame.lookAt(posizione(0), posizione(0.02)))
+	modello.Parent = cartella
 	local connessione
 	connessione = RunService.RenderStepped:Connect(function()
 		local t = math.min(1, (os.clock() - inizio) / durata)
@@ -71,7 +73,7 @@ local function vola(modello, da, a, durata, arco, piantato)
 			connessione:Disconnect()
 			if piantato then
 				-- Si pianta un po' nel terreno o nel bersaglio.
-				modello:PivotTo(CFrame.lookAt(p, dopo) * CFrame.new(0, 0, -0.5))
+				modello:PivotTo(CFrame.lookAt(p, dopo) * CFrame.new(0, 0, -(affonda or 0.5)))
 				task.delay(2.5, function()
 					for _, pezzo in ipairs(modello:GetChildren()) do
 						TweenService:Create(pezzo, TweenInfo.new(0.6), { Transparency = 1 }):Play()
@@ -87,12 +89,13 @@ end
 
 function Effetti.freccia(da, a, durata)
 	local distanza = (a - da).Magnitude
-	vola(asta(2.2, 0.09, 0.3, true), da, a, durata, math.clamp(distanza * 0.18, 1.5, 14), true)
+	-- Una freccia vera è lunga circa 75 cm: 1,6 studs alla scala delle truppe.
+	vola(asta(1.6, 0.06, 0.18, true), da, a, durata, math.clamp(distanza * 0.18, 1.5, 14), true, 0.3)
 end
 
 function Effetti.pilum(da, a, durata)
 	local distanza = (a - da).Magnitude
-	vola(asta(3.6, 0.09, 0.7, false), da, a, durata, math.clamp(distanza * 0.14, 1.5, 9), true)
+	vola(asta(3.6, 0.08, 0.6, false), da, a, durata, math.clamp(distanza * 0.14, 1.5, 9), true)
 end
 
 local function vampata(posizione, colore, dimensione)
