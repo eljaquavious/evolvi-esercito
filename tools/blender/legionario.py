@@ -314,10 +314,10 @@ def nascondi_sotto_vestiti(corpo):
                 gambe[v.index] += g.weight
             elif nome == "testa":
                 testa[v.index] += g.weight
-    for i in np.nonzero((peso > 0.5) | (gambe > 0.5) | (peso + testa > 0.5))[0]:
+    for i in np.nonzero((peso > 0.3) | (gambe > 0.5) | (peso + testa > 0.5))[0]:
         x, y, z = co[i]
         cy = 0.0
-        if 0.975 <= z <= 1.445 and peso[i] > 0.5:
+        if 0.975 <= z <= 1.445 and peso[i] > 0.3:
             rx, ry = esterno_armatura(z)
             rx, ry = rx - 0.022, ry - 0.022
         elif 1.445 < z <= 1.505 and math.hypot(x, y) < 0.17:
@@ -333,6 +333,10 @@ def nascondi_sotto_vestiti(corpo):
         e = (x / rx) ** 2 + ((y - cy) / ry) ** 2
         if e > 1:
             f = 0.99 / math.sqrt(e)
+            if 0.975 <= z <= 1.445:
+                # Dove il busto passa al braccio (ascelle) la spinta sfuma col peso: niente strappi.
+                w = min(1.0, max(0.0, (peso[i] - 0.3) / 0.3))
+                f = 1 - (1 - f) * w
             co[i, 0], co[i, 1] = x * f, cy + (y - cy) * f
     umano.imposta_coordinate(me, co)
 
@@ -552,8 +556,9 @@ def spallacci(c):
             punti_a, punti_b = [], []
             bm = bmesh.new()
             n = 20
+            inizio = -8 + 7 * k   # le lamine basse finiscono più in alto dietro, dove il braccio va avanti
             for i in range(n + 1):
-                a = math.radians(-8 + 196 * i / n)
+                a = math.radians(inizio + (188 - inizio) * i / n)
                 base = centro + Vector((0, math.cos(a) * ry, 0)) + su * (math.sin(a) * rz)
                 punti_a.append(bm.verts.new(base - direzione * 0.021))
                 punti_b.append(bm.verts.new(base + direzione * 0.021 - su * 0.006))
