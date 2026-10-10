@@ -632,7 +632,7 @@ def calzari(c, corpo):
         v.co = fuori_dalla_pelle(v.co, 0.004)
     bm.normal_update()
     for f in bm.faces:
-        f.material_index = 1 if f.normal.z < -0.55 else 0
+        f.material_index = 1 if f.normal.z < -0.55 or f.calc_center_median().z < 0.012 else 0
     me = bpy.data.meshes.new("Calzari")
     bm.to_mesh(me)
     bm.free()
@@ -659,6 +659,16 @@ def calzari(c, corpo):
                 punti.append(sulla_pelle(Vector((k.x, k.y, k.z + dz)), d, 0.004))
                 normali.append(d)
             cinghie.append(striscia(punti, normali, 0.012))
+        # Lacci sul collo del piede, da un lato all'altro passando sopra.
+        for dy in (0.035, 0.06, 0.085):
+            centro = Vector((k.x, k.y - dy, 0.035))
+            punti, normali = [], []
+            for j in range(15):
+                a = math.radians(10 + 160 * j / 14)
+                d = Vector((math.cos(a), 0, math.sin(a)))
+                punti.append(sulla_pelle(centro, d, 0.0085))
+                normali.append(d)
+            cinghie.append(striscia(punti, normali, 0.008))
     c.oggetto("Calzari_Cinghie", unisci(*cinghie), "cuoio", spessore=0.002)
     return o
 
