@@ -517,6 +517,38 @@ def calzature(u, nome, mat, mat_suola, taglio=0.115, inclinazione=0.25, distacco
     applica(o)
     for p in o.data.polygons:
         p.use_smooth = True
+    scarpe_da_gioco(u, o, nome + "_Gioco")
+    return o
+
+
+def scarpe_da_gioco(u, scarpe, nome):
+    """Per il gioco: una scarpa chiusa e convessa per piede (la stoffa sottile della scarpa vera, decimata,
+    si sbriciola). Non entra nelle foto; l'esportazione usa questa al posto dell'altra."""
+    me = scarpe.data
+    pezzi = []
+    for s in (1, -1):
+        hb = bmesh.new()
+        for v in me.vertices:
+            if v.co.x * s > 0:
+                hb.verts.new(v.co)
+        bmesh.ops.convex_hull(hb, input=hb.verts[:], use_existing_faces=False)
+        bmesh.ops.delete(hb, geom=[v for v in hb.verts if not v.link_faces], context="VERTS")
+        pezzi.append(hb)
+    bm = unisci(*pezzi)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.normal_update()
+    for f in bm.faces:
+        f.material_index = 1 if f.normal.z < -0.55 or f.calc_center_median().z < 0.012 else 0
+    o = bpy.data.objects.new(nome, bpy.data.meshes.new(nome))
+    bm.to_mesh(o.data)
+    bm.free()
+    for m in me.materials:
+        o.data.materials.append(m)
+    for p in o.data.polygons:
+        p.use_smooth = True
+    u.col.objects.link(o)
+    o.parent = u.radice
+    o.hide_render = True
     return o
 
 

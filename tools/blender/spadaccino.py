@@ -274,7 +274,7 @@ def esporta(triangoli=4600, lato=512):
                   rigidi={"Ascia_*": "mano.R", "Scudo_Fronte*": "torace", "Scudo_Retro*": "torace",
                           "Scudo_Bordo*": "torace", "Scudo_Umbone*": "torace", "Occhio*": "testa", "Elmo_*": "testa",
                           "Baffi*": "testa"},
-                  escludi=["Fasce_Giri*", "Cintura_Fibbia*", "Elmo_Nervature*"],
+                  escludi=["Scarpe", "Scarpe.0*", "Fasce_Giri*", "Cintura_Fibbia*", "Elmo_Nervature*"],
                   quote={"Scarpe*": 260, "Occhio*": 60, "Cotta.*": 460, "Cotta": 460, "Cotta_Maniche*": 260,
                          "Tunica*": 160, "Brache*": 120, "Ascia_*": 400, "Elmo_Calotta*": 280, "Elmo_Fascia*": 120, "Elmo_Nasale*": 60,
                          "Baffi*": 100},
