@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Biomi = require(ReplicatedStorage.Shared.Config.Biomi)
 local Campagna = require(ReplicatedStorage.Shared.Config.Campagna)
+local Scenari = require(script.Parent.Scenari)
 
 local Arena = {}
 
@@ -31,6 +32,9 @@ local PASSO_QUOTE = 2
 local SENZA_ERBA_ALTA = 150 -- vicino al campo niente Grass: la sua erba alta nasconde soldati e caselle
 local PEZZI_CASELLA = 4 -- ogni casella è fatta di 4x4 piastrelle che seguono il terreno
 local SOPRA_TERRENO = 0.35
+local FONDO_MARE = -7
+local FONDO_LAGO = -3.5
+local GHIACCIO = ALTEZZA_BASE - 0.2 -- quota del lago gelato
 
 -- Forma del terreno e materiali per bioma. Solo materiali del Terrain: uno da parti (per esempio Pebble)
 -- in WriteVoxels diventa Grass, con la sua erba alta.
@@ -38,7 +42,7 @@ local RILIEVI = {
 	Pianeggiante = { ondulazione = 3, bordo = 28, base = Enum.Material.Grass, campo = Enum.Material.LeafyGrass, chiazze = Enum.Material.Ground, alto = Enum.Material.Grass, roccia = Enum.Material.Rock, sponda = Enum.Material.Mud },
 	Collinoso = { ondulazione = 9, bordo = 42, base = Enum.Material.Grass, campo = Enum.Material.LeafyGrass, chiazze = Enum.Material.Ground, alto = Enum.Material.LeafyGrass, roccia = Enum.Material.Rock, sponda = Enum.Material.Mud },
 	Desertico = { ondulazione = 5, bordo = 30, dune = true, base = Enum.Material.Sand, campo = Enum.Material.Sand, chiazze = Enum.Material.Sandstone, alto = Enum.Material.Sandstone, roccia = Enum.Material.Sandstone, sponda = Enum.Material.Mud },
-	Montagnoso = { ondulazione = 12, bordo = 64, neve = 52, base = Enum.Material.Ground, campo = Enum.Material.Ground, chiazze = Enum.Material.Slate, alto = Enum.Material.Rock, roccia = Enum.Material.Rock, sponda = Enum.Material.Ground },
+	Montagnoso = { ondulazione = 12, bordo = 64, neve = 52, base = Enum.Material.Ground, campo = Enum.Material.Ground, chiazze = Enum.Material.Rock, alto = Enum.Material.Rock, roccia = Enum.Material.Rock, sponda = Enum.Material.Ground },
 	Innevato = { ondulazione = 8, bordo = 48, neve = -100, base = Enum.Material.Snow, campo = Enum.Material.Snow, chiazze = Enum.Material.Ground, alto = Enum.Material.Snow, roccia = Enum.Material.Rock, sponda = Enum.Material.Ground },
 }
 
@@ -64,101 +68,6 @@ local function blocco(genitore, proprieta)
 	return p
 end
 
-local function sfera(genitore, diametro, posizione, colore, materiale)
-	return blocco(genitore, {
-		Shape = Enum.PartType.Ball,
-		Size = Vector3.one * diametro,
-		Position = posizione,
-		Color = colore,
-		Material = materiale or Enum.Material.Grass,
-	})
-end
-
-local function tronco(genitore, altezza, diametro, posizione, colore)
-	return blocco(genitore, {
-		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(altezza, diametro, diametro),
-		CFrame = CFrame.new(posizione + Vector3.new(0, altezza / 2, 0)) * CFrame.Angles(0, 0, math.rad(90)),
-		Color = colore or Color3.fromRGB(104, 72, 42),
-		Material = Enum.Material.Wood,
-	})
-end
-
--- Vegetazione e rocce, costruite con parti. s = scala.
-local OGGETTI = {}
-
-function OGGETTI.albero(g, pos, rng, s)
-	tronco(g, 6 * s, 1.1 * s, pos)
-	local verde = Color3.fromRGB(58 + rng:NextInteger(-8, 8), 128 + rng:NextInteger(-16, 16), 52)
-	sfera(g, 6.5 * s, pos + Vector3.new(0, 7.5 * s, 0), verde)
-	sfera(g, 4.5 * s, pos + Vector3.new(1.8 * s, 6.3 * s, 0.8 * s), verde:Lerp(Color3.new(0, 0, 0), 0.08))
-	sfera(g, 4.2 * s, pos + Vector3.new(-1.6 * s, 6.6 * s, -1 * s), verde:Lerp(Color3.new(1, 1, 0.6), 0.06))
-end
-
-function OGGETTI.pino(g, pos, rng, s, neve)
-	tronco(g, 3 * s, 0.9 * s, pos, Color3.fromRGB(92, 62, 38))
-	for i = 0, 3 do
-		local lato = (6 - i * 1.4) * s
-		local livello = blocco(g, {
-			Size = Vector3.new(lato, 1.8 * s, lato),
-			CFrame = CFrame.new(pos + Vector3.new(0, (3 + i * 1.7) * s, 0)) * CFrame.Angles(0, math.rad(45 * i + rng:NextNumber(0, 20)), 0),
-			Color = Color3.fromRGB(38, 88, 56),
-			Material = Enum.Material.Grass,
-		})
-		if neve then
-			blocco(g, {
-				Size = Vector3.new(lato * 0.85, 0.4 * s, lato * 0.85),
-				CFrame = livello.CFrame * CFrame.new(0, 1.0 * s, 0),
-				Color = Color3.fromRGB(246, 249, 252),
-				Material = Enum.Material.Snow,
-			})
-		end
-	end
-end
-
-function OGGETTI.cactus(g, pos, rng, s)
-	local verde = Color3.fromRGB(72, 132, 72)
-	local function pezzo(altezza, offset)
-		blocco(g, {
-			Shape = Enum.PartType.Cylinder,
-			Size = Vector3.new(altezza, 1.3 * s, 1.3 * s),
-			CFrame = CFrame.new(pos + offset + Vector3.new(0, altezza / 2, 0)) * CFrame.Angles(0, 0, math.rad(90)),
-			Color = verde,
-			Material = Enum.Material.Grass,
-		})
-		sfera(g, 1.3 * s, pos + offset + Vector3.new(0, altezza, 0), verde)
-	end
-	pezzo(7 * s, Vector3.zero)
-	pezzo(2.6 * s, Vector3.new(1.4 * s, 3.4 * s, 0))
-	pezzo(2 * s, Vector3.new(-1.4 * s, 2.4 * s, 0))
-	blocco(g, { Size = Vector3.new(1.6 * s, 0.9 * s, 0.9 * s), Position = pos + Vector3.new(0.7 * s, 3.6 * s, 0), Color = verde, Material = Enum.Material.Grass })
-	blocco(g, { Size = Vector3.new(1.6 * s, 0.9 * s, 0.9 * s), Position = pos + Vector3.new(-0.7 * s, 2.6 * s, 0), Color = verde, Material = Enum.Material.Grass })
-end
-
-function OGGETTI.roccia(g, pos, rng, s, neve)
-	local colore = neve and Color3.fromRGB(196, 204, 214) or Color3.fromRGB(122 + rng:NextInteger(-12, 12), 118, 110)
-	for i = 1, 3 do
-		local d = rng:NextNumber(2, 4) * s / i ^ 0.4
-		blocco(g, {
-			Size = Vector3.new(d * rng:NextNumber(1, 1.5), d, d * rng:NextNumber(1, 1.4)),
-			CFrame = CFrame.new(pos + Vector3.new(rng:NextNumber(-1, 1) * s, d * 0.35, rng:NextNumber(-1, 1) * s))
-				* CFrame.Angles(rng:NextNumber(0, 0.5), rng:NextNumber(0, math.pi), rng:NextNumber(0, 0.5)),
-			Color = colore,
-			Material = Enum.Material.Slate,
-		})
-	end
-end
-
-
--- Cosa mettere attorno al campo, per bioma: { tipo, quantità, scala minima, scala massima }.
-local PAESAGGI = {
-	Pianeggiante = { { "albero", 90, 1.1, 1.9 }, { "roccia", 22, 1, 1.8 } },
-	Collinoso = { { "albero", 80, 1.1, 1.8 }, { "roccia", 30, 1, 2 } },
-	Desertico = { { "cactus", 50, 1, 1.6 }, { "roccia", 26, 1, 2.2 } },
-	Montagnoso = { { "pino", 70, 1.2, 2 }, { "roccia", 45, 1.2, 2.6 } },
-	Innevato = { { "pino", 90, 1.2, 2 }, { "roccia", 14, 1, 1.8 } },
-}
-
 local function liscio(a, b, x)
 	local t = math.clamp((x - a) / (b - a), 0, 1)
 	return t * t * (3 - 2 * t)
@@ -180,6 +89,47 @@ local function nelFiume(arena, x, z, margine)
 	return arena.rigaFiume ~= nil and math.abs(z - zFiume(arena, x)) < LARGHEZZA_FIUME / 2 + margine
 end
 
+-- Mare dello scenario: la coordinata verso il largo e la linea di costa (mossa) in quel punto.
+local function versoMare(arena, x, z)
+	local m = arena.scenario.mare
+	local c = (m.asse == "x" and x or z) * m.segno
+	local lungo = m.asse == "x" and z or x
+	return c, m.inizio + math.noise(lungo / 90, arena.seme, 6.1) * 18
+end
+
+-- Distanza "ellittica" dal centro di un lago (1 = riva), con la riva frastagliata.
+local function distanzaLago(arena, lago, x, z)
+	local dx, dz = (x - lago[1]) / lago[3], (z - lago[2]) / lago[4]
+	local d = math.sqrt(dx * dx + dz * dz)
+	return d + math.noise(x / 40, z / 40, arena.seme + lago[1] / 100) * 0.12
+end
+
+-- La colonna (x, z) è dove lo scenario mette acqua vera: mare o lago non gelato.
+local function regioneAcqua(arena, x, z)
+	local sc = arena.scenario
+	if sc.mare then
+		local c, costa = versoMare(arena, x, z)
+		if c > costa then
+			return true
+		end
+	end
+	for _, lago in ipairs(sc.laghi or {}) do
+		if not lago.ghiaccio and distanzaLago(arena, lago, x, z) < 1.1 then
+			return true
+		end
+	end
+	return false
+end
+
+local function sulGhiaccio(arena, x, z, margine)
+	for _, lago in ipairs(arena.scenario.laghi or {}) do
+		if lago.ghiaccio and distanzaLago(arena, lago, x, z) < 1.02 + margine / math.min(lago[3], lago[4]) then
+			return true
+		end
+	end
+	return false
+end
+
 -- Altezza calcolata del terreno in un punto (x, z relativi al centro del campo).
 local function altezza(arena, x, z)
 	local r = arena.rilievo
@@ -192,11 +142,40 @@ local function altezza(arena, x, z)
 		h += math.abs(math.noise(x / 30, z / 55, s)) * 7 * fuoriCampo
 	end
 	-- Rilievi verso il bordo: il campo sta in una valle.
-	h += r.bordo * liscio(190, LATO / 2 - 20, distanza) * (0.7 + 0.5 * math.noise(x / 60 + s, z / 60, 2.1))
+	h += r.bordo * liscio(150, LATO / 2 - 20, distanza) * (0.7 + 0.5 * math.noise(x / 60 + s, z / 60, 2.1))
 	for _, c in ipairs(arena.colline) do
 		local d = math.sqrt((x - c.X) ^ 2 + (z - c.Y) ^ 2)
 		if d < RAGGIO_COLLINA then
 			h += ALTEZZA_COLLINA * (0.5 + 0.5 * math.cos(math.pi * d / RAGGIO_COLLINA))
+		end
+	end
+	-- Rilievi della battaglia storica: colli { x, z, raggio, altezza } e versanti lungo un lato.
+	local sc = arena.scenario
+	for _, c in ipairs(sc.colli or {}) do
+		local d = math.sqrt((x - c[1]) ^ 2 + (z - c[2]) ^ 2)
+		if d < c[3] then
+			h += c[4] * (0.5 + 0.5 * math.cos(math.pi * d / c[3]))
+		end
+	end
+	for _, v in ipairs(sc.versanti or {}) do
+		local c = (v.asse == "x" and x or z) * v.segno
+		local lungo = v.asse == "x" and z or x
+		local mosso = c + math.noise(lungo / 50, s, 4.2) * (v.mosso or 16)
+		h += v.altezza * liscio(v.inizio, v.inizio + (v.largo or 70), mosso) * (0.85 + 0.3 * math.noise(x / 45, z / 45, s + 9))
+	end
+	if sc.mare then
+		local c, costa = versoMare(arena, x, z)
+		local largo = liscio(costa - 6, costa + 40, c)
+		h += (FONDO_MARE + math.noise(x / 30, z / 30, s + 2) - h) * largo
+	end
+	for _, lago in ipairs(sc.laghi or {}) do
+		local d = distanzaLago(arena, lago, x, z)
+		if lago.ghiaccio then
+			h = GHIACCIO + (h - GHIACCIO) * liscio(1.0, 1.25, d)
+		else
+			-- Prima si spiana la conca attorno al lago, poi si scava: niente rive a strapiombo sui pendii.
+			h = h + (ALTEZZA_BASE + 0.5 - h) * (1 - liscio(1.1, 1.9, d))
+			h = FONDO_LAGO + (h - FONDO_LAGO) * liscio(0.7, 1.05, d)
 		end
 	end
 	if arena.rigaFiume then
@@ -215,6 +194,21 @@ local function materiale(arena, x, z, h, pendenza)
 	local r = arena.rilievo
 	if nelFiume(arena, x, z, 4) then
 		return r.sponda
+	end
+	local sc = arena.scenario
+	for _, lago in ipairs(sc.laghi or {}) do
+		local d = distanzaLago(arena, lago, x, z)
+		if lago.ghiaccio and d < 1.0 then
+			return math.noise(x / 22, z / 22, arena.seme + 7) > 0.3 and Enum.Material.Snow or Enum.Material.Ice
+		elseif not lago.ghiaccio and d < 1.08 then
+			return Enum.Material.Mud
+		end
+	end
+	if sc.mare and h < ACQUA + 4 then
+		local c, costa = versoMare(arena, x, z)
+		if c > costa - 30 then
+			return Enum.Material.Sand
+		end
 	end
 	if r.neve and h > r.neve then
 		return Enum.Material.Snow
@@ -259,7 +253,7 @@ local function scriviTerreno(arena)
 						+ math.abs(altezza(arena, x, z + VOXEL) - altezza(arena, x, z - VOXEL))) / (2 * VOXEL)
 					local cima = materiale(arena, x, z, h, pendenza)
 					local sotto = arena.rilievo.roccia == Enum.Material.Sandstone and Enum.Material.Sandstone or Enum.Material.Ground
-					local acqua = nelFiume(arena, x, z, 6)
+					local acqua = nelFiume(arena, x, z, 6) or (h < ACQUA + 0.5 and regioneAcqua(arena, x, z))
 					for j = 1, strati do
 						local y0 = Y_MIN + (j - 1) * VOXEL
 						local m, o = Enum.Material.Air, 0
@@ -407,25 +401,66 @@ local function creaCasella(arena, genitore, col, riga, colore, coloreBordo)
 	return casella
 end
 
-local function decora(arena, g, rng)
-	local paesaggio = PAESAGGI[arena.biomaId] or {}
-	local neve = arena.biomaId == "Innevato"
-	for _, voce in ipairs(paesaggio) do
-		local tipo, quantita, scalaMin, scalaMax = voce[1], voce[2], voce[3], voce[4]
-		local piazzati, tentativi = 0, 0
-		while piazzati < quantita and tentativi < quantita * 10 do
-			tentativi += 1
-			local x = rng:NextNumber(-LATO / 2 + 30, LATO / 2 - 30)
-			local z = rng:NextNumber(-LATO / 2 + 30, LATO / 2 - 30)
-			local lontano = math.max(math.abs(x), math.abs(z)) > META_CAMPO + 22
-			if lontano and not nelFiume(arena, x, z, 6) then
-				piazzati += 1
-				local pos = arena.origine + Vector3.new(x, altezza(arena, x, z) - 0.6, z)
-				OGGETTI[tipo](g, pos, rng, rng:NextNumber(scalaMin, scalaMax), neve)
+-- Quello che serve agli scenari per mettere gli oggetti sul terreno di questo campo.
+local function ambiente(arena, livello)
+	local function acqua(x, z)
+		return altezza(arena, x, z) < ACQUA + 0.3 and regioneAcqua(arena, x, z)
+	end
+	-- Acqua vera entro "margine" dal punto (con margine negativo: tutto il cerchio è acqua).
+	local function liquida(x, z, margine)
+		if nelFiume(arena, x, z, margine) then
+			return true
+		end
+		local sc = arena.scenario
+		if not sc.mare and not sc.laghi then
+			return false
+		end
+		local r = math.abs(margine)
+		local tutti = margine < 0
+		local centro = acqua(x, z)
+		if tutti and not centro then
+			return false
+		elseif not tutti and centro then
+			return true
+		end
+		for i = 0, 7 do
+			local a = i * math.pi / 4
+			local w = acqua(x + math.cos(a) * r, z + math.sin(a) * r)
+			if tutti and not w then
+				return false
+			elseif not tutti and w then
+				return true
 			end
 		end
+		return tutti
 	end
+	return {
+		terra = function(x, z)
+			return arena.origine + Vector3.new(x, quota(arena, x, z) - 0.3, z)
+		end,
+		acquaY = arena.origine.Y + ACQUA,
+		fiumeZ = arena.rigaFiume and function(x)
+			return zFiume(arena, x)
+		end or nil,
+		-- Per non metterci sopra oggetti, anche il lago gelato conta come acqua.
+		inAcqua = function(x, z, margine)
+			return liquida(x, z, margine) or sulGhiaccio(arena, x, z, margine)
+		end,
+		liquida = liquida,
+		bioma = arena.biomaId,
+		epoca = livello.epoca and livello.epoca.id or "Antica",
+		seme = livello.numero * 31 + 7,
+	}
 end
+
+-- Materiali solidi: il giocatore gira attorno a tronchi, rocce, muri e carri (non a foglie, erba e teli).
+local SOLIDI = {
+	[Enum.Material.Wood] = true, [Enum.Material.WoodPlanks] = true, [Enum.Material.Slate] = true,
+	[Enum.Material.Cobblestone] = true, [Enum.Material.Brick] = true, [Enum.Material.Concrete] = true,
+	[Enum.Material.Limestone] = true, [Enum.Material.Sandstone] = true, [Enum.Material.Rock] = true,
+	[Enum.Material.Metal] = true, [Enum.Material.CorrodedMetal] = true, [Enum.Material.Plaster] = true,
+	[Enum.Material.Marble] = true, [Enum.Material.Granite] = true, [Enum.Material.Basalt] = true,
+}
 
 function Arena.crea(player, livello)
 	local slot = 1
@@ -440,7 +475,8 @@ function Arena.crea(player, livello)
 		origine = Vector3.new(INIZIO_ARENE + slot * DISTANZA_TRA_ARENE, 0, 0),
 		bioma = Biomi.Dati[biomaId],
 		biomaId = biomaId,
-		rilievo = RILIEVI[biomaId] or RILIEVI.Pianeggiante,
+		rilievo = table.clone(RILIEVI[biomaId] or RILIEVI.Pianeggiante),
+		scenario = Scenari.dati(livello.nome),
 		seme = (livello.numero * 0.618) % 1 * 100,
 		terreno = {}, -- "col,riga" -> tipo (ostacolo, fiume, guado, collina)
 		colline = {},
@@ -458,7 +494,14 @@ function Arena.crea(player, livello)
 		end
 	end
 
+	-- Lo scenario della battaglia può cambiare la forma e i materiali del terreno del bioma.
+	for k, v in pairs(arena.scenario.terreno or {}) do
+		arena.rilievo[k] = v
+	end
+
 	scriviTerreno(arena)
+	local piano = Scenari.prepara(livello.nome, ambiente(arena, livello))
+	piano:scava() -- crateri e trincee fanno parte del terreno: prima di misurare le quote
 	misuraQuote(arena)
 
 	local modello = Instance.new("Model")
@@ -505,24 +548,30 @@ function Arena.crea(player, livello)
 	local decorazioni = Instance.new("Folder")
 	decorazioni.Name = "Decorazioni"
 	decorazioni.Parent = modello
-	local rng = Random.new(livello.numero * 31 + 7)
-	-- Ostacoli naturali sulle caselle bloccate: un gruppo di alberi, rocce o cactus.
+	-- Ostacoli sulle caselle bloccate, dettagli tra le caselle, poi tutto lo scenario attorno al campo.
 	for _, t in ipairs(livello.terreno) do
 		if t.tipo == "ostacolo" then
-			local centro = Arena.posizione(arena, t.col, t.riga) - Vector3.new(0, 0.4, 0)
-			local oggetto = OGGETTI[arena.bioma.ostacolo]
-			oggetto(decorazioni, centro, rng, 1.7, biomaId == "Innevato")
-			for _ = 1, 2 do
-				local scarto = Vector3.new(rng:NextNumber(-4.5, 4.5), 0, rng:NextNumber(-4.5, 4.5))
-				oggetto(decorazioni, centro + scarto, rng, rng:NextNumber(0.9, 1.2), biomaId == "Innevato")
-			end
+			local x, z = centroCasella(t.col, t.riga)
+			piano:ostacolo(decorazioni, x, z)
 		end
 	end
-	decora(arena, decorazioni, rng)
-	-- Tronchi e rocce sono solidi: il giocatore ci gira attorno.
+	piano:dettagliCampo(decorazioni, function(x, z)
+		local col = math.floor((x + META_CAMPO) / Arena.CASELLA) + 1
+		local riga = math.floor((z + META_CAMPO) / Arena.CASELLA) + 1
+		return arena.terreno[col .. "," .. riga] == "ostacolo"
+	end)
+	piano:decora(decorazioni)
 	for _, parte in ipairs(decorazioni:GetDescendants()) do
-		if parte:IsA("BasePart") and (parte.Material == Enum.Material.Wood or parte.Material == Enum.Material.Slate) then
-			parte.CanCollide = true
+		if parte:IsA("BasePart") then
+			local lato = math.max(parte.Size.X, parte.Size.Y, parte.Size.Z)
+			if SOLIDI[parte.Material] and lato > 1.5 then
+				parte.CanCollide = true
+			end
+			-- Le parti piccole (erba, sassi, frecce) non fanno ombra: migliaia di ombre minuscole costano
+			-- e non si vedono.
+			if lato < 2 then
+				parte.CastShadow = false
+			end
 		end
 	end
 

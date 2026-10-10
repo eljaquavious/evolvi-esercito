@@ -11,7 +11,6 @@ Biomi.Dati = {
 		materialeRilievi = Enum.Material.Grass,
 		casella = Color3.fromRGB(150, 196, 110),
 		atmosfera = Color3.fromRGB(199, 220, 236),
-		ostacolo = "albero",
 	},
 	Collinoso = {
 		nome = "Hills",
@@ -19,7 +18,6 @@ Biomi.Dati = {
 		materialeRilievi = Enum.Material.LeafyGrass,
 		casella = Color3.fromRGB(160, 186, 104),
 		atmosfera = Color3.fromRGB(206, 222, 226),
-		ostacolo = "roccia",
 	},
 	Desertico = {
 		nome = "Desert",
@@ -27,7 +25,6 @@ Biomi.Dati = {
 		materialeRilievi = Enum.Material.Sand,
 		casella = Color3.fromRGB(240, 214, 160),
 		atmosfera = Color3.fromRGB(246, 222, 184),
-		ostacolo = "cactus",
 	},
 	Montagnoso = {
 		nome = "Mountains",
@@ -35,7 +32,6 @@ Biomi.Dati = {
 		materialeRilievi = Enum.Material.Rock,
 		casella = Color3.fromRGB(170, 160, 146),
 		atmosfera = Color3.fromRGB(184, 192, 204),
-		ostacolo = "roccia",
 	},
 	Innevato = {
 		nome = "Snow",
@@ -43,7 +39,6 @@ Biomi.Dati = {
 		materialeRilievi = Enum.Material.Glacier,
 		casella = Color3.fromRGB(226, 236, 246),
 		atmosfera = Color3.fromRGB(228, 236, 246),
-		ostacolo = "pino",
 	},
 }
 
