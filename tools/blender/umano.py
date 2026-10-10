@@ -101,17 +101,16 @@ def carica(col):
             occhi.append(o)
         else:
             corpo = o
-    origine = corpo.matrix_world.translation.copy()
     for o in occhi:
-        relativa = o.matrix_world.translation - origine
+        s = 1 if o.name.split(".eye.")[1].startswith("L") else -1
         o.parent = None
-        o.matrix_world = (Matrix.Translation(relativa * SCALA + SPOSTAMENTO) @ Matrix.Rotation(math.pi / 2, 4, "X")
-                          @ Matrix.Diagonal((o.scale.x * SCALA,) * 3 + (1,)))
+        o.matrix_world = (Matrix.Translation(lato(OCCHIO, s)) @ Matrix.Rotation(math.pi / 2, 4, "X")
+                          @ Matrix.Diagonal((0.862 * SCALA,) * 3 + (1,)))
     corpo.matrix_world = Matrix.Identity(4)
     corpo.data.transform(Matrix.Translation(SPOSTAMENTO) @ Matrix.Scale(SCALA, 4))
     corpo.name, corpo.data.name = "Corpo", "Corpo"
-    for o, n in zip(sorted(occhi, key=lambda o: o.name), ("Occhio.L", "Occhio.R")):
-        o.name = n
+    for o in occhi:
+        o.name = "Occhio" + (".L" if ".eye.L" in o.name else ".R")
     return corpo, occhi
 
 
@@ -265,10 +264,9 @@ def ruota_mondo(sch, nome, asse, angolo):
     aggiorna()
 
 
-def chiudi_dita(sch, s, angoli, dita=("indice", "medio", "anulare", "mignolo")):
-    """angoli: per ogni dito (nocca, falange media, punta) in gradi di chiusura."""
-    for dito in dita:
-        a = angoli[dito] if isinstance(angoli, dict) else angoli
+def chiudi_dita(sch, s, angoli):
+    """angoli: per ogni dito (nocca, falange media, punta) in gradi di chiusura verso il palmo."""
+    for dito, a in angoli.items():
         for i, g in enumerate(a):
             if g:
                 piega(sch, "%s%d%s" % (dito, i + 1, sigla(s)), -g)
@@ -336,7 +334,7 @@ def _nodi(m):
     return nt, nt.nodes, nt.links
 
 
-def materiale_pelle(nome="UM_Pelle", colore=(0.50, 0.25, 0.14)):
+def materiale_pelle(nome="UM_Pelle", colore=(0.46, 0.25, 0.155)):
     m = bpy.data.materials.get(nome) or bpy.data.materials.new(nome)
     nt, N, L = _nodi(m)
     uscita = N.new("ShaderNodeOutputMaterial")
@@ -429,7 +427,7 @@ def materiale_occhio(nome="UM_Occhio", iride=(0.10, 0.05, 0.022)):
     return m
 
 
-def materiale_peli(nome="UM_Peli", colore=(0.018, 0.011, 0.007)):
+def materiale_peli(nome="UM_Peli", colore=(0.03, 0.018, 0.011)):
     m = bpy.data.materials.get(nome) or bpy.data.materials.new(nome)
     nt, N, L = _nodi(m)
     uscita = N.new("ShaderNodeOutputMaterial")
@@ -488,7 +486,7 @@ def colora(corpo, barba=0.55, capelli=True, seme=3):
 
 # Sopracciglia (peli veri, come curve) -------------------------------------------------------------
 
-def sopracciglia(col, corpo, materiale, peli=420, seme=7):
+def sopracciglia(col, corpo, materiale, peli=320, seme=7):
     me = corpo.data
     t = albero(me)
     rng = random.Random(seme)
@@ -523,7 +521,7 @@ def sopracciglia(col, corpo, materiale, peli=420, seme=7):
             pos.extend(p + d * lunghezza * f + n * lunghezza * (alza * f - 0.35 * f * f))
     hc.position_data.foreach_set("vector", pos)
     raggio = hc.attributes.get("radius") or hc.attributes.new("radius", "FLOAT", "POINT")
-    raggio.data.foreach_set("value", [0.00009, 0.00008, 0.00006, 0.00003] * len(radici))
+    raggio.data.foreach_set("value", [0.00007, 0.00006, 0.00005, 0.00002] * len(radici))
     hc.materials.append(materiale)
     o = bpy.data.objects.new("Sopracciglia", hc)
     col.objects.link(o)
@@ -532,8 +530,10 @@ def sopracciglia(col, corpo, materiale, peli=420, seme=7):
 
 # Tutto insieme ------------------------------------------------------------------------------------
 
-def costruisci_corpo(col, posa, livello=2, pelle=(0.50, 0.25, 0.14)):
-    """Carica, mette in posa con la funzione posa(scheletro), cuoce e colora. Restituisce corpo, occhi e giunti."""
+def costruisci_corpo(col, posa, livello=2, pelle=(0.46, 0.25, 0.155)):
+    """Carica, mette in posa con la funzione posa(scheletro), cuoce e colora.
+
+    Restituisce il corpo, gli altri oggetti (occhi e sopracciglia) e le articolazioni in posa."""
     corpo, occhi = carica(col)
     sch = crea_scheletro(col)
     pesa(corpo, sch)
@@ -547,5 +547,5 @@ def costruisci_corpo(col, posa, livello=2, pelle=(0.50, 0.25, 0.14)):
         o.data.materials.clear()
         o.data.materials.append(materiale_occhio())
     colora(corpo)
-    sopracciglia(col, corpo, materiale_peli())
-    return corpo, occhi, giunti
+    peli = sopracciglia(col, corpo, materiale_peli())
+    return corpo, occhi + [peli], giunti

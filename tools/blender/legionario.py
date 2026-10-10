@@ -9,10 +9,17 @@ La texture dello scudo si genera con tools/blender/scudo_texture.py e si carica 
 """
 
 import math
+import os
+import sys
 
 import bmesh
 import bpy
+import numpy as np
 from mathutils import Matrix, Vector
+
+if "umano" not in sys.modules and "__file__" in globals():
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import umano  # noqa: E402  (corpo realistico, tools/blender/umano.py)
 
 COLLEZIONE = "Legionario"
 
@@ -67,9 +74,10 @@ def pulisci():
     cubo = bpy.data.objects.get("Cube")
     if cubo:
         bpy.data.objects.remove(cubo, do_unlink=True)
-    for me in list(bpy.data.meshes):
-        if me.users == 0:
-            bpy.data.meshes.remove(me)
+    for dati in (bpy.data.meshes, bpy.data.armatures, bpy.data.hair_curves):
+        for d in list(dati):
+            if d.users == 0:
+                dati.remove(d)
     for m in list(bpy.data.materials):
         if m.users == 0 and (m.name.startswith("Leg_") or m.name.startswith("LG_")):
             bpy.data.materials.remove(m)
@@ -222,125 +230,99 @@ def striscia(punti, normali, larghezza, spessore=0.0):
 
 
 # Corpo ------------------------------------------------------------------------------------------------
+# Il corpo è quello realistico di umano.py: qui scegliamo la posa e adattiamo i vestiti alle sue misure.
 
-# Scheletro per il modificatore Skin: punto -> (posizione, raggio x, raggio y).
-SCHELETRO = {
-    "bacino": ((0, 0.0, 0.95), 0.15, 0.11),
-    "vita": ((0, 0.0, 1.10), 0.135, 0.10),
-    "petto": ((0, 0.0, 1.27), 0.16, 0.11),
-    "spalle": ((0, 0.0, 1.38), 0.15, 0.10),
-    "collo": ((0, 0.0, 1.47), 0.062, 0.062),
-    "nuca": ((0, 0.0, 1.54), 0.058, 0.058),
-    "spalla_d": ((-0.18, 0.0, 1.40), 0.058, 0.058),
-    "gomito_d": ((-0.25, 0.03, 1.13), 0.043, 0.043),
-    "avambraccio_d": ((-0.25, -0.08, 1.15), 0.045, 0.045),
-    "polso_d": ((-0.25, -0.20, 1.17), 0.032, 0.032),
-    "spalla_s": ((0.18, 0.0, 1.40), 0.058, 0.058),
-    "gomito_s": ((0.30, -0.02, 1.16), 0.043, 0.043),
-    "avambraccio_s": ((0.31, -0.13, 1.12), 0.045, 0.045),
-    "polso_s": ((0.32, -0.24, 1.08), 0.032, 0.032),
-    "anca_d": ((-0.09, 0.0, 0.92), 0.085, 0.085),
-    "coscia_d": ((-0.10, -0.005, 0.72), 0.078, 0.078),
-    "ginocchio_d": ((-0.11, -0.01, 0.52), 0.055, 0.055),
-    "polpaccio_d": ((-0.115, 0.01, 0.34), 0.06, 0.06),
-    "caviglia_d": ((-0.12, 0.02, 0.10), 0.04, 0.04),
-    "anca_s": ((0.09, 0.0, 0.92), 0.085, 0.085),
-    "coscia_s": ((0.10, -0.005, 0.72), 0.078, 0.078),
-    "ginocchio_s": ((0.11, -0.01, 0.52), 0.055, 0.055),
-    "polpaccio_s": ((0.115, 0.01, 0.34), 0.06, 0.06),
-    "caviglia_s": ((0.12, 0.02, 0.10), 0.04, 0.04),
-}
-OSSA = [
-    ("bacino", "vita"), ("vita", "petto"), ("petto", "spalle"), ("spalle", "collo"), ("collo", "nuca"),
-    ("spalle", "spalla_d"), ("spalla_d", "gomito_d"), ("gomito_d", "avambraccio_d"), ("avambraccio_d", "polso_d"),
-    ("spalle", "spalla_s"), ("spalla_s", "gomito_s"), ("gomito_s", "avambraccio_s"), ("avambraccio_s", "polso_s"),
-    ("bacino", "anca_d"), ("anca_d", "coscia_d"), ("coscia_d", "ginocchio_d"), ("ginocchio_d", "polpaccio_d"),
-    ("polpaccio_d", "caviglia_d"),
-    ("bacino", "anca_s"), ("anca_s", "coscia_s"), ("coscia_s", "ginocchio_s"), ("ginocchio_s", "polpaccio_s"),
-    ("polpaccio_s", "caviglia_s"),
-]
+GIUNTI_POSA = {}
+ALBERO = None        # BVH del corpo in posa, per appoggiare schinieri, calzari e paraguance sulla pelle
+NOMI_GIUNTI = {"spalla": ("braccio", 0), "gomito": ("braccio", 1), "polso": ("mano", 0),
+               "ginocchio": ("stinco", 0), "caviglia": ("stinco", 1), "punta": ("piede", 1)}
+IMPUGNATURA = 1.15   # altezza della mano destra sull'asta della lancia
 
 
 def P(nome):
-    return Vector(SCHELETRO[nome][0])
+    """Articolazione del corpo in posa: 'gomito_d', 'caviglia_s'... (d = destra del soldato, verso -X)."""
+    giunto, lato = nome.rsplit("_", 1)
+    osso, estremo = NOMI_GIUNTI[giunto]
+    return GIUNTI_POSA[osso + (".R" if lato == "d" else ".L")][estremo].copy()
+
+
+def bordo_scudo(x_locale):
+    """Punto sul bordo alto dello scudo e direzione 'fuori' (davanti) in quel punto."""
+    phi = math.asin(x_locale / SCUDO_RAGGIO)
+    m = scudo_matrice()
+    p = m @ Vector((x_locale, SCUDO_RAGGIO - SCUDO_RAGGIO * math.cos(phi), SCUDO_ALTEZZA))
+    return p, (m.to_3x3() @ Vector((math.sin(phi), -math.cos(phi), 0))).normalized()
+
+
+def posa(sch):
+    # Gambe un poco più chiuse, piedi piatti a terra.
+    for s in (1, -1):
+        k = umano.sigla(s)
+        umano.ruota_mondo(sch, "coscia" + k, (0, 1, 0), 3.5 * s)
+        umano.ruota_mondo(sch, "piede" + k, (0, 1, 0), -3.5 * s)
+    # Destra: stringe l'asta verticale della lancia, col pollice che si chiude sulle dita.
+    asse = Vector((LANCIA_ASSE.x, LANCIA_ASSE.y, IMPUGNATURA))
+    avanti = Vector((0.15, -1, 0)).normalized()
+    su = Vector((0, 0, 1))
+    phi = math.radians(15)
+    radiale = su * math.cos(phi) - avanti * math.sin(phi)
+    y = avanti * math.cos(phi) + su * math.sin(phi)
+    dorso = y.cross(radiale).normalized()
+    umano.posa_braccio(sch, -1, asse - y * 0.09 + dorso * 0.028, y, dorso, (-0.5, 0.7, -0.3))
+    umano.chiudi_dita(sch, -1, {"indice": (70, 95, 50), "medio": (75, 95, 50), "anulare": (80, 95, 50),
+                                "mignolo": (85, 90, 50), "pollice": (35, 45, 35)})
+    # Sinistra: appoggiata sul bordo alto dello scudo, dita oltre il bordo e pollice dietro.
+    bordo, fuori = bordo_scudo(-0.13)
+    y = (fuori - Vector((0, 0, 0.15))).normalized()
+    dorso = (su - y * su.dot(y)).normalized()
+    nocca = bordo + fuori * 0.012 + su * 0.016
+    umano.posa_braccio(sch, 1, nocca - y * 0.0795, y, dorso, (0.6, 0.6, -0.4))
+    umano.chiudi_dita(sch, 1, {"indice": (10, 60, 30), "medio": (10, 65, 30), "anulare": (10, 65, 30),
+                               "mignolo": (10, 60, 30), "pollice": (30, 40, 20)})
 
 
 def corpo(c):
-    bm = bmesh.new()
-    pelle = bm.verts.layers.skin.verify()
-    indici = {}
-    for nome, (pos, rx, ry) in SCHELETRO.items():
-        v = bm.verts.new(pos)
-        v[pelle].radius = (rx, ry)
-        indici[nome] = v
-    indici["bacino"][pelle].use_root = True
-    for a, b in OSSA:
-        bm.edges.new((indici[a], indici[b]))
-    me = bpy.data.meshes.new("Corpo")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("Corpo", me)
-    c.col.objects.link(o)
-    o.parent = c.radice
-    skin = o.modifiers.new("Skin", "SKIN")
-    skin.branch_smoothing = 0.6
-    skin.use_smooth_shade = True
-    sub = o.modifiers.new("Liscio", "SUBSURF")
-    sub.levels = 1
-    sub.render_levels = 1
-    o.data.materials.append(c.mat["pelle"])
-    applica(o)
-    for poligono in o.data.polygons:
-        poligono.use_smooth = True
-    return o
+    global ALBERO
+    corpo, altri, giunti = umano.costruisci_corpo(c.col, posa)
+    GIUNTI_POSA.clear()
+    GIUNTI_POSA.update(giunti)
+    for o in [corpo] + altri:
+        o.parent = c.radice
+    nascondi_sotto_vestiti(corpo)
+    ALBERO = umano.albero(corpo.data)
+    return corpo
 
 
-def testa(c):
-    centro = Vector((0, -0.012, 1.635))
-    bm = sfera(centro, (0.078, 0.098, 0.112), 24, 16)
-    for v in bm.verts:
-        d = v.co - centro
-        # Mascella più stretta in basso e mento in avanti; nuca piena.
-        if d.z < 0:
-            f = 1 - 0.28 * (-d.z / 0.112)
-            v.co.x = centro.x + d.x * f
-            if d.y < 0:
-                v.co.y = centro.y + d.y * (1 + 0.08 * (-d.z / 0.112))
-        if d.y > 0:
-            v.co.y = centro.y + d.y * 1.05
-    c.oggetto("Testa", bm, "pelle")
-    # Naso: un piccolo cuneo sul viso.
-    naso = bmesh.new()
-    punta = naso.verts.new((0, -0.128, 1.615))
-    base = [naso.verts.new(p) for p in ((-0.016, -0.104, 1.6), (0.016, -0.104, 1.6), (0, -0.106, 1.655))]
-    naso.faces.new((base[0], base[1], punta))
-    naso.faces.new((base[1], base[2], punta))
-    naso.faces.new((base[2], base[0], punta))
-    naso.faces.new((base[2], base[1], base[0]))
-    c.oggetto("Naso", naso, "pelle", liscio=False)
-    occhi = unisci(*(sfera((s * 0.031, -0.0985, 1.648), (0.010, 0.005, 0.0065), 10, 6) for s in (-1, 1)))
-    c.oggetto("Occhi", occhi, "occhi")
-    sopracciglia = unisci(*(scatola((s * 0.032, -0.1, 1.663), (0.03, 0.008, 0.006)) for s in (-1, 1)))
-    bocca = scatola((0, -0.0985, 1.579), (0.03, 0.006, 0.004))
-    c.oggetto("Sopracciglia", unisci(sopracciglia, bocca), "cuoio")
-    # Orecchie (si vedono appena sotto i paraguance).
-    orecchie = unisci(*(sfera((s * 0.08, 0.0, 1.635), (0.012, 0.022, 0.03), 10, 6) for s in (-1, 1)))
-    c.oggetto("Orecchie", orecchie, "pelle")
-
-
-def mani(c):
-    # Destra: pugno chiuso attorno all'asta della lancia.
-    asta = LANCIA_ASSE
-    pugno = sfera((asta.x + 0.004, asta.y + 0.006, 1.165), (0.034, 0.042, 0.05), 14, 10)
-    pollice = sfera((asta.x + 0.02, asta.y - 0.03, 1.19), (0.012, 0.012, 0.024), 8, 6)
-    c.oggetto("ManoDestra", unisci(pugno, pollice), "pelle")
-    # Sinistra: appoggiata sul bordo dello scudo, dita oltre il bordo.
-    m = scudo_matrice()
-    palmo = sfera((0, 0, 0), (0.045, 0.03, 0.018), 12, 8)
-    bmesh.ops.transform(palmo, matrix=m @ Matrix.Translation((-0.13, 0.005, SCUDO_ALTEZZA + 0.018)), verts=palmo.verts)
-    dita = sfera((0, 0, 0), (0.04, 0.012, 0.035), 10, 6)
-    bmesh.ops.transform(dita, matrix=m @ Matrix.Translation((-0.13, -0.022, SCUDO_ALTEZZA - 0.012)), verts=dita.verts)
-    c.oggetto("ManoSinistra", unisci(palmo, dita), "pelle")
+def nascondi_sotto_vestiti(corpo):
+    """Spinge dentro la lorica e la tunica la pelle del busto e dei fianchi che uscirebbe fuori."""
+    me = corpo.data
+    co = umano.coordinate(me)
+    gruppi = {g.index: g.name for g in corpo.vertex_groups}
+    busto = ("bacino", "spina", "torace", "collo", "clavicola.L", "clavicola.R")
+    peso = np.zeros(len(co))
+    gambe = np.zeros(len(co))
+    for v in me.vertices:
+        for g in v.groups:
+            nome = gruppi[g.group]
+            if nome in busto:
+                peso[v.index] += g.weight
+            elif nome.startswith("coscia"):
+                gambe[v.index] += g.weight
+    for i in np.nonzero((peso > 0.5) | (gambe > 0.5))[0]:
+        x, y, z = co[i]
+        if 0.975 <= z <= 1.445 and peso[i] > 0.5:
+            rx, ry = esterno_armatura(z)
+            rx, ry = rx - 0.022, ry - 0.022
+        elif 0.60 <= z < 0.975:
+            t = (1.02 - z) / 0.42
+            rx, ry = 0.165 + t * 0.045 - 0.008, 0.125 + t * 0.04 - 0.008
+        else:
+            continue
+        e = (x / rx) ** 2 + (y / ry) ** 2
+        if e > 1:
+            f = 0.99 / math.sqrt(e)
+            co[i, 0], co[i, 1] = x * f, y * f
+    umano.imposta_coordinate(me, co)
 
 
 # Vestiti -----------------------------------------------------------------------------------------------
@@ -534,54 +516,124 @@ def balteo(c):
 
 # Gambe e piedi ---------------------------------------------------------------------------------------
 
+def sulla_pelle(centro, direzione, distacco, portata=0.11):
+    """Punto sulla pelle guardando da fuori verso 'centro' lungo -direzione, sollevato di 'distacco'."""
+    hit = ALBERO.ray_cast(centro + direzione * portata, -direzione, portata)
+    if hit[0] is None:
+        return centro + direzione * (portata * 0.6)
+    return hit[0] + direzione * distacco
+
+
+def griglia(righe, chiusa=False):
+    """Superficie da una griglia di punti (righe x colonne)."""
+    bm = bmesh.new()
+    vv = [[bm.verts.new(p) for p in riga] for riga in righe]
+    n = len(vv[0])
+    for a, b in zip(vv, vv[1:]):
+        for k in range(n if chiusa else n - 1):
+            bm.faces.new((a[k], a[(k + 1) % n], b[(k + 1) % n], b[k]))
+    return bm
+
+
 def schinieri(c):
+    """Schinieri modellati sulla gamba vera: davanti, dal ginocchio fin quasi alla caviglia."""
     gusci, lacci = [], []
     for lato in ("d", "s"):
-        ginocchio, caviglia = P("ginocchio_" + lato), P("caviglia_" + lato)
-        sezioni = []
-        for i in range(9):
-            t = i / 8
-            p = ginocchio.lerp(caviglia, 0.03 + t * 0.78)
-            # Sagomato sul polpaccio: pieno in alto, stretto verso la caviglia.
-            r = 0.064 + 0.01 * math.sin(math.pi * min(1.0, t * 1.6)) - 0.018 * t
-            sezioni.append(((p.x, p.y - 0.004, p.z), r, r * 0.92))
-        # Solo la parte davanti della gamba (da -160 a -20 gradi), come un guscio.
-        gusci.append(tubo_ellittico(list(reversed(sezioni)), n=16, inizio=math.radians(200),
-                                    fine=math.radians(340), chiuso=False))
-        # Ginocchiera: la parte alta dello schiniere si gonfia sulla rotula.
-        rotula = ginocchio + Vector((0, -0.062, -0.012))
-        gusci.append(sfera(rotula, (0.04, 0.014, 0.04), 12, 8))
-        for t in (0.3, 0.7):
-            p = ginocchio.lerp(caviglia, 0.12 + t * 0.72)
-            r = 0.07 - t * 0.016
-            lacci.append(tubo_ellittico([((p.x, p.y, p.z - 0.008), r, r), ((p.x, p.y, p.z + 0.008), r, r)], n=16,
-                                        inizio=math.radians(-20), fine=math.radians(200), chiuso=False))
-    c.oggetto("Schinieri", unisci(*gusci), "acciaio", spessore=0.004)
-    c.oggetto("Schinieri_Lacci", unisci(*lacci), "cuoio", spessore=0.003)
+        g, k = P("ginocchio_" + lato), P("caviglia_" + lato)
+        asse = (k - g).normalized()
+        righe = []
+        for i in range(16):
+            p = g.lerp(k, -0.07 + 0.87 * i / 15)
+            riga = []
+            for j in range(17):
+                a = math.radians(205 + 130 * j / 16)        # solo il davanti (270 gradi = -Y)
+                d = Vector((math.cos(a), math.sin(a), 0))
+                d = (d - asse * d.dot(asse)).normalized()
+                riga.append(sulla_pelle(p, d, 0.005))
+            righe.append(riga)
+        gusci.append(griglia(righe))
+        # Due cinghie di cuoio che girano dietro il polpaccio.
+        for t in (0.3, 0.68):
+            p = g.lerp(k, t)
+            punti, normali = [], []
+            for j in range(19):
+                a = math.radians(-25 + 230 * j / 18)
+                d = Vector((math.cos(a), math.sin(a), 0))
+                d = (d - asse * d.dot(asse)).normalized()
+                punti.append(sulla_pelle(p, d, 0.003))
+                normali.append(d)
+            lacci.append(striscia(punti, normali, 0.014))
+    o = c.oggetto("Schinieri", unisci(*gusci), "acciaio", spessore=0.0035)
+    c.oggetto("Schinieri_Lacci", unisci(*lacci), "cuoio", spessore=0.002)
+    return o
 
 
-def calzari(c):
-    pezzi, suole = [], []
+def calzari(c, corpo):
+    """Calcei di cuoio: un guscio preso dal piede vero, tagliato sopra la caviglia, con la suola scura."""
+    bm = bmesh.new()
+    bm.from_mesh(corpo.data)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z > 0.2], context="VERTS")
+    bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0, 0, 0.115),
+                           plane_no=Vector((0, -0.25, 1)).normalized(), clear_outer=True)
+    bm.normal_update()
+    for v in bm.verts:
+        v.co += v.normal * 0.0035
+    for f in bm.faces:
+        f.material_index = 1 if f.normal.z < -0.55 else 0
+    me = bpy.data.meshes.new("Calzari")
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new("Calzari", me)
+    me.materials.append(c.mat["cuoio_chiaro"])
+    me.materials.append(c.mat["cuoio"])
+    c.col.objects.link(o)
+    o.parent = c.radice
+    mod = o.modifiers.new("Spessore", "SOLIDIFY")
+    mod.thickness = 0.003
+    mod.offset = 1.0
+    applica(o)
+    for p in o.data.polygons:
+        p.use_smooth = True
+    # Cinghie alla caviglia.
+    cinghie = []
     for lato in ("d", "s"):
-        cav = P("caviglia_" + lato)
-        x = cav.x
-        piede = sfera((x, -0.05, 0.045), (0.052, 0.13, 0.05), 16, 10)
-        for v in piede.verts:
-            if v.co.z < 0.012:
-                v.co.z = 0.012
-        collo = cilindro((x, 0.015, 0.03), (x, 0.02, 0.15), 0.048, 0.044, n=16)
-        pezzi += [piede, collo]
-        suole.append(sfera((x, -0.05, 0.008), (0.056, 0.135, 0.008), 16, 6))
-        for z in (0.06, 0.10, 0.14):
-            suole.append(tubo_ellittico([((x, 0.02, z - 0.006), 0.051, 0.051), ((x, 0.02, z + 0.006), 0.05, 0.05)],
-                                        n=16))
-    c.oggetto("Calzari", unisci(*pezzi), "cuoio_chiaro")
-    c.oggetto("Calzari_Suole", unisci(*suole), "cuoio")
+        k = P("caviglia_" + lato)
+        for dz in (0.02, 0.05):
+            punti, normali = [], []
+            for j in range(25):
+                a = math.radians(360 * j / 24)
+                d = Vector((math.cos(a), math.sin(a), 0))
+                punti.append(sulla_pelle(Vector((k.x, k.y, k.z + dz)), d, 0.004))
+                normali.append(d)
+            cinghie.append(striscia(punti, normali, 0.012))
+    c.oggetto("Calzari_Cinghie", unisci(*cinghie), "cuoio", spessore=0.002)
+    return o
 
 
 # Elmo (gallico imperiale) --------------------------------------------------------------------------
 
+# L'elmo si disegna attorno a una testa "ideale" e poi si adatta al cranio del corpo vero
+# (centro a y -0.0255, z 1.642; mezza larghezza 0.083, mezza profondità 0.104, cima a 1.75).
+ADATTA_ELMO = (Matrix.Translation((0, -0.0255, 1.642)) @ Matrix.Diagonal((0.92, 0.95, 1.0, 1.0))
+               @ Matrix.Translation((0, -0.004, -1.648)))
+
+
+def appoggia_alla_guancia(v, distacco):
+    """Porta un punto (già adattato) a 'distacco' dalla pelle lungo X, dal suo lato."""
+    s = 1 if v.x > 0 else -1
+    hit = ALBERO.ray_cast(Vector((s * 0.25, v.y, v.z)), Vector((-s, 0, 0)), 0.25)
+    if hit[0] is not None:
+        v.x = hit[0].x + s * distacco
+
+
 def elmo(c):
+    def metti(nome, bm, mat, **kw):
+        bmesh.ops.transform(bm, matrix=ADATTA_ELMO, verts=bm.verts)
+        if nome.startswith("Elmo_Paraguance"):
+            for v in bm.verts:
+                appoggia_alla_guancia(v.co, 0.005)
+        return c.oggetto(nome, bm, mat, **kw)
+
     centro = Vector((0, 0.004, 1.648))
     bm = sfera(centro, (0.114, 0.128, 0.122), 32, 16)
     # Taglio inclinato: basso dietro (dove parte il paranuca), alto davanti sopra gli occhi.
@@ -589,8 +641,8 @@ def elmo(c):
     piano_no = Vector((0, 0.42, 1)).normalized()
     bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=piano_co, plane_no=piano_no,
                            clear_inner=True)
-    c.oggetto("Elmo_Calotta", bm, "acciaio", spessore=-0.005)
-    ottone = []
+    metti("Elmo_Calotta", bm, "acciaio", spessore=-0.005)
+    ottone, borchie = [], []
     # Rinforzo sulla fronte: una visiera stretta che sporge.
     bmv = bmesh.new()
     interno, esterno = [], []
@@ -601,7 +653,7 @@ def elmo(c):
         interno.append(bmv.verts.new((x, y, z + 0.004)))
         esterno.append(bmv.verts.new((x * 1.2, y * 1.2 - 0.008, z - 0.004)))
     unisci_anelli(bmv, interno, esterno, chiuso=False)
-    c.oggetto("Elmo_Visiera", bmv, "acciaio", spessore=0.004)
+    metti("Elmo_Visiera", bmv, "acciaio", spessore=0.004)
     # Croce di rinforzo sulla calotta (ottone) e bottone per il pennacchio.
     for asse in ("x", "y"):
         punti, normali = [], []
@@ -630,7 +682,7 @@ def elmo(c):
         sez_alto.append(alto)
         sez_basso.append(basso)
     unisci_anelli(paranuca, sez_alto, sez_basso, chiuso=False)
-    c.oggetto("Elmo_Paranuca", paranuca, "acciaio", spessore=0.004)
+    metti("Elmo_Paranuca", paranuca, "acciaio", spessore=0.004)
     bordo = []
     for i in range(n + 1):
         a = math.radians(15 + 150 * i / n)
@@ -656,13 +708,17 @@ def elmo(c):
             for i in range(5):
                 f = (righe[j][i], righe[j][i + 1], righe[j + 1][i + 1], righe[j + 1][i])
                 g.faces.new(f if s > 0 else tuple(reversed(f)))
-        c.oggetto("Elmo_Paraguance_" + ("d" if s < 0 else "s"), g, "acciaio", spessore=0.004)
-        ottone.append(sfera((s * 0.104, -0.045, 1.6), (0.005, 0.008, 0.008), 8, 4))
-        ottone.append(sfera((s * 0.1, -0.03, 1.555), (0.005, 0.008, 0.008), 8, 4))
+        metti("Elmo_Paraguance_" + ("d" if s < 0 else "s"), g, "acciaio", spessore=0.004)
+        # Borchie sui paraguance: adattate a parte (l'ottone si sposta solo con l'elmo).
+        for p in ((s * 0.104, -0.045, 1.6), (s * 0.1, -0.03, 1.555)):
+            q = ADATTA_ELMO @ Vector(p)
+            appoggia_alla_guancia(q, 0.011)
+            borchie.append(sfera(q, (0.005, 0.008, 0.008), 8, 4))
         # Paraorecchie: un bordino sopra l'orecchio.
         ottone.append(tubo_ellittico([((s * 0.112, 0.012, 1.62), 0.004, 0.03), ((s * 0.118, 0.012, 1.625), 0.004, 0.03)],
                                      n=12, inizio=math.radians(-180), fine=0, chiuso=False))
-    c.oggetto("Elmo_Ottone", unisci(*ottone), "ottone")
+    metti("Elmo_Ottone", unisci(*ottone), "ottone")
+    c.oggetto("Elmo_Borchie", unisci(*borchie), "ottone")
 
 
 # Armi ---------------------------------------------------------------------------------------------------
@@ -809,20 +865,14 @@ def cilindri_lungo(punti, raggio):
 def costruisci():
     col = pulisci()
     c = Costruttore(col, materiali())
-    corpo(c)
-    testa(c)
-    mani(c)
+    corpo_vero = corpo(c)
     tunica(c)
     lorica(c)
     cintura(c)
     balteo(c)
     schinieri(c)
-    calzari(c)
+    calzari(c, corpo_vero)
     elmo(c)
-    # Testa ed elmo un poco più giù: il collo restava troppo lungo.
-    for o in list(c.col.objects):
-        if o.type == "MESH" and o.name.split("_")[0] in ("Testa", "Naso", "Occhi", "Sopracciglia", "Orecchie", "Elmo"):
-            o.data.transform(Matrix.Translation((0, 0, -0.022)))
     lancia(c)
     gladio(c)
     scudo(c)
