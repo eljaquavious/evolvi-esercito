@@ -22,7 +22,8 @@ local selezionata -- indice nel mazzo
 local usate = {} -- [indice] = true
 local carte = {} -- [indice] = carta nella barra
 local arena
-local evidenzia
+local evidenziata -- casella sotto il mouse, colorata d'oro solo su questo client
+local coloriEvidenziata = {}
 
 local intestazione, titoloLivello, contatore, avviso, bottoneLobby, punteggio
 local barraMazzo, bottoneCombatti, scrittaConto, esploratori, carteEsploratori, bannerRound
@@ -52,9 +53,12 @@ local function impostaCamera()
 	if not zoomOriginale then
 		zoomOriginale = { player.CameraMinZoomDistance, player.CameraMaxZoomDistance }
 	end
-	player.CameraMaxZoomDistance = 160
+	-- Minimo e massimo uguali per un attimo: la telecamera riparte da vicino anche se nella
+	-- battaglia prima si era allontanata del tutto.
+	player.CameraMaxZoomDistance = ZOOM_INIZIALE
 	player.CameraMinZoomDistance = ZOOM_INIZIALE
 	task.delay(0.2, function()
+		player.CameraMaxZoomDistance = 160
 		player.CameraMinZoomDistance = zoomOriginale and zoomOriginale[1] or 0.5
 	end)
 	workspace.CurrentCamera.CFrame = CFrame.lookAt(info.centro + Vector3.new(0, 34, -112), info.centro + Vector3.new(0, 0, -16))
@@ -166,6 +170,26 @@ local function casellaSotto(posizioneSchermo)
 		return casella
 	end
 	return nil
+end
+
+-- Colora d'oro le piastrelle della casella sotto il mouse (gli Highlight non si vedono con grafica bassa).
+local function evidenzia(casella)
+	if casella == evidenziata then
+		return
+	end
+	for parte, colore in pairs(coloriEvidenziata) do
+		parte.Color = colore
+	end
+	coloriEvidenziata = {}
+	evidenziata = casella
+	if casella then
+		for _, parte in ipairs(casella:GetChildren()) do
+			if parte:IsA("BasePart") then
+				coloriEvidenziata[parte] = parte.Color
+				parte.Color = parte.Name == "Bordo" and Stile.Colori.Oro or parte.Color:Lerp(Stile.Colori.Oro, 0.75)
+			end
+		end
+	end
 end
 
 local function casellaValida(casella)
@@ -294,7 +318,7 @@ local function entraBattaglia(dati)
 	bottoneLobby.Visible = false
 	esploratori.Visible = false
 	avviso.Text = dati.assedio and "Storm the fortress!" or "The enemy army is revealed!"
-	evidenzia.Adornee = nil
+	evidenzia(nil)
 	task.spawn(contoAllaRovescia, dati.conto or 3)
 	task.delay((dati.conto or 3) + 0.2, function()
 		if fase == "battaglia" then
@@ -391,7 +415,7 @@ local function esci(ripristinaVista)
 	risultato.Visible = false
 	scrittaConto.Visible = false
 	bannerRound.Visible = false
-	evidenzia.Adornee = nil
+	evidenzia(nil)
 	ripristinaAtmosfera()
 	if ripristinaVista then
 		ripristinaCamera()
@@ -662,18 +686,6 @@ function Partita.inizializza(gui, r, callbackLobby)
 		remoti.TornaLobby:InvokeServer()
 	end)
 
-	-- Evidenzia la casella sotto il mouse seguendone la forma sul terreno. Sta in una cartella vuota:
-	-- senza Adornee un Highlight colora il suo genitore.
-	local cartellaEvidenzia = Stile.crea("Folder", { Name = "Evidenzia", Parent = workspace.CurrentCamera })
-	evidenzia = Stile.crea("Highlight", {
-		FillColor = Stile.Colori.Oro,
-		FillTransparency = 0.45,
-		OutlineColor = Stile.Colori.Oro,
-		OutlineTransparency = 0,
-		DepthMode = Enum.HighlightDepthMode.Occluded,
-		Parent = cartellaEvidenzia,
-	})
-
 	UserInputService.InputBegan:Connect(function(input, usatoDaGui)
 		if usatoDaGui or fase ~= "piazzamento" then
 			return
@@ -693,7 +705,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 			return
 		end
 		local casella = casellaSotto(Vector2.new(input.Position.X, input.Position.Y))
-		evidenzia.Adornee = casellaValida(casella) and casella or nil
+		evidenzia(casellaValida(casella) and casella or nil)
 	end)
 
 	remoti.Fase.OnClientEvent:Connect(function(dati)

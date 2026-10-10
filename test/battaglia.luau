@@ -170,4 +170,21 @@ for _ = 1, 40 do
 end
 verifica("chi è bloccato da un alleato arriva comunque alla fortezza", b:_inGittata(b.unita[1], b.unita[3]))
 
+-- Due ostacoli in diagonale chiudono il passaggio (stallo visto a Thermopylae): i reggimenti li aggirano.
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = SPADACCINO, x = 1.94, y = 3.06 },
+	{ id = 2, squadra = "giocatore", def = SPADACCINO, x = 1.94, y = 3.06 },
+	{ id = 101, squadra = "nemico", def = SPADACCINO, x = 1.06, y = 3.94 },
+}, { ostacoli = { { x = 1, y = 3 }, { x = 2, y = 4 } } })
+b:simula(0.075)
+verifica("i reggimenti aggirano gli ostacoli in diagonale", b.vincitore == "giocatore" and b.tempo < 40)
+
+-- Un muro di ostacoli con un solo varco: si passa dal varco.
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = CAVALIERE, x = 1, y = 1 },
+	{ id = 101, squadra = "nemico", def = ARCIERE, x = 1, y = 6 },
+}, { ostacoli = { { x = 1, y = 3 }, { x = 2, y = 3 }, { x = 3, y = 3 }, { x = 4, y = 3 }, { x = 5, y = 3 } } })
+b:simula(0.075)
+verifica("si passa dal varco nel muro", b.vincitore == "giocatore" and b.tempo < 30)
+
 print(falliti == 0 and "Tutti i test passati" or (falliti .. " test falliti"))

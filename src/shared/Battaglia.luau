@@ -33,6 +33,15 @@ Battaglia.TERRENO = {
 }
 local ANGOLI = { 0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8 }
 
+-- Strade attorno agli ostacoli: una griglia fine di punti in cui un reggimento ci sta.
+local PASSO_GRIGLIA = 0.25
+local MARGINE_STRADA = RAGGIO + RAGGIO_OSTACOLO + 0.04
+-- Un tragitto dritto è libero se non passa più vicino di così a un ostacolo (o se se ne allontana).
+local MARGINE_VISTA = RAGGIO + RAGGIO_OSTACOLO + 0.01
+-- Ogni quanto si ricalcolano le distanze verso un bersaglio (secondi di battaglia).
+local VALIDITA_CAMPO = 0.5
+local VICINI = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }
+
 function Battaglia.moltiplicatore(classeAttacco, classeDifesa)
 	if Battaglia.BATTE[classeAttacco] == classeDifesa then
 		return Battaglia.BONUS
@@ -81,6 +90,23 @@ function Battaglia.nuova(unita, opzioni)
 	table.sort(self.unita, function(a, b)
 		return a.id < b.id
 	end)
+	self.larghezzaGriglia = math.floor((self.colonne - 1) / PASSO_GRIGLIA + 0.5) + 1
+	self.altezzaGriglia = math.floor((self.righe - 1) / PASSO_GRIGLIA + 0.5) + 1
+	self.nodoLibero = {}
+	for j = 0, self.altezzaGriglia - 1 do
+		for i = 0, self.larghezzaGriglia - 1 do
+			local x, y = 1 + i * PASSO_GRIGLIA, 1 + j * PASSO_GRIGLIA
+			local libero = true
+			for _, o in ipairs(self.ostacoli) do
+				if (o.x - x) ^ 2 + (o.y - y) ^ 2 < MARGINE_STRADA ^ 2 then
+					libero = false
+					break
+				end
+			end
+			self.nodoLibero[j * self.larghezzaGriglia + i + 1] = libero
+		end
+	end
+	self.campi = {}
 	return self
 end
 
@@ -168,15 +194,188 @@ function Battaglia:_libero(u, x, y, passaAlleati)
 	return true
 end
 
+local function distanzaDalSegmento(px, py, x0, y0, x1, y1)
+	local dx, dy = x1 - x0, y1 - y0
+	local l2 = dx * dx + dy * dy
+	local t = l2 > 0 and math.clamp(((px - x0) * dx + (py - y0) * dy) / l2, 0, 1) or 0
+	local cx, cy = x0 + dx * t - px, y0 + dy * t - py
+	return math.sqrt(cx * cx + cy * cy)
+end
+
+-- Vero se andando dritto da (x0, y0) a (x1, y1) non si urta nessun ostacolo. Chi è già
+-- rasente a un ostacolo può comunque allontanarsene o costeggiarlo.
+function Battaglia:_vistaLibera(x0, y0, x1, y1)
+	for _, o in ipairs(self.ostacoli) do
+		local partenza = math.sqrt((o.x - x0) ^ 2 + (o.y - y0) ^ 2)
+		if distanzaDalSegmento(o.x, o.y, x0, y0, x1, y1) < math.min(MARGINE_VISTA, partenza) - 1e-6 then
+			return false
+		end
+	end
+	return true
+end
+
+function Battaglia:_nodo(k)
+	local i, j = (k - 1) % self.larghezzaGriglia, (k - 1) // self.larghezzaGriglia
+	return 1 + i * PASSO_GRIGLIA, 1 + j * PASSO_GRIGLIA, i, j
+end
+
+-- Vicini di un nodo raggiungibili senza tagliare l'angolo di un ostacolo.
+function Battaglia:_vicini(k)
+	local w, h = self.larghezzaGriglia, self.altezzaGriglia
+	local _, _, i, j = self:_nodo(k)
+	local risultato = {}
+	for _, v in ipairs(VICINI) do
+		local ni, nj = i + v[1], j + v[2]
+		if ni >= 0 and ni < w and nj >= 0 and nj < h then
+			local n = nj * w + ni + 1
+			local diagonaleLibera = v[1] == 0 or v[2] == 0
+				or (self.nodoLibero[j * w + ni + 1] and self.nodoLibero[nj * w + i + 1])
+			if self.nodoLibero[n] and diagonaleLibera then
+				table.insert(risultato, { n, PASSO_GRIGLIA * math.sqrt(v[1] * v[1] + v[2] * v[2]) })
+			end
+		end
+	end
+	return risultato
+end
+
+-- Distanza a piedi da ogni nodo fino a un punto da cui si colpisce il bersaglio (nil = irraggiungibile).
+-- Calcolata una volta per bersaglio e gittata, rifatta quando il bersaglio si sposta o passa del tempo.
+function Battaglia:_campo(b, portata)
+	local chiave = b.id .. ":" .. math.floor(portata * 10 + 0.5)
+	local campo = self.campi[chiave]
+	if campo and self.tempo - campo.tempo < VALIDITA_CAMPO and math.abs(campo.x - b.x) + math.abs(campo.y - b.y) < 0.3 then
+		return campo.distanze
+	end
+	local distanze = {}
+	-- Coda con priorità (heap binario) di { distanza, nodo }.
+	local heap = {}
+	local function inserisci(d, k)
+		table.insert(heap, { d, k })
+		local i = #heap
+		while i > 1 do
+			local padre = i // 2
+			if heap[padre][1] <= heap[i][1] then
+				break
+			end
+			heap[padre], heap[i] = heap[i], heap[padre]
+			i = padre
+		end
+	end
+	local function estrai()
+		local primo = heap[1]
+		local ultimo = table.remove(heap)
+		if #heap > 0 then
+			heap[1] = ultimo
+			local i = 1
+			while true do
+				local a, c = i * 2, i * 2 + 1
+				local minimo = i
+				if heap[a] and heap[a][1] < heap[minimo][1] then
+					minimo = a
+				end
+				if heap[c] and heap[c][1] < heap[minimo][1] then
+					minimo = c
+				end
+				if minimo == i then
+					break
+				end
+				heap[minimo], heap[i] = heap[i], heap[minimo]
+				i = minimo
+			end
+		end
+		return primo
+	end
+	for k = 1, self.larghezzaGriglia * self.altezzaGriglia do
+		if self.nodoLibero[k] then
+			local x, y = self:_nodo(k)
+			if (x - b.x) ^ 2 + (y - b.y) ^ 2 <= (portata * 0.9) ^ 2 then
+				distanze[k] = 0
+				inserisci(0, k)
+			end
+		end
+	end
+	while #heap > 0 do
+		local voce = estrai()
+		local d, k = voce[1], voce[2]
+		if d <= distanze[k] then
+			for _, v in ipairs(self:_vicini(k)) do
+				local n, costo = v[1], d + v[2]
+				if not distanze[n] or costo < distanze[n] then
+					distanze[n] = costo
+					inserisci(costo, n)
+				end
+			end
+		end
+	end
+	self.campi[chiave] = { tempo = self.tempo, x = b.x, y = b.y, distanze = distanze }
+	return distanze
+end
+
+-- Prossima tappa verso il bersaglio quando un ostacolo copre la strada dritta: il punto più avanti
+-- della strada più corta che si vede ancora da dove si è. nil se il bersaglio è irraggiungibile.
+function Battaglia:_tappa(u, b, portata)
+	local distanze = self:_campo(b, portata)
+	local w, h = self.larghezzaGriglia, self.altezzaGriglia
+	local ci, cj = math.floor((u.x - 1) / PASSO_GRIGLIA + 0.5), math.floor((u.y - 1) / PASSO_GRIGLIA + 0.5)
+	local partenza, migliore = nil, math.huge
+	for dj = -2, 2 do
+		for di = -2, 2 do
+			local i, j = ci + di, cj + dj
+			if i >= 0 and i < w and j >= 0 and j < h then
+				local k = j * w + i + 1
+				if distanze[k] then
+					local x, y = self:_nodo(k)
+					local costo = distanze[k] + math.sqrt((x - u.x) ^ 2 + (y - u.y) ^ 2)
+					if costo < migliore and self:_vistaLibera(u.x, u.y, x, y) then
+						partenza, migliore = k, costo
+					end
+				end
+			end
+		end
+	end
+	if not partenza then
+		return nil
+	end
+	local k = partenza
+	local tx, ty = self:_nodo(k)
+	for _ = 1, 24 do
+		local prossimo, dMin = nil, distanze[k]
+		for _, v in ipairs(self:_vicini(k)) do
+			local n = v[1]
+			if distanze[n] and distanze[n] < dMin then
+				prossimo, dMin = n, distanze[n]
+			end
+		end
+		if not prossimo then
+			break
+		end
+		local x, y = self:_nodo(prossimo)
+		if not self:_vistaLibera(u.x, u.y, x, y) then
+			break
+		end
+		k, tx, ty = prossimo, x, y
+	end
+	return tx, ty
+end
+
 function Battaglia:_muovi(u, bersaglio, dt)
 	local dx, dy = bersaglio.x - u.x, bersaglio.y - u.y
 	local d = math.sqrt(dx * dx + dy * dy)
 	local velocita = u.def.velocita * (self:_terrenoSotto(u).velocita or 1)
-	local passo = math.min(velocita * dt, d - self:_portata(u, bersaglio) * 0.9)
+	local portata = self:_portata(u, bersaglio)
+	local passo = math.min(velocita * dt, d - portata * 0.9)
 	if passo <= 0 then
 		return
 	end
 	local dirX, dirY = dx / d, dy / d
+	-- Un ostacolo copre la strada dritta: si va verso la prossima tappa della strada che lo aggira.
+	if #self.ostacoli > 0 and not self:_vistaLibera(u.x, u.y, bersaglio.x, bersaglio.y) then
+		local tx, ty = self:_tappa(u, bersaglio, portata)
+		local lunghezza = tx and math.sqrt((tx - u.x) ^ 2 + (ty - u.y) ^ 2) or 0
+		if lunghezza > 1e-3 then
+			dirX, dirY = (tx - u.x) / lunghezza, (ty - u.y) / lunghezza
+		end
+	end
 	-- Prima cerca una strada libera; se gli alleati la chiudono tutta, sfila in mezzo a loro
 	-- invece di restare fermo dietro chi sta già combattendo.
 	for _, passaAlleati in ipairs({ false, true }) do
