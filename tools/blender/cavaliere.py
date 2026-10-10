@@ -277,12 +277,11 @@ def costruisci():
     u = V.Unita(NOME, SIGLA)
     U = u
     materiali(u)
-    u.costruisci_corpo(posa, barba=0.6)
+    u.costruisci_corpo(posa, barba=0.3)   # i Normanni dell'arazzo sono rasati
     cv = C.Cavallo(u, scala=0.235, snello=0.8, sella=(0.0, 0.03, 0.86), manto=(0.32, 0.25, 0.22))
     CV = cv
     vestiti(u)
     S.elmo(u)
-    S.baffi(u)
     scudo(u)
     lancia(u)
     spada(u)
@@ -295,7 +294,7 @@ def costruisci():
 def esporta(triangoli=7800, lato=1024):
     import esporta as E
     r = E.prepara(NOME, U.giunti,
-                  rigidi={"Lancia_*": "mano.R", "Occhio*": "testa", "Elmo_*": "testa", "Baffi*": "testa",
+                  rigidi={"Lancia_*": "mano.R", "Occhio*": "testa", "Elmo_*": "testa",
                           "Spada_*": "bacino", "Scudo_*": "avambraccio.L", "Staffe_*": "cavallo",
                           "CV_Coda*": "cavallo.coda", "CV_Morso*": "cavallo.muso", "CV_Ciuffo*": "cavallo.muso"},
                   escludi=["Scarpe", "Scarpe.0*", "Elmo_Nervature*"],
