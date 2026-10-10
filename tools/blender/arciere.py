@@ -9,7 +9,6 @@ Posa: la sinistra regge l'arco dritto davanti al fianco, la destra pende accanto
 import math
 
 import bmesh
-import bpy
 from mathutils import Matrix, Vector
 
 import umano
@@ -25,7 +24,7 @@ U = None
 
 
 def materiali(u):
-    giubba = u.materiale("Giubba", (0.70, 0.64, 0.50), ruvidita=0.9)
+    giubba = u.materiale("Giubba", (0.52, 0.45, 0.32), ruvidita=0.9)
     _croce_e_trapunta(giubba)
     u.materiale("Calze", (0.32, 0.07, 0.05), ruvidita=0.85)
     u.materiale("Cuoio", (0.20, 0.10, 0.045), ruvidita=0.65)
@@ -75,7 +74,7 @@ def _croce_e_trapunta(m):
     base.data_type = "RGBA"
     base.blend_type = "MULTIPLY"
     base.inputs["Factor"].default_value = 1.0
-    base.inputs[6].default_value = (0.70, 0.64, 0.50, 1)
+    base.inputs[6].default_value = (0.52, 0.45, 0.32, 1)
     grigio = N.new("ShaderNodeCombineColor")
     for i in range(3):
         L.new(trapunta, grigio.inputs[i])
