@@ -39,7 +39,7 @@ def materiale(nome, colore, metallo=0.0, ruvidita=0.6, immagine=None):
 def materiali():
     immagine = bpy.data.images.get("LG_Scudo")
     return {
-        "pelle": materiale("Pelle", (0.72, 0.47, 0.34), ruvidita=0.55),
+        "pelle": materiale("Pelle", (0.60, 0.38, 0.26), ruvidita=0.55),
         "tunica": materiale("Tunica", (0.50, 0.05, 0.04), ruvidita=0.9),
         "acciaio": materiale("Acciaio", (0.78, 0.79, 0.80), metallo=1.0, ruvidita=0.28),
         "ottone": materiale("Ottone", (0.86, 0.62, 0.26), metallo=1.0, ruvidita=0.32),
@@ -318,10 +318,11 @@ def testa(c):
     naso.faces.new((base[2], base[0], punta))
     naso.faces.new((base[2], base[1], base[0]))
     c.oggetto("Naso", naso, "pelle", liscio=False)
-    occhi = unisci(*(sfera((s * 0.032, -0.093, 1.648), (0.011, 0.006, 0.007), 10, 6) for s in (-1, 1)))
+    occhi = unisci(*(sfera((s * 0.031, -0.0985, 1.648), (0.010, 0.005, 0.0065), 10, 6) for s in (-1, 1)))
     c.oggetto("Occhi", occhi, "occhi")
-    sopracciglia = unisci(*(scatola((s * 0.032, -0.099, 1.664), (0.03, 0.008, 0.006)) for s in (-1, 1)))
-    c.oggetto("Sopracciglia", sopracciglia, "cuoio")
+    sopracciglia = unisci(*(scatola((s * 0.032, -0.1, 1.663), (0.03, 0.008, 0.006)) for s in (-1, 1)))
+    bocca = scatola((0, -0.0985, 1.579), (0.03, 0.006, 0.004))
+    c.oggetto("Sopracciglia", unisci(sopracciglia, bocca), "cuoio")
     # Orecchie (si vedono appena sotto i paraguance).
     orecchie = unisci(*(sfera((s * 0.08, 0.0, 1.635), (0.012, 0.022, 0.03), 10, 6) for s in (-1, 1)))
     c.oggetto("Orecchie", orecchie, "pelle")
@@ -526,8 +527,8 @@ def schinieri(c):
         gusci.append(tubo_ellittico(list(reversed(sezioni)), n=16, inizio=math.radians(200),
                                     fine=math.radians(340), chiuso=False))
         # Ginocchiera: la parte alta dello schiniere si gonfia sulla rotula.
-        rotula = ginocchio + Vector((0, -0.058, -0.004))
-        gusci.append(sfera(rotula, (0.046, 0.02, 0.05), 12, 8))
+        rotula = ginocchio + Vector((0, -0.056, -0.006))
+        gusci.append(sfera(rotula, (0.04, 0.016, 0.042), 12, 8))
         for t in (0.3, 0.7):
             p = ginocchio.lerp(caviglia, 0.12 + t * 0.72)
             r = 0.07 - t * 0.016
@@ -668,8 +669,9 @@ def lancia(c):
 
 def gladio(c):
     # Fodero al fianco destro, un po' inclinato con l'elsa in avanti.
-    base = Matrix.Translation((-0.215, -0.01, 0.995)) @ Matrix.Rotation(math.radians(-14), 4, "X") @ \
-        Matrix.Rotation(math.radians(-6), 4, "Y")
+    # La punta va indietro, l'elsa in avanti e un poco in fuori.
+    base = Matrix.Translation((-0.212, -0.02, 1.0)) @ Matrix.Rotation(math.radians(16), 4, "X") @ \
+        Matrix.Rotation(math.radians(-5), 4, "Y")
     fodero = bmesh.new()
     sezioni = [(0.0, 0.03), (-0.40, 0.026), (-0.50, 0.014), (-0.53, 0.0)]
     anelli = []
