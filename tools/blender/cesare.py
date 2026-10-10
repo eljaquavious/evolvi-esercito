@@ -28,12 +28,12 @@ U = None
 
 
 def materiali(u):
-    u.materiale("Tunica", (0.42, 0.04, 0.03), ruvidita=0.9)
-    u.materiale("Mantello", (0.50, 0.035, 0.03), ruvidita=0.92)
+    u.materiale("Tunica", (0.34, 0.03, 0.025), ruvidita=0.9)
+    u.materiale("Mantello", (0.30, 0.02, 0.022), ruvidita=0.92)
     u.materiale("Oro", (0.85, 0.62, 0.25), metallo=1.0, ruvidita=0.3)
     u.materiale("Cingulum", (0.60, 0.05, 0.04), ruvidita=0.8)
     u.materiale("Pteruges", (0.82, 0.78, 0.68), ruvidita=0.8)
-    u.materiale("Cuoio", (0.40, 0.08, 0.05), ruvidita=0.65)
+    u.materiale("Cuoio", (0.26, 0.05, 0.03), ruvidita=0.65)
     u.materiale("Suola", (0.07, 0.04, 0.02), ruvidita=0.8)
     u.materiale("Ferro", (0.62, 0.63, 0.65), metallo=1.0, ruvidita=0.25)
     u.materiale("Avorio", (0.85, 0.80, 0.68), ruvidita=0.5)
@@ -51,11 +51,11 @@ def posa(sch):
     umano.ruota_mondo(sch, "testa", (0, 0, 1), -6)
     # Destra: il gladio alzato in avanti; pollice verso la punta, dita attorno all'elsa.
     C.impugna(sch, -1, PRESA, LAMA, (0.3, -0.2, -0.4), (-0.7, 0.4, -0.5))
-    # Sinistra: tiene il lembo del mantello davanti al fianco.
-    umano.ruota_mondo(sch, "braccio.L", (0, 1, 0), -10)
-    umano.ruota_mondo(sch, "avambraccio.L", (1, 0, 0), -55)
-    umano.chiudi_dita(sch, 1, {"indice": (55, 80, 40), "medio": (60, 85, 40), "anulare": (65, 85, 40),
-                               "mignolo": (70, 80, 40), "pollice": (20, 30, 20)})
+    # Sinistra: lungo il fianco, il gomito appena piegato, la mano socchiusa.
+    umano.ruota_mondo(sch, "braccio.L", (0, 1, 0), -5)
+    umano.piega(sch, "avambraccio.L", -25)
+    umano.chiudi_dita(sch, 1, {"indice": (25, 35, 20), "medio": (30, 40, 20), "anulare": (35, 40, 20),
+                               "mignolo": (40, 40, 20), "pollice": (10, 15, 10)})
 
 
 def vestiti(u):
@@ -105,7 +105,7 @@ def gladio(u):
     lato = LAMA.cross(Vector((1, 0, 0))).normalized()
     m = Matrix((LAMA.cross(lato).normalized(), lato, LAMA)).transposed().to_4x4()
     m.translation = PRESA
-    lama = V.lama(0.55, 0.055, 0.0, spessore=0.008, foglia=0.01)
+    lama = V.lama(0.46, 0.056, 0.046, spessore=0.008, foglia=0.004)
     V.trasforma(lama, m @ Matrix.Translation((0, 0, 0.07)))
     u.oggetto("Gladio_Lama", lama, "Ferro", liscio=False)
     elsa = [V.scatola((0, 0, 0.06), (0.08, 0.035, 0.025)), V.cilindro((0, 0, -0.06), (0, 0, 0.05), 0.016, n=10),
