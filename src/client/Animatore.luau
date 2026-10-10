@@ -171,6 +171,11 @@ end
 
 -- Dove parte un proiettile (mano destra, o la sinistra per gli arcieri che tengono l'arco).
 function Animatore:puntoTiro()
+	-- Armi da fuoco del modello Blender: la bocca della canna ha un osso suo.
+	local canna = self.giunti.canna
+	if canna and canna:IsA("Bone") then
+		return canna.WorldPosition
+	end
 	local nome = self.stile == "arco" and "mano.L" or "mano.R"
 	local giunto = self.giunti[nome] or self.giunti["braccio.R"]
 	if giunto and giunto:IsA("Bone") then
@@ -324,7 +329,9 @@ function POSE.pistola(p, _a, k, r, ritorno)
 end
 
 function POSE.mitragliatrice(p, _a, k, r, ritorno)
-	p.bacino = CFrame.new(0, 0, 0.08 * math.sin(r * 40) * ritorno * k)
+	local scossa = 0.08 * math.sin(r * 40) * ritorno * k
+	p.bacino = CFrame.new(0, 0, scossa)
+	p.mitragliatrice = CFrame.new(0, 0, scossa * 0.6)
 end
 
 function POSE.carro(p, _a, _k, r, ritorno)
@@ -408,6 +415,14 @@ end
 local function caduta(self, p)
 	local t = self.tempo - self.morte
 	local f = liscio(t / 0.7)
+	if self.stile == "mitragliatrice" and self.riposo then
+		-- In ginocchio dietro l'arma: si accascia indietro e di lato; l'arma resta sul treppiede.
+		p.bacino = CFrame.new(0.2 * f, -0.75 * f, 0.7 * f) * ruota(1.25 * f, 0, 0.35 * f)
+		p["braccio.R"] = ruota(0.4 * f, 0, 0.7 * f)
+		p["braccio.L"] = ruota(0.3 * f, 0, -0.7 * f)
+		p.testa = ruota(0.3 * f, 0.4 * f, 0)
+		return
+	end
 	if self.stile == "carro" or self.stile == "fortezza" or self.stile == "mitragliatrice" then
 		p.bacino = CFrame.new(0, -1.2 * f, 0) * ruota(-0.12 * f, 0, 0.08 * f)
 		return
