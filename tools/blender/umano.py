@@ -50,8 +50,12 @@ DITA = {
     "mignolo": [(0.4263, -0.0506, 0.8180), (0.4368, -0.0480, 0.7889), (0.4407, -0.0460, 0.7666), (0.4431, -0.0463, 0.7493)],
 }
 DORSO_SINISTRO = (0.9011, -0.1233, 0.4157)   # normale del dorso della mano sinistra a riposo
-OCCHIO = (0.0342, -0.1066, 1.6355)            # centro dell'occhio sinistro
+OCCHIO_UOMO = (0.0342, -0.1066, 1.6355)       # centro dell'occhio sinistro
+OCCHIO = OCCHIO_UOMO                          # quello del corpo caricato per ultimo (vedi carica)
 RAGGIO_OCCHIO = 0.0125
+CORPO_DONNA = "GEO-body_female_realistic"
+# La testa della donna sostituisce quella dell'uomo dal collo in su (quote del corpo base, prima della scala).
+COLLO_DONNA = (1.40, 1.47)
 
 
 def lato(p, s):
@@ -88,24 +92,52 @@ def contesto():
     return {"window": finestra}
 
 
-def carica(col):
-    """Aggiunge alla collezione il corpo base (con il Multires) e i due occhi, già a 1,75 m."""
+def carica(col, donna=False):
+    """Aggiunge alla collezione il corpo base (con il Multires) e i due occhi, già a 1,75 m.
+
+    donna=True: la testa (viso, dettagli del Multires compresi) è quella del corpo femminile, montata sul corpo
+    maschile allineando gli occhi; le due mesh hanno la stessa topologia, quindi si mescolano vertice per vertice
+    con un passaggio morbido sul collo. Il resto (giunti, mani, piedi) resta quello misurato sull'uomo."""
+    global OCCHIO
     assicura_pacchetto()
-    nomi = [CORPO_BASE, CORPO_BASE + ".eye.L", CORPO_BASE + ".eye.R"]
+    base = CORPO_DONNA if donna else CORPO_BASE
+    nomi = [base, base + ".eye.L", base + ".eye.R"] + ([CORPO_BASE] if donna else [])
     with bpy.data.libraries.load(PACCHETTO, link=False) as (sorgente, destinazione):
         destinazione.objects = nomi
-    corpo, occhi = None, []
+    corpo, occhi, uomo = None, [], None
     for o in destinazione.objects:
-        col.objects.link(o)
-        if o.name.startswith(CORPO_BASE + ".eye"):
+        if o.name.startswith(base + ".eye"):
+            col.objects.link(o)
             occhi.append(o)
-        else:
+        elif o.name.startswith(base):
+            col.objects.link(o)
             corpo = o
-    for o in occhi:
-        s = 1 if o.name.split(".eye.")[1].startswith("L") else -1
-        o.parent = None
-        o.matrix_world = (Matrix.Translation(lato(OCCHIO, s)) @ Matrix.Rotation(math.pi / 2, 4, "X")
-                          @ Matrix.Diagonal((0.862 * SCALA,) * 3 + (1,)))
+        else:
+            uomo = o
+    if donna:
+        # Occhi della donna nel corpo base: il loro centro (a metà) va sul centro degli occhi dell'uomo.
+        mondi = {o: o.matrix_world.copy() for o in occhi}
+        centro_f = sum((m.translation for m in mondi.values()), Vector()) / len(mondi)
+        centro_m = Vector((0, (OCCHIO_UOMO[1] - SPOSTAMENTO.y) / SCALA, OCCHIO_UOMO[2] / SCALA))
+        sposta = Vector((0, centro_m.y - centro_f.y, centro_m.z - centro_f.z))
+        m_co = coordinate(uomo.data)
+        f_co = coordinate(corpo.data)
+        w = liscio(COLLO_DONNA[0], COLLO_DONNA[1], m_co[:, 2])[:, None]
+        imposta_coordinate(corpo.data, m_co * (1 - w) + (f_co + np.array(sposta)) * w)
+        bpy.data.meshes.remove(uomo.data)
+        trasforma = Matrix.Translation(SPOSTAMENTO) @ Matrix.Scale(SCALA, 4) @ Matrix.Translation(sposta)
+        for o in occhi:
+            o.parent = None
+            o.matrix_world = trasforma @ mondi[o]
+        sinistro = next(o for o in occhi if ".eye.L" in o.name)
+        OCCHIO = tuple(sinistro.matrix_world.translation)
+    else:
+        OCCHIO = OCCHIO_UOMO
+        for o in occhi:
+            s = 1 if o.name.split(".eye.")[1].startswith("L") else -1
+            o.parent = None
+            o.matrix_world = (Matrix.Translation(lato(OCCHIO, s)) @ Matrix.Rotation(math.pi / 2, 4, "X")
+                              @ Matrix.Diagonal((0.862 * SCALA,) * 3 + (1,)))
     corpo.matrix_world = Matrix.Identity(4)
     corpo.data.transform(Matrix.Translation(SPOSTAMENTO) @ Matrix.Scale(SCALA, 4))
     corpo.name, corpo.data.name = "Corpo", "Corpo"
@@ -291,7 +323,7 @@ def giunti_in_posa(sch):
 
 def cuoci(corpo, sch, livello=2):
     """Applica Multires (al livello scelto) e scheletro: resta una mesh ferma nella posa."""
-    mr = corpo.modifiers.get("Multires")
+    mr = next((m for m in corpo.modifiers if m.type == "MULTIRES"), None)
     if mr:
         mr.levels = livello
         mr.render_levels = livello
@@ -530,11 +562,11 @@ def sopracciglia(col, corpo, materiale, peli=320, seme=7):
 
 # Tutto insieme ------------------------------------------------------------------------------------
 
-def costruisci_corpo(col, posa, livello=2, pelle=(0.46, 0.25, 0.155)):
+def costruisci_corpo(col, posa, livello=2, pelle=(0.46, 0.25, 0.155), donna=False):
     """Carica, mette in posa con la funzione posa(scheletro), cuoce e colora.
 
     Restituisce il corpo, gli altri oggetti (occhi e sopracciglia) e le articolazioni in posa."""
-    corpo, occhi = carica(col)
+    corpo, occhi = carica(col, donna)
     sch = crea_scheletro(col)
     pesa(corpo, sch)
     posa(sch)

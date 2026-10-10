@@ -84,8 +84,8 @@ class Unita:
 
     # Corpo e misure ------------------------------------------------------------------------------
 
-    def costruisci_corpo(self, posa, pelle=(0.46, 0.25, 0.155), barba=0.55, capelli=True):
-        corpo, altri, giunti = umano.costruisci_corpo(self.col, posa, pelle=pelle)
+    def costruisci_corpo(self, posa, pelle=(0.46, 0.25, 0.155), barba=0.55, capelli=True, donna=False):
+        corpo, altri, giunti = umano.costruisci_corpo(self.col, posa, pelle=pelle, donna=donna)
         if barba != 0.55 or not capelli:
             umano.colora(corpo, barba=barba, capelli=capelli)
         self.giunti = giunti
