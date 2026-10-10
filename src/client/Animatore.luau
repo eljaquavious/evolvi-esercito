@@ -334,9 +334,15 @@ function POSE.mitragliatrice(p, _a, k, r, ritorno)
 	p.mitragliatrice = CFrame.new(0, 0, scossa * 0.6)
 end
 
-function POSE.carro(p, _a, _k, r, ritorno)
+function POSE.carro(p, _a, _k, r, ritorno, self)
 	local rinculo = r * ritorno * (1 - r) * 4
-	p.torretta = CFrame.new(0, 0, 0.5 * rinculo)
+	if self.giunti.cannone then
+		-- Sherman di Blender: rincula solo il cannone, la torretta sobbalza appena.
+		p.cannone = CFrame.new(0, 0, 0.45 * rinculo)
+		p.torretta = ruota(-0.02 * rinculo, 0, 0)
+	else
+		p.torretta = CFrame.new(0, 0, 0.5 * rinculo)
+	end
 	p.bacino = ruota(-0.03 * rinculo, 0, 0)
 end
 

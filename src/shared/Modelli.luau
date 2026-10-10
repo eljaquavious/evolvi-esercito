@@ -471,7 +471,8 @@ local TIPI = {
 	Cavaliere = { scheletro = "cavallo", scala = 1.0, metri = 2.34 },
 	Fante = { scheletro = "fante", scala = 1.0, metri = 2.34 },
 	Mitragliere = { scheletro = "rigido", scala = 1.0, metri = 2.34 },
-	CarroArmato = { scheletro = "carro", scala = 1.7, metri = 2.34 },
+	-- Lo Sherman vero è lungo 5,9 m: in scala piena sarebbe 14 studs; un po' compresso resta leggibile sul campo.
+	CarroArmato = { scheletro = "carro", scala = 1.7, metri = 1.6 },
 	Annibale = { scheletro = "cavallo", scala = 1.2, metri = 2.8 },
 	Cesare = { scheletro = "fante", scala = 1.2, metri = 2.8 },
 	Guglielmo = { scheletro = "cavallo", scala = 1.2, metri = 2.8 },
