@@ -46,14 +46,26 @@ local function materialeCima(colonna, riga, h)
 	return variazione > 0.3 and Enum.Material.LeafyGrass or Enum.Material.Grass
 end
 
--- Celle di terra dove passa il sentiero tra due battaglie della stessa epoca.
+-- Celle di terra dove passa il sentiero tra due battaglie della stessa epoca. Largo 3 celle e senza
+-- passi in diagonale: una riga di voxel sottile, nel Terrain, si vede a macchie e non come una strada.
 local function celleSentiero()
 	local celle = {}
+	local function segna(colonna, riga)
+		for dx = -1, 1 do
+			for dy = -1, 1 do
+				if math.abs(dx) + math.abs(dy) <= 1 and MappaEuropa.terra(colonna + dx, riga + dy) then
+					celle[(colonna + dx) * 1000 + riga + dy] = true
+				end
+			end
+		end
+	end
 	for _, sentiero in ipairs(MappaEuropa.Sentieri) do
 		for i = 1, #sentiero, 2 do
 			local colonna, riga = sentiero[i], sentiero[i + 1]
-			if MappaEuropa.terra(colonna, riga) then
-				celle[colonna * 1000 + riga] = true
+			segna(colonna, riga)
+			local prossimaColonna = sentiero[i + 2]
+			if prossimaColonna and prossimaColonna ~= colonna and sentiero[i + 3] ~= riga then
+				segna(prossimaColonna, riga) -- passo diagonale: riempie l'angolo
 			end
 		end
 	end
@@ -186,6 +198,7 @@ function MappaCampagna.costruisci()
 		end
 	end
 	tavolo()
+	MappaCampagna.pronta = true
 	task.spawn(misuraAltezze)
 end
 

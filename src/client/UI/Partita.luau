@@ -31,7 +31,8 @@ local prossimoLivello
 
 local atmosferaOriginale
 
-local ZOOM_INIZIALE = 42
+local ZOOM_INIZIALE = 30
+local ZOOM_LOBBY = 14
 local zoomOriginale
 
 local function seguiPersonaggio()
@@ -59,11 +60,17 @@ local function impostaCamera()
 	workspace.CurrentCamera.CFrame = CFrame.lookAt(info.centro + Vector3.new(0, 34, -112), info.centro + Vector3.new(0, 0, -16))
 end
 
+-- Torna alla telecamera normale, riavvicinata: dal campo si poteva essere molto lontani.
 local function ripristinaCamera()
 	seguiPersonaggio()
 	if zoomOriginale then
-		player.CameraMinZoomDistance, player.CameraMaxZoomDistance = zoomOriginale[1], zoomOriginale[2]
+		local minimo, massimo = zoomOriginale[1], zoomOriginale[2]
 		zoomOriginale = nil
+		player.CameraMinZoomDistance = math.min(minimo, ZOOM_LOBBY)
+		player.CameraMaxZoomDistance = ZOOM_LOBBY
+		task.delay(0.2, function()
+			player.CameraMaxZoomDistance = massimo
+		end)
 	end
 end
 

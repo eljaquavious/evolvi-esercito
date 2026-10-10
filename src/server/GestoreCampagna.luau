@@ -578,8 +578,11 @@ function GestoreCampagna.apriMappa(player)
 	if not dati then
 		return false, "Loading your data, try again in a moment."
 	end
+	if not MappaCampagna.pronta then
+		return false, "The campaign map is still being built: try again in a moment."
+	end
 	local esistente = sessioni[player]
-	if esistente and esistente.fase == "battaglia" then
+	if esistente and (esistente.fase == "battaglia" or esistente.fase == "costruzione") then
 		return false, "You already have a battle in progress."
 	end
 	chiudiSessione(player)

@@ -401,9 +401,9 @@ function Arena.crea(player, livello)
 	for col = 1, Arena.COLONNE do
 		for riga = 1, Arena.RIGHE do
 			local delGiocatore = riga <= Campagna.RIGHE_GIOCATORE
-			local colore = delGiocatore and Color3.fromRGB(70, 140, 255) or Color3.fromRGB(235, 70, 60)
+			local colore = delGiocatore and Color3.fromRGB(40, 110, 255) or Color3.fromRGB(220, 30, 30)
 			if (col + riga) % 2 == 0 then
-				colore = colore:Lerp(Color3.new(1, 1, 1), 0.15)
+				colore = colore:Lerp(Color3.new(1, 1, 1), 0.08)
 			end
 			local tipo = arena.terreno[col .. "," .. riga]
 			local casella = blocco(tabellone, {
@@ -412,7 +412,7 @@ function Arena.crea(player, livello)
 				CFrame = cframeCasella(arena, col, riga),
 				Color = colore,
 				Material = Enum.Material.SmoothPlastic,
-				Transparency = 0.5,
+				Transparency = 0.35,
 				CanQuery = true,
 				CastShadow = false,
 			})

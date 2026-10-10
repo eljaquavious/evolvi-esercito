@@ -69,7 +69,6 @@ remoti.Ranked.OnServerInvoke = function(player)
 end
 
 Ambiente.imposta()
-MappaCampagna.costruisci()
 GestoreCampagna.inizializza(remoti)
 Collezione.inizializza(remoti)
 Shop.inizializza(remoti)
@@ -94,7 +93,14 @@ end
 Players.PlayerAdded:Connect(giocatoreEntrato)
 for _, player in ipairs(Players:GetPlayers()) do
 	task.spawn(giocatoreEntrato, player)
+	-- In Studio il personaggio può essere nato prima che lo spawn fosse spostato nella piazza.
+	if player.Character then
+		player.Character:PivotTo(CFrame.new(Lobby.SPAWN))
+	end
 end
+
+-- Il plastico della mappa si costruisce a blocchi in qualche secondo: dopo la lobby, per non far aspettare nessuno.
+task.spawn(MappaCampagna.costruisci)
 
 Players.PlayerRemoving:Connect(function(player)
 	GestoreCampagna.giocatoreUscito(player)

@@ -38,12 +38,13 @@ local GRIGIO = Color3.fromRGB(120, 120, 130)
 local ARANCIO = Color3.fromRGB(255, 130, 40)
 
 -- Mari, scritti sul plastico per orientarsi.
+-- { nome, lat, lon, scala }: i mari a nord sono più lontani dalla telecamera, quindi più grandi.
 local MARI = {
-	{ "ATLANTIC OCEAN", 45.5, -6.5 },
-	{ "MEDITERRANEAN SEA", 34.6, 19 },
-	{ "NORTH SEA", 56, 3.5 },
-	{ "BLACK SEA", 43.4, 34.5 },
-	{ "BALTIC SEA", 58, 19.5 },
+	{ "ATLANTIC OCEAN", 45.5, -6.5, 1 },
+	{ "MEDITERRANEAN SEA", 34.6, 19, 1 },
+	{ "NORTH SEA", 56, 3.5, 1.7 },
+	{ "BLACK SEA", 43.4, 34.5, 1.2 },
+	{ "BALTIC SEA", 58, 19.5, 1.6 },
 }
 
 -- Quote dei livelli misurate dal server sul Terrain vero (vedi MappaCampagna); se mancano, una stima.
@@ -89,11 +90,11 @@ local function parteLocale(proprieta)
 	return p
 end
 
-local function etichettaMare(testo, lat, lon)
+local function etichettaMare(testo, lat, lon, scala)
 	local ancora = parteLocale({ Size = Vector3.one * 0.2, Transparency = 1, Position = MappaEuropa.posizione(lat, lon) + Vector3.new(0, 2, 0) })
 	local gui = Instance.new("BillboardGui")
 	-- Misure in studs: la scritta rimpicciolisce con la distanza e i mari vicini non si sovrappongono.
-	gui.Size = UDim2.new(#testo * 8, 0, 16, 0)
+	gui.Size = UDim2.new(#testo * 9 * scala, 0, 18 * scala, 0)
 	gui.LightInfluence = 0
 	gui.Parent = ancora
 	Stile.testo({
@@ -112,7 +113,7 @@ local function costruisci()
 	cartella.Name = "MappaLivelli"
 	cartella.Parent = workspace
 	for _, mare in ipairs(MARI) do
-		etichettaMare(mare[1], mare[2], mare[3])
+		etichettaMare(mare[1], mare[2], mare[3], mare[4])
 	end
 	for numero, battaglia in ipairs(Campagna.Battaglie) do
 		local posizione = posizioneLivello(numero)
@@ -186,7 +187,7 @@ local function costruisci()
 			elseif passo % 3 == 0 then
 				table.insert(puntini[numero], { mare = false, parte = parteLocale({
 					Shape = Enum.PartType.Ball,
-					Size = Vector3.one * 1.4,
+					Size = Vector3.one * 1.6,
 					Position = Vector3.new(centro.X, MappaEuropa.superficie(centro) + 0.3, centro.Z),
 					Material = Enum.Material.Neon,
 				}) })
@@ -211,15 +212,20 @@ local function aggiornaNodi()
 		nodo.stelle.Text = sbloccato(numero) and string.rep("★", stelle) .. string.rep("☆", Campagna.STELLE_MASSIME - stelle) or ""
 		nodo.numero.TextColor3 = sbloccato(numero) and Color3.new(1, 1, 1) or Color3.fromRGB(170, 170, 180)
 		nodo.nome.Visible = numero == selezionato
-		-- Le tratte per mare si vedono sempre (oro se già fatte); le luci solo sul prossimo tratto da fare.
+		-- Luci lungo il sentiero dell'epoca: oro i tratti fatti, arancio il prossimo, bianche tenui
+		-- quelli ancora da fare. Le epoche non ancora raggiunte non si illuminano.
 		local prossimo = sbloccato(numero) and stelle == 0
+		local epocaRaggiunta = stato and Campagna.livello(numero).indiceEpoca <= Campagna.livello(stato.livello).indiceEpoca
 		for _, punto in ipairs(puntini[numero]) do
-			if punto.mare then
-				punto.parte.Color = stelle > 0 and ORO or Color3.fromRGB(245, 245, 245)
-				punto.parte.Transparency = sbloccato(numero) and 0.1 or 0.55
+			if stelle > 0 then
+				punto.parte.Color, punto.parte.Transparency = ORO, 0
+			elseif prossimo then
+				punto.parte.Color, punto.parte.Transparency = ARANCIO, 0
+			elseif epocaRaggiunta then
+				punto.parte.Color, punto.parte.Transparency = Color3.fromRGB(245, 245, 245), 0.45
 			else
-				punto.parte.Color = ARANCIO
-				punto.parte.Transparency = prossimo and 0 or 1
+				punto.parte.Color = Color3.fromRGB(245, 245, 245)
+				punto.parte.Transparency = punto.mare and 0.6 or 1
 			end
 		end
 	end
@@ -227,6 +233,9 @@ end
 
 local function aggiornaCamera(istantanea)
 	local bersaglio = posizioneLivello(selezionato)
+	-- Più ci si allontana, più la telecamera guarda il centro della mappa: niente cielo vuoto ai lati.
+	local centro = MappaEuropa.CENTRO + Vector3.new(0, 0, -40)
+	bersaglio = bersaglio:Lerp(Vector3.new(centro.X, bersaglio.Y, centro.Z), math.clamp((zoom - 1) / 2, 0, 0.85))
 	-- Il giocatore aspetta a sud del plastico: chiede di caricare il terreno attorno al livello guardato.
 	task.spawn(pcall, Players.LocalPlayer.RequestStreamAroundAsync, Players.LocalPlayer, bersaglio)
 	local cframe = CFrame.lookAt(bersaglio + Vector3.new(0, 120, -95) * zoom, bersaglio)

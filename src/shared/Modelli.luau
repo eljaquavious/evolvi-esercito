@@ -382,27 +382,27 @@ end
 
 -- Scala dei soldati nel reggimento: alti più o meno come l'avatar del giocatore, che cammina tra loro.
 local SCALE = {
-	Spadaccino = 0.98,
-	Arciere = 0.98,
-	Cavaliere = 0.96,
-	Fante = 0.98,
-	Mitragliere = 1.02,
-	CarroArmato = 1.68,
-	Legionario = 0.98,
-	ArciereCretese = 0.98,
-	Compagno = 0.96,
-	Annibale = 1.38,
-	Cesare = 1.44,
-	Guglielmo = 1.38,
-	Giovanna = 1.44,
-	Foch = 1.44,
-	DeGaulle = 1.44,
+	Spadaccino = 1.13,
+	Arciere = 1.13,
+	Cavaliere = 1.1,
+	Fante = 1.13,
+	Mitragliere = 1.17,
+	CarroArmato = 1.93,
+	Legionario = 1.13,
+	ArciereCretese = 1.13,
+	Compagno = 1.1,
+	Annibale = 1.59,
+	Cesare = 1.66,
+	Guglielmo = 1.59,
+	Giovanna = 1.66,
+	Foch = 1.66,
+	DeGaulle = 1.66,
 	FortezzaAntica = 1.5,
 	FortezzaMedievale = 1.5,
 	FortezzaNovecento = 1.5,
 }
 -- Le formazioni sono pensate per la scala 0.62 e caselle da 10: con soldati e caselle più grandi si allargano.
-local ALLARGAMENTO = 1.7
+local ALLARGAMENTO = 1.85
 
 local function figura(genitore, base, tipo, colore, origine, s)
 	local p = scalatore(genitore, base, origine, s)
@@ -427,7 +427,7 @@ local function barraVita(radice, colore, numero)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Vita"
 	gui.Size = UDim2.fromOffset(70, 16)
-	gui.StudsOffset = Vector3.new(0, 8.5, 0)
+	gui.StudsOffset = Vector3.new(0, 9.5, 0)
 	gui.AlwaysOnTop = true
 	gui.LightInfluence = 0
 	gui.MaxDistance = 400
@@ -471,7 +471,7 @@ function Modelli.reggimento(def, squadra, cframe)
 	modello.Name = def.id
 	local radice = nuovaRadice(modello, cframe)
 	local colore = Modelli.COLORI_SQUADRA[squadra]
-	local scala = SCALE[def.id] or 0.82
+	local scala = SCALE[def.id] or 1.13
 	for i, posizione in ipairs(formazione(def.soldati)) do
 		local soldato = Instance.new("Model")
 		soldato.Name = "Soldato" .. i
