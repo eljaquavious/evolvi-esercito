@@ -102,12 +102,43 @@ def _pesi_corpo(corpo):
     return pesi / somma
 
 
+def _decima(me, obiettivo):
+    """Riduce la mesh a circa "obiettivo" triangoli (collasso), tenendo gruppi e attributi."""
+    attuali = sum(len(p.vertices) - 2 for p in me.polygons)
+    if attuali <= obiettivo:
+        return me
+    temp = bpy.data.objects.new("_decima", me)
+    bpy.context.scene.collection.objects.link(temp)
+    mod = temp.modifiers.new("Decima", "DECIMATE")
+    mod.ratio = obiettivo / attuali
+    mod.use_collapse_triangulate = True
+    deps = bpy.context.evaluated_depsgraph_get()
+    nuova = bpy.data.meshes.new_from_object(temp.evaluated_get(deps), preserve_all_data_layers=True, depsgraph=deps)
+    bpy.data.objects.remove(temp, do_unlink=True)
+    bpy.data.meshes.remove(me)
+    return nuova
+
+
+def _budget(triangoli, totale, minimo=40):
+    """Triangoli per pezzo: i pezzi grandi si riducono di più (in proporzione alla radice), i piccoli restano."""
+    basso, alto = 0.0, 1000.0
+    for _ in range(60):
+        k = (basso + alto) / 2
+        somma = sum(min(t, max(min(t, minimo), k * math.sqrt(t))) for t in triangoli)
+        if somma > totale:
+            alto = k
+        else:
+            basso = k
+    return [int(min(t, max(min(t, minimo), basso * math.sqrt(t)))) for t in triangoli]
+
+
 def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli_dal_corpo=None, corpo="Corpo"):
     """Crea l'oggetto "Gioco": copia unita, pesata e decimata dei pezzi della collezione.
 
     rigidi: {"Lancia_*": "mano.R", ...} pezzi che seguono un osso solo.
     escludi: nomi (anche con *) dei dettagli minuti da non copiare (restano nella texture).
     togli_dal_corpo: materiali del corpo da buttare (pelle nascosta sotto i vestiti).
+    Ogni pezzo si decima per conto suo, così quelli sottili (l'asta della lancia) non spariscono.
     """
     rigidi = rigidi or {}
     escludi = escludi or []
@@ -124,64 +155,70 @@ def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli
         albero_corpo = (BVHTree.FromPolygons([v.co.copy() for v in me_corpo.vertices], [tuple(p.vertices) for p in me_corpo.polygons]),
                         [tuple(p.vertices) for p in me_corpo.polygons], [v.co.copy() for v in me_corpo.vertices])
         bpy.data.meshes.remove(me_corpo)
+    ossa_corpo = {g.index: osso_gioco(g.name) for g in oggetto_corpo.vertex_groups} if oggetto_corpo else {}
 
-    bm = bmesh.new()
-    deform = bm.verts.layers.deform.verify()
-    materiali = []
+    # Prima passata: le copie dei pezzi (il corpo senza la pelle nascosta).
+    copie = []
     for o in sorgenti:
         if any(fnmatch.fnmatch(o.name, e) for e in escludi):
             continue
         me = _mesh_valutata(o)
+        if o == oggetto_corpo and togli_dal_corpo:
+            bm = bmesh.new()
+            bm.from_mesh(me)
+            via = [f for f in bm.faces if f.material_index < len(me.materials) and me.materials[f.material_index]
+                   and me.materials[f.material_index].name in togli_dal_corpo]
+            bmesh.ops.delete(bm, geom=via, context="FACES")
+            bm.to_mesh(me)
+            bm.free()
+        copie.append((o, me))
+    budget = _budget([sum(len(p.vertices) - 2 for p in me.polygons) for _, me in copie], triangoli)
+
+    bm = bmesh.new()
+    deform = bm.verts.layers.deform.verify()
+    materiali = []
+    for (o, me), obiettivo in zip(copie, budget):
+        me = _decima(me, obiettivo)
         osso_rigido = next((osso for schema, osso in rigidi.items() if fnmatch.fnmatch(o.name, schema)), None)
-        # Indici dei materiali della copia nella lista comune.
         mappa = []
         for m in me.materials:
             if m not in materiali:
                 materiali.append(m)
             mappa.append(materiali.index(m))
-        parziale = bmesh.new()
-        parziale.from_mesh(me)
-        originale = parziale.verts.layers.int.new("originale")
-        for v in parziale.verts:
-            v[originale] = v.index
-        if o == oggetto_corpo and togli_dal_corpo:
-            via = [f for f in parziale.faces if f.material_index < len(me.materials) and me.materials[f.material_index]
-                   and me.materials[f.material_index].name in togli_dal_corpo]
-            bmesh.ops.delete(parziale, geom=via, context="FACES")
-        for f in parziale.faces:
-            f.material_index = mappa[f.material_index] if f.material_index < len(mappa) else 0
         pesi = []
-        for v in parziale.verts:
+        for v in me.vertices:
             w = np.zeros(len(OSSA), dtype=np.float32)
             if osso_rigido:
                 w[INDICE[osso_rigido]] = 1
             elif o == oggetto_corpo:
-                w = pesi_corpo[v[originale]]
+                for g in v.groups:
+                    osso = ossa_corpo.get(g.group)
+                    if osso:
+                        w[INDICE[osso]] += g.weight
             elif albero_corpo:
                 albero, facce, punti = albero_corpo
                 _, _, faccia, _ = albero.find_nearest(v.co)
                 if faccia is not None:
-                    vicini = facce[faccia]
                     somma = 0.0
-                    for i in vicini:
+                    for i in facce[faccia]:
                         d = 1.0 / max(1e-4, (punti[i] - v.co).length)
                         w = w + pesi_corpo[i] * d
                         somma += d
                     w = w / somma
-            else:
+            if w.sum() <= 0:
                 w[INDICE["torace"]] = 1
-            pesi.append(w)
-        temp = bpy.data.meshes.new("temp")
-        parziale.to_mesh(temp)
-        parziale.free()
+            pesi.append(w / w.sum())
+        for p in me.polygons:
+            p.material_index = mappa[p.material_index] if p.material_index < len(mappa) else 0
+        # I gruppi della copia non servono più: i pesi del gioco si scrivono a parte.
         inizio = len(bm.verts)
-        bm.from_mesh(temp)
+        bm.from_mesh(me)
         bm.verts.ensure_lookup_table()
         for k, w in enumerate(pesi):
             dv = bm.verts[inizio + k][deform]
+            dv.clear()
             for i in np.nonzero(w > 0.01)[0]:
                 dv[int(i)] = float(w[i])
-        bpy.data.meshes.remove(temp)
         bpy.data.meshes.remove(me)
 
     me = bpy.data.meshes.new(NOME)
@@ -189,30 +226,18 @@ def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli
     bm.free()
     for m in materiali:
         me.materials.append(m)
+    for p in me.polygons:
+        p.use_smooth = True
     gioco = bpy.data.objects.new(NOME, me)
     bpy.context.scene.collection.objects.link(gioco)
     for nome, _ in OSSA:
         gioco.vertex_groups.new(name=nome)
     gioco.hide_render = True
 
-    # Decimazione: un solo collasso su tutto, così i triangoli vanno dove servono.
-    attuali = sum(len(p.vertices) - 2 for p in me.polygons)
-    mod = gioco.modifiers.new("Decima", "DECIMATE")
-    mod.ratio = min(1.0, triangoli / max(1, attuali))
-    mod.use_collapse_triangulate = True
-    deps = bpy.context.evaluated_depsgraph_get()
-    nuova = bpy.data.meshes.new_from_object(gioco.evaluated_get(deps), preserve_all_data_layers=True, depsgraph=deps)
-    gioco.modifiers.clear()
-    vecchia = gioco.data
-    gioco.data = nuova
-    bpy.data.meshes.remove(vecchia)
-    nuova.name = NOME
-    for p in nuova.polygons:
-        p.use_smooth = True
-
     STATO.clear()
     STATO.update({"giunti": {k: (tuple(v[0]), tuple(v[1])) for k, v in giunti.items()}, "sorgenti": [o.name for o in sorgenti]})
-    return {"triangoli_prima": attuali, "triangoli": sum(len(p.vertices) - 2 for p in nuova.polygons), "vertici": len(nuova.vertices)}
+    return {"triangoli": sum(len(p.vertices) - 2 for p in me.polygons), "vertici": len(me.vertices),
+            "pezzi": {o.name: b for (o, _), b in zip(copie, budget)}}
 
 
 def cuoci(lato=512, margine=0.03):
