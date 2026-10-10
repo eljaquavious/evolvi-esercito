@@ -461,6 +461,14 @@ def calzature(u, nome, mat, mat_suola, taglio=0.115, inclinazione=0.25, distacco
     """Scarpe chiuse prese dal piede vero (involucro convesso, niente dita), tagliate alla quota 'taglio'."""
     bm = bmesh.new()
     bm.from_mesh(u.corpo.data)
+    # Piedi non a terra (a cavallo): ogni piede si riporta nella posa in piedi, si calza e si rimette a posto.
+    porta = _piedi_a_terra(u)
+    if porta:
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts
+                                   if (v.co - u.P("caviglia_" + ("s" if v.co.x > 0 else "d"))).length > 0.3],
+                         context="VERTS")
+        for v in bm.verts:
+            v.co = porta[1 if v.co.x > 0 else -1] @ v.co
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z > taglio + 0.12], context="VERTS")
     bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0, 0, taglio),
                            plane_no=Vector((0, -inclinazione, 1)).normalized(), clear_outer=True)
@@ -490,11 +498,15 @@ def calzature(u, nome, mat, mat_suola, taglio=0.115, inclinazione=0.25, distacco
     for _ in range(4):
         bmesh.ops.smooth_vert(bm, verts=[v for v in bm.verts if not v.is_boundary], factor=0.5,
                               use_axis_x=True, use_axis_y=True, use_axis_z=True)
-    for v in bm.verts:
-        v.co = u.fuori_dalla_pelle(v.co, distacco)
     bm.normal_update()
     for f in bm.faces:
         f.material_index = 1 if f.normal.z < -0.55 or f.calc_center_median().z < 0.012 else 0
+    if porta:
+        for v in bm.verts:
+            v.co = porta[1 if v.co.x > 0 else -1].inverted() @ v.co
+    for v in bm.verts:
+        v.co = u.fuori_dalla_pelle(v.co, distacco)
+    bm.normal_update()
     # Copre il piede: la pelle sotto la scarpa si nasconde (le normali di bm guardano fuori dal piede).
     u.coperti.append(BVHTree.FromBMesh(bm))
     me = bpy.data.meshes.new(nome)
@@ -519,6 +531,26 @@ def calzature(u, nome, mat, mat_suola, taglio=0.115, inclinazione=0.25, distacco
         p.use_smooth = True
     scarpe_da_gioco(u, o, nome + "_Gioco")
     return o
+
+
+def _piedi_a_terra(u):
+    """Se i piedi non poggiano a terra (cavaliere): per lato, la matrice che porta il piede in posa nella posizione
+    in piedi del corpo a riposo (caviglia, punta e ginocchio di umano.GIUNTI). Altrimenti None."""
+    if u.P("caviglia_s").z < 0.13:
+        return None
+    porta = {}
+    for s, lato in ((1, "s"), (-1, "d")):
+        def asse(ginocchio, caviglia, punta):
+            e1 = (punta - caviglia).normalized()
+            e2 = ginocchio - caviglia
+            e2 = (e2 - e1 * e2.dot(e1)).normalized()
+            m = Matrix((e1, e2, e1.cross(e2))).transposed().to_4x4()
+            m.translation = caviglia
+            return m
+        riposo = asse(*(umano.lato(umano.GIUNTI[g], s) for g in ("ginocchio", "caviglia", "punta")))
+        posa = asse(u.P("ginocchio_" + lato), u.P("caviglia_" + lato), u.P("punta_" + lato))
+        porta[s] = riposo @ posa.inverted()
+    return porta
 
 
 def scarpe_da_gioco(u, scarpe, nome):
