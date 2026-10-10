@@ -15,6 +15,7 @@ Stile.Colori = {
 	Rosso = Color3.fromRGB(232, 72, 72),
 	Verde = Color3.fromRGB(70, 196, 110),
 	Viola = Color3.fromRGB(150, 96, 230),
+	Secondario = Color3.fromRGB(104, 116, 152),
 }
 
 Stile.Font = Enum.Font.GothamBold
@@ -119,14 +120,14 @@ function Stile.finestra(gui, nome, titolo, colore)
 	local finestra = Stile.pannello({
 		Name = nome,
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.53),
-		Size = UDim2.fromScale(0.74, 0.76),
+		Position = UDim2.new(0.5, -116, 0.53, 0),
+		Size = UDim2.new(0.94, -232, 0.84, 0),
 		BackgroundColor3 = Stile.Colori.Sfondo,
 		Visible = false,
 		ZIndex = 10,
 		Parent = gui,
 	})
-	Stile.crea("UISizeConstraint", { MinSize = Vector2.new(360, 320), MaxSize = Vector2.new(1000, 640), Parent = finestra })
+	Stile.crea("UISizeConstraint", { MinSize = Vector2.new(360, 320), MaxSize = Vector2.new(1100, 760), Parent = finestra })
 	Stile.titolo({
 		Position = UDim2.fromOffset(22, 14),
 		Size = UDim2.new(1, -100, 0, 40),

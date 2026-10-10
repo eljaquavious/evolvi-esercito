@@ -59,7 +59,8 @@ function Carta.crea(tipo, opzioni)
 		BorderSizePixel = 0,
 	}, {
 		Stile.angoli(12),
-		Stile.crea("UIStroke", { Color = tema[3], Thickness = 2.5 }),
+		-- Border: su un TextButton il bordo "Contextual" andrebbe sul testo (vuoto) e non si vedrebbe.
+		Stile.crea("UIStroke", { Color = tema[3], Thickness = 2.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
 		Stile.sfumatura(tema[1], tema[2], 110),
 		Stile.crea("UIAspectRatioConstraint", { AspectRatio = Carta.PROPORZIONE }),
 	})
@@ -169,7 +170,7 @@ function Carta.crea(tipo, opzioni)
 			Text = "x" .. opzioni.quantita,
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
-			Font = Stile.FontTitolo,
+			Font = Stile.Font,
 			ZIndex = 5,
 			Parent = carta,
 		}, { Stile.angoli(8), Stile.bordo(Color3.new(1, 1, 1), 1.5) })
@@ -213,7 +214,7 @@ function Carta.spegni(carta, spenta)
 	end
 end
 
--- Evidenzia la carta selezionata.
+-- Evidenzia la carta selezionata con un bordo azzurro spesso.
 function Carta.seleziona(carta, selezionata)
 	local bordo = carta:FindFirstChildWhichIsA("UIStroke")
 	if bordo then

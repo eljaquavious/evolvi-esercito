@@ -1,4 +1,4 @@
--- Barra in alto (monete, epoca, livello) e menu laterale della lobby.
+-- Barra in alto a sinistra (monete, epoca, livello) e menu laterale della lobby.
 
 local Stile = require(script.Parent.Stile)
 
@@ -30,9 +30,8 @@ end
 function Hud.inizializza(gui, azioni)
 	barra = Stile.crea("Frame", {
 		Name = "Barra",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 10),
-		Size = UDim2.fromOffset(560, 50),
+		Position = UDim2.fromOffset(16, 10),
+		Size = UDim2.fromOffset(520, 50),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
@@ -40,7 +39,7 @@ function Hud.inizializza(gui, azioni)
 	local monete = Stile.pannello({
 		Size = UDim2.new(0, 180, 1, 0),
 		BackgroundColor3 = Stile.Colori.Sfondo,
-		BackgroundTransparency = 0.1,
+		BackgroundTransparency = 0,
 		Parent = barra,
 	})
 	moneta(monete)
@@ -58,7 +57,7 @@ function Hud.inizializza(gui, azioni)
 		Position = UDim2.fromScale(1, 0),
 		Size = UDim2.new(1, -192, 1, 0),
 		BackgroundColor3 = Stile.Colori.Sfondo,
-		BackgroundTransparency = 0.1,
+		BackgroundTransparency = 0,
 		Parent = barra,
 	})
 	etichettaEpoca = Stile.titolo({

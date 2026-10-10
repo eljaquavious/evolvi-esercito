@@ -351,7 +351,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Text = "LOBBY",
 		Visible = false,
 		Parent = gui,
-	}, Stile.Colori.PannelloChiaro)
+	}, Stile.Colori.Secondario)
 	bottoneLobby.Activated:Connect(function()
 		remoti.TornaLobby:InvokeServer()
 	end)
@@ -453,7 +453,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Text = "LOBBY",
 		ZIndex = 21,
 		Parent = risultato,
-	}, Stile.Colori.PannelloChiaro)
+	}, Stile.Colori.Secondario)
 	esci.Activated:Connect(function()
 		remoti.TornaLobby:InvokeServer()
 	end)

@@ -142,6 +142,9 @@ function disegna()
 				opzioni.spenta = libere <= 0
 			end
 			local carta = Carta.crea(tipo, opzioni)
+			-- Alta quanto la fila (meno margini e barra di scorrimento), larga in proporzione.
+			local altezza = math.max(griglia.AbsoluteSize.Y - 22, 120)
+			carta.Size = UDim2.fromOffset(math.floor(altezza * Carta.PROPORZIONE), altezza)
 			carta.LayoutOrder = ordine
 			carta.Parent = griglia
 			if not opzioni.nota then
@@ -180,7 +183,7 @@ function Inventario.inizializza(gui, r)
 
 	local fondoMazzo = Stile.pannello({
 		Position = UDim2.fromOffset(0, 32),
-		Size = UDim2.new(1, 0, 0.42, -32),
+		Size = UDim2.new(1, 0, 0.5, -32),
 		BackgroundColor3 = Stile.Colori.Pannello,
 		ZIndex = 11,
 		Parent = contenuto,
@@ -200,7 +203,7 @@ function Inventario.inizializza(gui, r)
 	})
 
 	Stile.titolo({
-		Position = UDim2.new(0, 0, 0.42, 12),
+		Position = UDim2.new(0, 0, 0.5, 10),
 		Size = UDim2.new(0.5, 0, 0, 26),
 		Text = "COLLECTION",
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -209,7 +212,7 @@ function Inventario.inizializza(gui, r)
 	})
 	Stile.testo({
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, 0, 0.42, 16),
+		Position = UDim2.new(1, 0, 0.5, 14),
 		Size = UDim2.new(0.5, 0, 0, 18),
 		Text = "Click a card to add it to your deck",
 		Font = Stile.FontTesto,
@@ -218,29 +221,30 @@ function Inventario.inizializza(gui, r)
 		ZIndex = 11,
 		Parent = contenuto,
 	})
+	-- Una sola fila che scorre in orizzontale: le carte restano grandi anche con molte epoche.
 	griglia = Stile.crea("ScrollingFrame", {
-		Position = UDim2.new(0, 0, 0.42, 46),
-		Size = UDim2.new(1, 0, 0.58, -46),
+		Position = UDim2.new(0, 0, 0.5, 42),
+		Size = UDim2.new(1, 0, 0.5, -42),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 6,
 		ScrollBarImageColor3 = Stile.Colori.Bordo,
 		CanvasSize = UDim2.new(),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
+		AutomaticCanvasSize = Enum.AutomaticSize.X,
+		ScrollingDirection = Enum.ScrollingDirection.X,
 		ZIndex = 11,
 		Parent = contenuto,
 	}, {
-		Stile.crea("UIGridLayout", {
-			CellSize = UDim2.fromOffset(122, 174),
-			CellPadding = UDim2.fromOffset(12, 12),
+		Stile.crea("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 12),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 		Stile.crea("UIPadding", {
 			PaddingTop = UDim.new(0, 8),
 			PaddingLeft = UDim.new(0, 8),
 			PaddingRight = UDim.new(0, 8),
-			PaddingBottom = UDim.new(0, 8),
+			PaddingBottom = UDim.new(0, 14),
 		}),
 	})
 end

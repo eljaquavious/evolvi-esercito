@@ -25,6 +25,15 @@ cartella.Parent = workspace
 
 local slotOccupati = {}
 
+-- Altezza reale del terreno in (x, z): i voxel di Terrain sono da 4 studs, la superficie non cade esattamente dove si riempie.
+local function superficie(x, z)
+	local parametri = RaycastParams.new()
+	parametri.FilterType = Enum.RaycastFilterType.Include
+	parametri.FilterDescendantsInstances = { terrain }
+	local colpo = workspace:Raycast(Vector3.new(x, 200, z), Vector3.new(0, -400, 0), parametri)
+	return colpo and colpo.Position.Y or 0
+end
+
 local function blocco(genitore, proprieta)
 	local p = Instance.new("Part")
 	p.Anchored = true
@@ -195,8 +204,14 @@ function Arena.crea(player, livello)
 	local origine = Vector3.new(INIZIO_ARENE + slot * DISTANZA_TRA_ARENE, 0, 0)
 	local arena = { slot = slot, origine = origine, bioma = bioma, biomaId = biomaId }
 
-	-- Terreno: un blocco piatto con la cima a y = 0.
+	-- Terreno: un blocco piatto intorno a y = 0. Sotto il tabellone niente erba, che coprirebbe caselle e soldati.
 	terrain:FillBlock(CFrame.new(origine - Vector3.new(0, 8, 0)), Vector3.new(LATO_TERRENO, 16, LATO_TERRENO), bioma.materiale)
+	if bioma.materiale == Enum.Material.Grass then
+		terrain:FillBlock(CFrame.new(origine - Vector3.new(0, 8, 0)), Vector3.new(Arena.COLONNE * Arena.CASELLA + 16, 16, Arena.RIGHE * Arena.CASELLA + 16), Enum.Material.Ground)
+	end
+	-- Il tabellone poggia sulla superficie vera del terreno.
+	origine = Vector3.new(origine.X, superficie(origine.X, origine.Z) + 0.15, origine.Z)
+	arena.origine = origine
 
 	local modello = Instance.new("Model")
 	modello.Name = "Arena_" .. player.UserId
@@ -224,7 +239,7 @@ function Arena.crea(player, livello)
 	for col = 1, Arena.COLONNE do
 		for riga = 1, Arena.RIGHE do
 			local delGiocatore = riga <= Campagna.RIGHE_GIOCATORE
-			local colore = bioma.casella:Lerp(delGiocatore and Color3.fromRGB(80, 140, 255) or Color3.fromRGB(255, 90, 90), 0.18)
+			local colore = bioma.casella:Lerp(delGiocatore and Color3.fromRGB(60, 120, 255) or Color3.fromRGB(230, 70, 70), delGiocatore and 0.6 or 0.45)
 			if (col + riga) % 2 == 0 then
 				colore = colore:Lerp(Color3.new(1, 1, 1), 0.12)
 			end

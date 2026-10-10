@@ -194,6 +194,8 @@ end
 function Lobby.costruisci(callback)
 	-- Prato intorno al castello, al posto della Baseplate.
 	terrain:FillBlock(CFrame.new(0, -8, 0), Vector3.new(700, 16, 700), Enum.Material.Grass)
+	-- Sotto la piazza terra battuta: l'erba alta spunterebbe dal pavimento.
+	terrain:FillCylinder(CFrame.new(0, -8, -6), 16, 68, Enum.Material.Ground)
 	local baseplate = workspace:FindFirstChild("Baseplate")
 	if baseplate and baseplate:IsA("BasePart") then
 		baseplate.Transparency = 1
@@ -271,6 +273,14 @@ function Lobby.costruisci(callback)
 		torcia(lobby, posizione)
 	end
 
+	-- Le parti sono costruite a partire da y = 0: si alza tutto fino alla superficie vera dell'erba.
+	local parametri = RaycastParams.new()
+	parametri.FilterType = Enum.RaycastFilterType.Include
+	parametri.FilterDescendantsInstances = { terrain }
+	local colpo = workspace:Raycast(Vector3.new(0, 200, -6), Vector3.new(0, -400, 0), parametri)
+	local alzo = colpo and colpo.Position.Y or 0
+	lobby:PivotTo(lobby:GetPivot() + Vector3.new(0, alzo, 0))
+	Lobby.SPAWN += Vector3.new(0, alzo, 0)
 	lobby.Parent = workspace
 
 	-- Sposta lo spawn della Baseplate dentro la piazza e lo rende invisibile.

@@ -100,7 +100,7 @@ local function scheda(cassa, ordine, genitore, remoti)
 		Text = cassa.disponibile and prezzo or (prezzo .. "  ·  SOON"),
 		ZIndex = 12,
 		Parent = riquadro,
-	}, cassa.disponibile and Stile.Colori.Verde or Stile.Colori.PannelloChiaro)
+	}, cassa.disponibile and Stile.Colori.Verde or Stile.Colori.Secondario)
 	bottone.Activated:Connect(function()
 		local ok, messaggio = remoti.AcquistaCassa:InvokeServer(cassa.id)
 		if messaggio then
