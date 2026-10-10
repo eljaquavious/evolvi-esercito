@@ -160,7 +160,8 @@ local function casellaSotto(posizioneSchermo)
 	parametri.FilterType = Enum.RaycastFilterType.Include
 	parametri.FilterDescendantsInstances = { tabellone }
 	local colpo = workspace:Raycast(raggio.Origin, raggio.Direction * 500, parametri)
-	local casella = colpo and colpo.Instance
+	-- Ogni casella è un modello fatto di piastrelle: si risale al modello.
+	local casella = colpo and colpo.Instance.Parent
 	if casella and casella:GetAttribute("Col") then
 		return casella
 	end
@@ -257,6 +258,9 @@ local function entraPiazzamento(dati)
 	if dati.assedio then
 		avviso.Text = "SIEGE! The enemy hides in a fortress: destroy it and win the battle."
 		avviso.TextColor3 = Stile.Colori.Oro
+	elseif dati.round == 1 and dati.fiume then
+		avviso.Text = "Pick a card, then click a blue tile. No troops in the river: they cross it at the sandy fords."
+		avviso.TextColor3 = Stile.Colori.Testo
 	elseif dati.round == 1 then
 		avviso.Text = "Walk around the field. Pick a card, then click a blue tile. Hills protect troops and help archers."
 		avviso.TextColor3 = Stile.Colori.Testo
@@ -658,12 +662,16 @@ function Partita.inizializza(gui, r, callbackLobby)
 		remoti.TornaLobby:InvokeServer()
 	end)
 
-	evidenzia = Stile.crea("SelectionBox", {
-		Color3 = Stile.Colori.Oro,
-		LineThickness = 0.15,
-		SurfaceTransparency = 0.75,
-		SurfaceColor3 = Stile.Colori.Oro,
-		Parent = gui,
+	-- Evidenzia la casella sotto il mouse seguendone la forma sul terreno. Sta in una cartella vuota:
+	-- senza Adornee un Highlight colora il suo genitore.
+	local cartellaEvidenzia = Stile.crea("Folder", { Name = "Evidenzia", Parent = workspace.CurrentCamera })
+	evidenzia = Stile.crea("Highlight", {
+		FillColor = Stile.Colori.Oro,
+		FillTransparency = 0.45,
+		OutlineColor = Stile.Colori.Oro,
+		OutlineTransparency = 0,
+		DepthMode = Enum.HighlightDepthMode.Occluded,
+		Parent = cartellaEvidenzia,
 	})
 
 	UserInputService.InputBegan:Connect(function(input, usatoDaGui)

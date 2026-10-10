@@ -20,13 +20,17 @@ local VOXEL = 4
 local Y_MIN, Y_MAX = -24, 80 -- quote del terreno scritto (relative all'arena)
 local META_CAMPO = Arena.CASELLA * Arena.COLONNE / 2
 local ALTEZZA_BASE = 3 -- quota del campo
-local ALTEZZA_COLLINA = 7
-local RAGGIO_COLLINA = Arena.CASELLA * 1.4
+local ALTEZZA_COLLINA = 5
+local RAGGIO_COLLINA = Arena.CASELLA * 1.7 -- colline basse e larghe: le caselle sopra restano leggibili
 local ACQUA = 1.2 -- pelo dell'acqua del fiume
 local FONDO_FIUME = -1.5
 local LARGHEZZA_FIUME = 13
+local SPONDA = 10 -- larghezza della sponda in pendio
 local MEZZO_QUOTE = 80 -- le quote si misurano su questo quadrato attorno al centro
-local PASSO_QUOTE = 4
+local PASSO_QUOTE = 2
+local SENZA_ERBA_ALTA = 150 -- vicino al campo niente Grass: la sua erba alta nasconde soldati e caselle
+local PEZZI_CASELLA = 4 -- ogni casella è fatta di 4x4 piastrelle che seguono il terreno
+local SOPRA_TERRENO = 0.35
 
 -- Forma del terreno e materiali per bioma.
 local RILIEVI = {
@@ -201,7 +205,7 @@ local function altezza(arena, x, z)
 		if math.abs(x) < META_CAMPO and arena.guadi[colonna] then
 			fondo = ACQUA + 0.4 -- guado: banco di ghiaia appena fuori dall'acqua
 		end
-		h = fondo + (h - fondo) * liscio(LARGHEZZA_FIUME / 2, LARGHEZZA_FIUME / 2 + 7, dz)
+		h = fondo + (h - fondo) * liscio(LARGHEZZA_FIUME / 2, LARGHEZZA_FIUME / 2 + SPONDA, dz)
 	end
 	return math.min(h, Y_MAX - 2)
 end
@@ -223,7 +227,14 @@ local function materiale(arena, x, z, h, pendenza)
 	if h > ALTEZZA_BASE + 26 then
 		return r.alto
 	end
-	return math.noise(x / 26, z / 26, arena.seme + 3) > 0.35 and r.chiazze or r.base
+	if math.noise(x / 26, z / 26, arena.seme + 3) > 0.35 then
+		return r.chiazze
+	end
+	local vicino = math.max(math.abs(x), math.abs(z)) + math.noise(x / 40, z / 40, arena.seme + 5) * 30 < SENZA_ERBA_ALTA
+	if vicino and r.base == Enum.Material.Grass then
+		return r.campo
+	end
+	return r.base
 end
 
 -- Scrive il terreno a blocchi (meno memoria e niente blocchi lunghi del server).
@@ -322,16 +333,77 @@ function Arena.posizione(arena, x, y)
 	return arena.origine + Vector3.new(cx, quota(arena, cx, cz), cz)
 end
 
--- Casella sagomata sul terreno: inclinata come il pendio sotto di lei.
-local function cframeCasella(arena, col, riga)
-	local cx, cz = centroCasella(col, riga)
-	local d = 6
-	local inclinazioneX = quota(arena, cx + d, cz) - quota(arena, cx - d, cz)
-	local inclinazioneZ = quota(arena, cx, cz + d) - quota(arena, cx, cz - d)
-	local su = Vector3.new(-inclinazioneX, 2 * d, -inclinazioneZ).Unit
+-- Quota su cui appoggiare i segni delle caselle: sopra il terreno e, nel fiume, sul pelo dell'acqua.
+local function quotaSegno(arena, x, z)
+	local q = quota(arena, x, z)
+	if nelFiume(arena, x, z, 6) then
+		q = math.max(q, ACQUA)
+	end
+	return q + SOPRA_TERRENO
+end
+
+-- Piastrella piatta tra (x0, z0) e (x1, z1), inclinata come il terreno sotto di lei.
+local function cframePiastrella(arena, x0, z0, x1, z1)
+	local a, b = quotaSegno(arena, x0, z0), quotaSegno(arena, x1, z0)
+	local c, d = quotaSegno(arena, x0, z1), quotaSegno(arena, x1, z1)
+	local cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
+	local pendenzaX = (b - a + d - c) / 2 / (x1 - x0)
+	local pendenzaZ = (c - a + d - b) / 2 / (z1 - z0)
+	local su = Vector3.new(-pendenzaX, 1, -pendenzaZ).Unit
 	local destra = (Vector3.xAxis - su * su.X).Unit
-	local posizione = arena.origine + Vector3.new(cx, quota(arena, cx, cz) + 0.35, cz)
-	return CFrame.fromMatrix(posizione, destra, su)
+	-- Al centro il terreno può gonfiarsi più degli angoli: si tiene il più alto.
+	local y = math.max((a + b + c + d) / 4, quotaSegno(arena, cx, cz))
+	return CFrame.fromMatrix(arena.origine + Vector3.new(cx, y, cz), destra, su)
+end
+
+-- Una casella: 4x4 piastrelle colorate più il bordo a segmenti, tutto adagiato sul terreno
+-- (una lastra unica e piatta veniva tagliata da colline e sponde).
+local function creaCasella(arena, genitore, col, riga, colore, coloreBordo)
+	local casella = Instance.new("Model")
+	casella.Name = "Casella_" .. col .. "_" .. riga
+	local cx, cz = centroCasella(col, riga)
+	local mezzo = (Arena.CASELLA - 1.2) / 2
+	local lato = mezzo * 2 / PEZZI_CASELLA
+	local pezzi = {}
+	for i = 0, PEZZI_CASELLA - 1 do
+		for k = 0, PEZZI_CASELLA - 1 do
+			local x0, z0 = cx - mezzo + i * lato, cz - mezzo + k * lato
+			table.insert(pezzi, blocco(casella, {
+				Name = "Piastrella",
+				Size = Vector3.new(lato + 0.05, 0.2, lato + 0.05),
+				CFrame = cframePiastrella(arena, x0, z0, x0 + lato, z0 + lato),
+				Color = colore,
+				Transparency = 0.35,
+			}))
+		end
+	end
+	-- Bordo: segmenti sottili da un punto del terreno al successivo.
+	local angoli = { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } }
+	for a = 1, 4 do
+		local da, verso = angoli[a], angoli[a % 4 + 1]
+		local function punto(f)
+			local x = cx + mezzo * (da[1] + (verso[1] - da[1]) * f)
+			local z = cz + mezzo * (da[2] + (verso[2] - da[2]) * f)
+			return arena.origine + Vector3.new(x, quotaSegno(arena, x, z) + 0.06, z)
+		end
+		for t = 0, PEZZI_CASELLA - 1 do
+			local p0, p1 = punto(t / PEZZI_CASELLA), punto((t + 1) / PEZZI_CASELLA)
+			table.insert(pezzi, blocco(casella, {
+				Name = "Bordo",
+				Size = Vector3.new(0.35, 0.16, (p1 - p0).Magnitude + 0.35),
+				CFrame = CFrame.lookAt((p0 + p1) / 2, p1),
+				Color = coloreBordo,
+				Transparency = 0.1,
+			}))
+		end
+	end
+	for _, pezzo in ipairs(pezzi) do
+		pezzo.CanTouch = false
+		pezzo.CastShadow = false
+		arena.caselle[pezzo] = pezzo.Transparency
+	end
+	casella.Parent = genitore
+	return casella
 end
 
 local function decora(arena, g, rng)
@@ -405,41 +477,27 @@ function Arena.crea(player, livello)
 			if (col + riga) % 2 == 0 then
 				colore = colore:Lerp(Color3.new(1, 1, 1), 0.08)
 			end
+			local coloreBordo = colore:Lerp(Color3.new(1, 1, 1), 0.5)
 			local tipo = arena.terreno[col .. "," .. riga]
-			local casella = blocco(tabellone, {
-				Name = "Casella_" .. col .. "_" .. riga,
-				Size = Vector3.new(Arena.CASELLA - 1.2, 0.2, Arena.CASELLA - 1.2),
-				CFrame = cframeCasella(arena, col, riga),
-				Color = colore,
-				Material = Enum.Material.SmoothPlastic,
-				Transparency = 0.35,
-				CanQuery = true,
-				CastShadow = false,
-			})
+			if tipo == "ostacolo" then
+				colore = colore:Lerp(Color3.new(0, 0, 0), 0.45)
+			elseif tipo == "fiume" then
+				colore = Color3.fromRGB(90, 200, 255)
+			elseif tipo == "guado" then
+				colore = Color3.fromRGB(226, 204, 150):Lerp(colore, 0.3)
+			elseif tipo == "collina" then
+				colore = colore:Lerp(Color3.fromRGB(120, 200, 80), 0.4)
+			end
+			local casella = creaCasella(arena, tabellone, col, riga, colore, coloreBordo)
 			casella:SetAttribute("Col", col)
 			casella:SetAttribute("Riga", riga)
 			if tipo then
 				casella:SetAttribute("Terreno", tipo)
 			end
-			if tipo == "ostacolo" then
+			-- Il fiume si attraversa ma non ci si schiera dentro.
+			if tipo == "ostacolo" or tipo == "fiume" then
 				casella:SetAttribute("Ostacolo", true)
-				casella.Color = colore:Lerp(Color3.new(0, 0, 0), 0.45)
-			elseif tipo == "fiume" then
-				-- Il fiume si attraversa ma non ci si schiera dentro.
-				casella:SetAttribute("Ostacolo", true)
-				casella.Color = Color3.fromRGB(90, 200, 255)
-			elseif tipo == "guado" then
-				casella.Color = Color3.fromRGB(226, 204, 150):Lerp(colore, 0.3)
-			elseif tipo == "collina" then
-				casella.Color = colore:Lerp(Color3.fromRGB(120, 200, 80), 0.4)
 			end
-			local bordo = Instance.new("SelectionBox")
-			bordo.Adornee = casella
-			bordo.LineThickness = 0.08
-			bordo.Color3 = colore:Lerp(Color3.new(1, 1, 1), 0.5)
-			bordo.SurfaceTransparency = 1
-			bordo.Parent = casella
-			arena.caselle[casella] = casella.Transparency
 		end
 	end
 
@@ -495,14 +553,10 @@ end
 
 -- Mostra o nasconde le caselle: si vedono solo mentre si schiera.
 function Arena.mostraCaselle(arena, visibile)
-	for casella, trasparenza in pairs(arena.caselle or {}) do
-		if casella.Parent then
-			casella.Transparency = visibile and trasparenza or 1
-			casella.CanQuery = visibile
-			local bordo = casella:FindFirstChildOfClass("SelectionBox")
-			if bordo then
-				bordo.Visible = visibile
-			end
+	for pezzo, trasparenza in pairs(arena.caselle or {}) do
+		if pezzo.Parent then
+			pezzo.Transparency = visibile and trasparenza or 1
+			pezzo.CanQuery = visibile
 		end
 	end
 end

@@ -20,6 +20,8 @@ Battaglia.MALUS_TIRATORE_IN_MISCHIA = 0.5
 Battaglia.FORZA_MINIMA = 0.4
 
 local RAGGIO = 0.42
+-- La fortezza è grande: si colpisce da più lontano e le si gira attorno più al largo.
+local RAGGIO_FORTEZZA = 0.75
 local RAGGIO_OSTACOLO = 0.5
 local RAGGIO_AREA = 1.0
 local RAGGIO_AURA = 2.2
@@ -96,8 +98,17 @@ function Battaglia:_gittata(u)
 	return gittata
 end
 
+local function ingombro(u)
+	return u.def.fortezza and RAGGIO_FORTEZZA or RAGGIO
+end
+
+-- Distanza da cui u colpisce b (contata dal centro di b).
+function Battaglia:_portata(u, b)
+	return self:_gittata(u) + ingombro(b) - RAGGIO
+end
+
 function Battaglia:_inGittata(u, b)
-	return distanza(u, b) <= self:_gittata(u) + 0.05
+	return distanza(u, b) <= self:_portata(u, b) + 0.05
 end
 
 -- Bonus al danno dato dal comandante alleato più vicino (il migliore tra quelli a portata).
@@ -131,7 +142,8 @@ function Battaglia:_bersaglio(u)
 end
 
 -- Una posizione è libera se è nel tabellone, fuori dagli ostacoli e non si avvicina troppo a un altro reggimento.
-function Battaglia:_libero(u, x, y)
+-- passaAlleati: il reggimento può sfilare tra gli alleati (quando non ha altre strade).
+function Battaglia:_libero(u, x, y, passaAlleati)
 	if x < 1 or x > self.colonne or y < 1 or y > self.righe then
 		return false
 	end
@@ -141,12 +153,11 @@ function Battaglia:_libero(u, x, y)
 			return false
 		end
 	end
-	local minimo = (RAGGIO * 2) ^ 2
 	for _, altro in ipairs(self.unita) do
-		if altro ~= u and altro.vivo then
+		if altro ~= u and altro.vivo and not (passaAlleati and altro.squadra == u.squadra) then
 			local dx, dy = altro.x - x, altro.y - y
 			local nuova = dx * dx + dy * dy
-			if nuova < minimo then
+			if nuova < (ingombro(u) + ingombro(altro)) ^ 2 then
 				local ax, ay = altro.x - u.x, altro.y - u.y
 				if nuova < ax * ax + ay * ay then
 					return false
@@ -161,18 +172,22 @@ function Battaglia:_muovi(u, bersaglio, dt)
 	local dx, dy = bersaglio.x - u.x, bersaglio.y - u.y
 	local d = math.sqrt(dx * dx + dy * dy)
 	local velocita = u.def.velocita * (self:_terrenoSotto(u).velocita or 1)
-	local passo = math.min(velocita * dt, d - self:_gittata(u) * 0.9)
+	local passo = math.min(velocita * dt, d - self:_portata(u, bersaglio) * 0.9)
 	if passo <= 0 then
 		return
 	end
 	local dirX, dirY = dx / d, dy / d
-	for _, angolo in ipairs(ANGOLI) do
-		local c, s = math.cos(angolo), math.sin(angolo)
-		local nx = u.x + (dirX * c - dirY * s) * passo
-		local ny = u.y + (dirX * s + dirY * c) * passo
-		if self:_libero(u, nx, ny) then
-			u.x, u.y = nx, ny
-			return
+	-- Prima cerca una strada libera; se gli alleati la chiudono tutta, sfila in mezzo a loro
+	-- invece di restare fermo dietro chi sta già combattendo.
+	for _, passaAlleati in ipairs({ false, true }) do
+		for _, angolo in ipairs(ANGOLI) do
+			local c, s = math.cos(angolo), math.sin(angolo)
+			local nx = u.x + (dirX * c - dirY * s) * passo
+			local ny = u.y + (dirX * s + dirY * c) * passo
+			if self:_libero(u, nx, ny, passaAlleati) then
+				u.x, u.y = nx, ny
+				return
+			end
 		end
 	end
 end
@@ -241,7 +256,8 @@ function Battaglia:passo(dt)
 			if b then
 				if self:_inGittata(u, b) then
 					if u.ricarica <= 0 then
-						local d = distanza(u, b)
+						-- Distanza tra i bordi: vicino alla fortezza si è in mischia anche un po' più lontano.
+						local d = distanza(u, b) - (ingombro(u) - RAGGIO) - (ingombro(b) - RAGGIO)
 						local base, carica = self:_dannoBase(u, b, d)
 						u.ricarica = 1 / u.def.cadenza
 						local evento = {

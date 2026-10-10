@@ -106,6 +106,7 @@ local function inizioRound(player, sessione)
 		perVincere = Campagna.ROUND_PER_VINCERE,
 		assedio = sessione.assedio,
 		esploratori = esploratori,
+		fiume = sessione.arena.rigaFiume ~= nil,
 	})
 end
 

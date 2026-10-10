@@ -158,4 +158,16 @@ for _ = 1, 600 do
 end
 verifica("la fortezza resta ferma", not mossa)
 
+-- Un reggimento chiuso tra il bordo e un alleato che sta già combattendo non resta fermo: gli sfila accanto.
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = SPADACCINO, x = 2.8, y = 6 },
+	{ id = 2, squadra = "giocatore", def = SPADACCINO, x = 3.22, y = 5.24 },
+	{ id = 101, squadra = "nemico", def = table.clone(FORTEZZA), x = 4, y = 6, forza = 20 },
+})
+b.unita[3].danno = 0
+for _ = 1, 40 do
+	b:passo(0.075)
+end
+verifica("chi è bloccato da un alleato arriva comunque alla fortezza", b:_inGittata(b.unita[1], b.unita[3]))
+
 print(falliti == 0 and "Tutti i test passati" or (falliti .. " test falliti"))
