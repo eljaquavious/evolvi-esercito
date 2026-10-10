@@ -41,7 +41,7 @@ def materiali(u):
     u.materiale("Velluto", (0.06, 0.09, 0.30), ruvidita=0.95)
     u.materiale("Brunito", (0.12, 0.12, 0.13), metallo=1.0, ruvidita=0.4)
     u.materiale("Noce", (0.30, 0.17, 0.08), ruvidita=0.5)
-    u.materiale("Peli", (0.62, 0.60, 0.57), ruvidita=0.8)
+    u.materiale("Peli", (0.80, 0.78, 0.74), ruvidita=0.8)
     for nome, colore in (("NastroRosso", (0.55, 0.03, 0.03)), ("NastroVerde", (0.05, 0.30, 0.08)),
                          ("NastroGiallo", (0.75, 0.55, 0.08)), ("NastroBlu", (0.05, 0.12, 0.45))):
         u.materiale(nome, colore, ruvidita=0.7)
@@ -70,9 +70,9 @@ def uniforme(u):
     V.pantaloni(u, "Stivali", "Nero", t_inizio=1.02, t_fine=1.94, margine=0.012, spessore=0.005)
     V.calzature(u, "Stivali_Piede", "Nero", "Suola", taglio=0.16, inclinazione=0.2)
     u.nascondi_pelle()
-    V.veste(u, "Vareuse", 1.46, 0.80, "Blu", margine=0.026, svasatura=0.05, pieghe=0.004, n_pieghe=8,
+    V.veste(u, "Vareuse", 1.46, 0.80, "Blu", margine=0.017, svasatura=0.05, pieghe=0.004, n_pieghe=8,
             spessore=0.007)
-    V.maniche(u, "Vareuse_Maniche", "Blu", t_inizio=-0.15, t_fine=1.9, margine=0.016, spessore=0.005)
+    V.maniche(u, "Vareuse_Maniche", "Blu", t_inizio=-0.15, t_fine=1.9, margine=0.010, spessore=0.005)
     u.nascondi_pelle()
     collo = V.anello_sul_corpo(u, (0, -0.005, 1.475), (0, 0.12, 1), 0.012, 0.045, n=40, portata=0.2)
     u.oggetto("Vareuse_Colletto", collo, "Blu", spessore=0.006)
@@ -81,12 +81,12 @@ def uniforme(u):
     for z in (1.40, 1.31, 1.22, 1.13, 1.05, 0.95, 0.87):
         if abs(z - 1.0) < 0.03:
             continue
-        p = u.sulla_pelle(Vector((0, 0, z)), Vector((0, -1, 0)), 0.04, 0.35)
+        p = u.sulla_pelle(Vector((0, 0, z)), Vector((0, -1, 0)), 0.031, 0.35)
         bottoni.append(V.sfera(p, (0.009, 0.006, 0.009), 8, 5))
     for z, x, largo in ((1.33, 0.085, 0.10), (0.90, 0.11, 0.13)):
         for s in (1, -1):
             d = Vector((s * x, -0.17, 0)).normalized()
-            p = u.sulla_pelle(Vector((0, 0, z)), d, 0.038, 0.35)
+            p = u.sulla_pelle(Vector((0, 0, z)), d, 0.029, 0.35)
             m = Matrix.Rotation(math.atan2(d.x, -d.y), 4, "Z")
             pattine.append(V.scatola(p, (largo, 0.008, 0.035), m))
             bottoni.append(V.sfera(p + Vector((0, -0.006, -0.005)), (0.007, 0.005, 0.007), 8, 5))
@@ -98,7 +98,7 @@ def uniforme(u):
         for j, mat in enumerate(riga):
             x = 0.055 + j * 0.028
             d = Vector((x, -0.17, 0)).normalized()
-            p = u.sulla_pelle(Vector((0, 0, 1.40 - i * 0.016)), d, 0.036, 0.35)
+            p = u.sulla_pelle(Vector((0, 0, 1.40 - i * 0.016)), d, 0.027, 0.35)
             u.oggetto("Nastrine_%d%d" % (i, j), V.scatola(p, (0.027, 0.006, 0.014),
                                                           Matrix.Rotation(math.atan2(d.x, -d.y), 4, "Z")), mat)
     # Cinturone marrone con la fibbia dorata.
@@ -205,7 +205,7 @@ def costruisci():
     materiali(u)
     u.costruisci_corpo(posa, barba=0.2)
     uniforme(u)
-    V.baffi(u, "Baffi", "Peli", folti=1.5)
+    V.baffi(u, "Baffi", "Peli", folti=2.0)
     kepi(u)
     revolver(u)
     bastone(u)
