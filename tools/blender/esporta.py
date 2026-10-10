@@ -264,6 +264,7 @@ def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli
 
     STATO.clear()
     STATO.update({"giunti": {k: (tuple(v[0]), tuple(v[1])) for k, v in giunti.items()}, "sorgenti": [o.name for o in sorgenti],
+                  "togli": list(togli_dal_corpo or []),
                   "ossa": list(OSSA), "perni": dict(PERNI_EXTRA)})
     return {"triangoli": sum(len(p.vertices) - 2 for p in me.polygons), "vertici": len(me.vertices),
             "pezzi": {o.name: b for (o, _), b in zip(copie, budget)}}
@@ -320,6 +321,24 @@ def cuoci(lato=512, margine=0.03):
     cottura.use_pass_indirect = False
     cottura.use_pass_color = True
     sorgenti = [bpy.data.objects[n] for n in STATO["sorgenti"] if n in bpy.data.objects]
+    # La pelle nascosta sotto i vestiti non deve finire nella texture: si cuoce da una copia del corpo senza.
+    temporanei = []
+    for k, o in enumerate(sorgenti):
+        via = [i for i, m in enumerate(o.data.materials) if m and m.name in STATO.get("togli", [])]
+        if not via:
+            continue
+        me = o.data.copy()
+        bm = bmesh.new()
+        bm.from_mesh(me)
+        bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in via], context="FACES")
+        bm.to_mesh(me)
+        bm.free()
+        copia = bpy.data.objects.new(o.name + "_Cottura", me)
+        copia.matrix_world = o.matrix_world
+        bpy.context.scene.collection.objects.link(copia)
+        temporanei.append(copia)
+        o.select_set(False)
+        sorgenti[k] = copia
     # Il colore "diffuso" dei metalli è nero: per la cottura i metalli diventano opachi del loro colore.
     metalli = {}
     for o in sorgenti:
@@ -338,6 +357,10 @@ def cuoci(lato=512, margine=0.03):
         bpy.ops.object.bake(type="DIFFUSE", pass_filter={"COLOR"}, use_selected_to_active=True, cage_extrusion=margine,
                             max_ray_distance=margine * 3, margin=6)
     gioco.hide_render = True
+    for copia in temporanei:
+        me = copia.data
+        bpy.data.objects.remove(copia, do_unlink=True)
+        bpy.data.meshes.remove(me)
     for bsdf, valore in metalli.values():
         bsdf.inputs["Metallic"].default_value = valore
     return {"lato": lato}

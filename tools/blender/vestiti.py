@@ -587,6 +587,11 @@ def scudo_tondo(raggio, bombatura, spessore=0.015, n=48, anelli_n=8, uv=True):
     for a, b in zip(rgiri, rgiri[1:]):
         for j in range(n):
             retro.faces.new((a[(j + 1) % n], a[j], b[j], b[(j + 1) % n]))
+    # Il retro guarda indietro (+Y): la cottura della texture parte dal lato giusto.
+    retro.normal_update()
+    for f in retro.faces:
+        if f.normal.y < 0:
+            f.normal_flip()
     bordo = tubo_lungo([punto(raggio, 2 * math.pi * j / n, spessore / 2) for j in range(n + 1)], spessore * 0.7, n=8, tappi=False)
     return fronte, retro, bordo
 
