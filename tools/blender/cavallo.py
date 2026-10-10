@@ -76,7 +76,9 @@ class Cavallo:
         assicura_file()
         with bpy.data.libraries.load(FILE, link=False) as (_, dst):
             dst.objects = ["Plane", "Armature"]
+            dst.images = ["HorseMain4k00.png"]
         pelle, scheletro = dst.objects
+        immagine = dst.images[0]
         for o in (pelle, scheletro):
             u.col.objects.link(o)
         bpy.context.view_layer.update()
@@ -86,8 +88,6 @@ class Cavallo:
         gruppi = [g.name for g in pelle.vertex_groups]
         ossa = {b.name: (scheletro.matrix_world @ b.head_local, scheletro.matrix_world @ b.tail_local)
                 for b in scheletro.data.bones}
-        immagine = next((n.image for m in pelle.data.materials if m and m.use_nodes
-                         for n in m.node_tree.nodes if n.type == "TEX_IMAGE" and n.image), None)
         for o in (pelle, scheletro):
             dati = o.data
             bpy.data.objects.remove(o, do_unlink=True)

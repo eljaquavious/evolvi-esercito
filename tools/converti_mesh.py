@@ -37,6 +37,20 @@ def main():
         % (o["nome"], ('"%s"' % o["padre"]) if o["padre"] else "nil", *o["posizione"])
         for o in dati["ossa"]
     )
+    # Ogni modulo resta sotto i 200.000 caratteri: i dati lunghi (texture 512) vanno in più parti.
+    parti = {}
+    richieste = {}
+    for parte, contenuto in (("Geometria", geometria), ("Texture", texture)):
+        pezzi = [contenuto[i:i + 180000] for i in range(0, len(contenuto), 180000)]
+        if len(pezzi) == 1:
+            parti[parte] = pezzi[0]
+            richieste[parte] = "require(script.%s)" % parte
+        else:
+            for k, pezzo in enumerate(pezzi, 1):
+                parti["%s%d" % (parte, k)] = pezzo
+            richieste[parte] = "table.concat({ %s })" % ", ".join("require(script.%s%d)" % (parte, k)
+                                                                   for k in range(1, len(pezzi) + 1))
+    richiesta_geometria, richiesta_texture = richieste["Geometria"], richieste["Texture"]
     testo = f"""-- Generato da tools/converti_mesh.py dal modello Blender: non modificare a mano.
 -- {dati["vertici"]} vertici, {dati["triangoli"]} triangoli, texture {dati["texture"]["lato"]}x{dati["texture"]["lato"]}. Misure in metri, assi di Roblox.
 return {{
@@ -49,10 +63,10 @@ return {{
 	vertici = {dati["vertici"]},
 	triangoli = {dati["triangoli"]},
 	lunghezzaGeometria = {lg},
-	geometria = require(script.Geometria),
+	geometria = {richiesta_geometria},
 	lato = {dati["texture"]["lato"]},
 	lunghezzaTexture = {lt},
-	texture = require(script.Texture),
+	texture = {richiesta_texture},
 }}
 """
     cartella = os.path.join(RADICE, "src", "shared", "MeshDati", nome)
@@ -60,9 +74,10 @@ return {{
     if os.path.exists(vecchio):
         os.remove(vecchio)
     os.makedirs(cartella, exist_ok=True)
+    for vecchia in os.listdir(cartella):
+        os.remove(os.path.join(cartella, vecchia))
     open(os.path.join(cartella, "init.luau"), "w").write(testo)
-    for parte, contenuto in (("Geometria", geometria), ("Texture", texture)):
-        assert len(contenuto) < 190000, parte + " troppo lunga per un solo modulo"
+    for parte, contenuto in parti.items():
         open(os.path.join(cartella, parte + ".luau"), "w").write(
             "-- Generato da tools/converti_mesh.py: non modificare a mano.\nreturn " + stringa_luau(contenuto) + "\n")
     print(f"{cartella}: geometria {len(geometria) // 1024} KB, texture {len(texture) // 1024} KB (compressi, base64)")
