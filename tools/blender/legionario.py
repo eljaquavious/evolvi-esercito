@@ -481,10 +481,36 @@ def pelle_dentro_maniche(corpo):
             j0 = int(jf) % n
             r = raggi[j0] + (raggi[(j0 + 1) % n] - raggi[j0]) * (jf - int(jf))
             eccesso = q.length - (r - 0.005)   # le pieghe rientrano al massimo di 3,5 mm
-            if 0 < eccesso < (0.05 if t < 0.15 else 0.03):   # vicino all'ascella la pelle è più lontana
+            if 0 < eccesso < 0.04:
                 co[v.index] = p - q.normalized() * eccesso
     umano.imposta_coordinate(me, co)
     ALBERO = umano.albero(me)
+
+
+def stoffa_sotto_vestiti(c, corpo):
+    """La pelle che sta sotto tunica e maniche prende il materiale della tunica: se in qualche
+    piega (ascelle, spalle) esce un poco fuori, si vede stoffa rossa e non pelle."""
+    me = corpo.data
+    co = umano.coordinate(me)
+    gruppi = {g.index: g.name for g in corpo.vertex_groups}
+    busto = ("bacino", "spina", "torace", "collo", "clavicola.L", "clavicola.R")
+    coperto = np.zeros(len(co), dtype=bool)
+    for v in me.vertices:
+        pesi = {gruppi[g.group]: g.weight for g in v.groups}
+        z = co[v.index, 2]
+        if sum(pesi.get(n, 0.0) for n in busto) > 0.3 and z < 1.45:
+            coperto[v.index] = True
+            continue
+        for lato, (spalla, asse, lunghezza, _, _) in MANICHE.items():
+            if pesi.get("braccio" + (".R" if lato == "d" else ".L"), 0.0) > 0.3:
+                t = (Vector(co[v.index]) - spalla).dot(asse) / lunghezza
+                if t < FINE_MANICA - 0.03:
+                    coperto[v.index] = True
+    me.materials.append(c.mat["tunica"])
+    indice = len(me.materials) - 1
+    for poligono in me.polygons:
+        if all(coperto[i] for i in poligono.vertices):
+            poligono.material_index = indice
 
 
 def busto(z):
@@ -1037,6 +1063,7 @@ def costruisci():
     tunica(c)
     maniche(c)
     pelle_dentro_maniche(corpo_vero)
+    stoffa_sotto_vestiti(c, corpo_vero)
     lorica(c)
     cintura(c)
     balteo(c)
