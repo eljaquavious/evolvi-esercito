@@ -643,3 +643,81 @@ def foto(percorso, azimut=-25, elevazione=6, distanza=4.6, bersaglio=(0.0, 0, 1.
     if bpy.context.scene.camera is None or bpy.context.scene.camera.name != "Fotocamera":
         legionario.studio(900, 1200)
     return legionario.foto(percorso, azimut, elevazione, distanza, bersaglio, lente)
+
+
+# Pose, archi ed elmi ricorrenti ----------------------------------------------------------------------
+
+def impugna_verticale(sch, s, punto, polo, inclinazione=15, avanti_x=0.15):
+    """Pugno chiuso su un'asta verticale (lancia, manico, arco) che passa per 'punto': s = -1 destra, +1 sinistra.
+    È la presa della lancia del legionario, specchiata per la sinistra."""
+    punto = Vector(punto)
+    avanti = Vector((avanti_x * -s, -1, 0)).normalized()
+    su = Vector((0, 0, 1))
+    phi = math.radians(inclinazione)
+    radiale = su * math.cos(phi) - avanti * math.sin(phi)
+    y = avanti * math.cos(phi) + su * math.sin(phi)
+    dorso = (y.cross(radiale) if s < 0 else radiale.cross(y)).normalized()
+    umano.posa_braccio(sch, s, punto - y * 0.09 + dorso * 0.028, y, dorso, polo)
+    umano.chiudi_dita(sch, s, {"indice": (70, 95, 50), "medio": (75, 95, 50), "anulare": (80, 95, 50),
+                               "mignolo": (85, 90, 50), "pollice": (35, 45, 35)})
+
+
+def arco_teso(u, prefisso, impugnatura, meta, profilo, raggi=(0.0135, 0.0065), inclinazione=4, corna=True,
+              mat_legno="Legno", mat_corno="Corno", mat_impugnatura="Cuoio", mat_corda="Corda"):
+    """Arco teso in verticale nel piano YZ, impugnatura in 'impugnatura', corda verso l'arciere (+Y).
+    profilo(s) = scostamento verso la corda del flettente a s (0 impugnatura, 1 punta)."""
+    m = Matrix.Translation(Vector(impugnatura)) @ Matrix.Rotation(math.radians(inclinazione), 4, "X")
+    flettenti, punte = [], []
+    for segno in (1, -1):
+        punti, rr = [], []
+        for i in range(25):
+            s = i / 24
+            punti.append(m @ Vector((0, profilo(s), segno * s * meta)))
+            rr.append(raggi[0] * (1 - s) + raggi[1] * s + (0.004 if s < 0.12 else 0.0))
+        flettenti.append(tubo_lungo(punti, rr, n=8))
+        if corna:
+            pp = [m @ Vector((0, profilo(s), segno * s * meta)) for s in (0.9, 0.95, 1.0)]
+            pp.append(m @ Vector((0, profilo(1.0) - 0.02, segno * (meta + 0.03))))
+            punte.append(tubo_lungo(pp, [raggi[1] + 0.001, raggi[1] + 0.0005, raggi[1], 0.004], n=8))
+        else:
+            pp = [m @ Vector((0, profilo(s), segno * s * meta)) for s in (0.96, 1.0)]
+            pp.append(m @ Vector((0, profilo(1.0), segno * (meta + 0.025))))
+            punte.append(tubo_lungo(pp, [raggi[1] + 0.0015, raggi[1] + 0.001, 0.003], n=8))
+    u.oggetto(prefisso + "_Legno", unisci(*flettenti), mat_legno)
+    u.oggetto(prefisso + "_Corno", unisci(*punte), mat_corno)
+    u.oggetto(prefisso + "_Impugnatura", cilindro(m @ Vector((0, 0.002, -0.06)), m @ Vector((0, 0.002, 0.06)),
+                                                  raggi[0] + 0.005, n=12), mat_impugnatura)
+    alto = m @ Vector((0, profilo(1.0) - 0.005, meta - 0.005))
+    basso = m @ Vector((0, profilo(1.0) - 0.005, -meta + 0.005))
+    u.oggetto(prefisso + "_Corda", cilindro(basso, alto, 0.0022, n=6), mat_corda)
+
+
+def calotta(u, nome, mat, z_davanti, z_dietro, apice, forma, distacco=0.013, n=40, righe=12, spessore=0.003):
+    """Calotta di elmo appoggiata sulla testa vera: il bordo segue la testa alla quota z (più bassa dietro),
+    poi sale verso l'apice. forma(t) = rigonfiamento in fuori a t (0 bordo, 1 apice).
+    Restituisce l'oggetto e i punti del bordo (per tese, fasce, nasali)."""
+    centro_y = -0.02
+    apice = Vector(apice)
+    bordo = []
+    for j in range(n):
+        a = 2 * math.pi * j / n
+        d = Vector((math.cos(a), math.sin(a), 0))
+        z = z_davanti + (z_dietro - z_davanti) * max(0.0, d.y)
+        bordo.append(u.sulla_pelle(Vector((0, centro_y, z)), d, distacco, 0.2))
+    anelli = []
+    for t in np.linspace(0, 1, righe):
+        anello = []
+        for p in bordo:
+            q = p.lerp(apice, min(float(t), 0.96))
+            radiale = Vector((q.x, q.y - centro_y, 0))
+            if radiale.length > 1e-6:
+                q = q + radiale.normalized() * forma(float(t))
+            if t < 0.95:
+                q = u.fuori_dalla_pelle(q, distacco)
+            anello.append(q)
+        anelli.append(anello)
+    bm = griglia(anelli, chiusa=True)
+    bm.verts.ensure_lookup_table()
+    bm.faces.new([bm.verts[len(bm.verts) - n + j] for j in range(n)])
+    _verso_fuori(bm)
+    return u.oggetto(nome, bm, mat, spessore=spessore), bordo, anelli
