@@ -167,7 +167,8 @@ function POSE.arco(p, _a, k, r, ritorno)
 	local scocca = r * ritorno
 	p.torace = ruota(0, -0.55 * tende, 0)
 	p["braccio.L"] = ruota(1.5 * tende, 0.55 * tende, 0)
-	p["avambraccio.L"] = ruota(0.1 * tende, 0, 0)
+	-- A riposo l'avambraccio sinistro è già in avanti (regge l'arco dritto): alzando il braccio si distende.
+	p["avambraccio.L"] = ruota(-1.45 * tende, 0, 0)
 	p["braccio.R"] = ruota(1.45 * tende - 0.25 * scocca, 0.55 * tende, 0.3 * scocca)
 	p["avambraccio.R"] = ruota(0, 0, 1.9 * tende * (1 - scocca))
 	p.testa = ruota(0, 0.5 * tende, 0)
