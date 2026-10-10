@@ -91,19 +91,37 @@ def _mesh_valutata(o):
     return me
 
 
-def _pesi_corpo(corpo):
+def _ossa_gruppi(corpo, mappa=None):
+    """Osso del gioco di ogni gruppo di vertici: dal nome (corpo umano) o da una mappa (cavallo)."""
+    if mappa is None:
+        return {g.index: osso_gioco(g.name) for g in corpo.vertex_groups}
+    return {g.index: mappa.get(g.name) for g in corpo.vertex_groups}
+
+
+def _pesi_corpo(corpo, mappa=None, radice=None):
     """Matrice (vertici del corpo x ossa del gioco) con i pesi del corpo realistico."""
     me = corpo.data
     pesi = np.zeros((len(me.vertices), len(OSSA)), dtype=np.float32)
-    gruppi = {g.index: osso_gioco(g.name) for g in corpo.vertex_groups}
+    gruppi = _ossa_gruppi(corpo, mappa)
     for v in me.vertices:
         for g in v.groups:
             osso = gruppi.get(g.group)
             if osso:
                 pesi[v.index, INDICE[osso]] += g.weight
     somma = pesi.sum(axis=1, keepdims=True)
+    if radice:
+        pesi[somma[:, 0] == 0, INDICE[radice]] = 1
+        somma = pesi.sum(axis=1, keepdims=True)
     somma[somma == 0] = 1
     return pesi / somma
+
+
+def _albero(o):
+    me = _mesh_valutata(o)
+    albero = (BVHTree.FromPolygons([v.co.copy() for v in me.vertices], [tuple(p.vertices) for p in me.polygons]),
+              [tuple(p.vertices) for p in me.polygons], [v.co.copy() for v in me.vertices])
+    bpy.data.meshes.remove(me)
+    return albero
 
 
 def _decima(me, obiettivo):
@@ -145,7 +163,7 @@ def _centro(nomi):
 
 
 def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli_dal_corpo=None, corpo="Corpo", extra=None,
-            quote=None):
+            quote=None, padri=None, cavallo=None):
     """Crea l'oggetto "Gioco": copia unita, pesata e decimata dei pezzi della collezione.
 
     rigidi: {"Lancia_*": "mano.R", ...} pezzi che seguono un osso solo.
@@ -155,9 +173,13 @@ def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli
     è un Vector o una lista di oggetti di cui prendere il centro (per esempio l'elsa del gladio).
     quote: triangoli fissi per alcuni pezzi, {"Calzari*": 220} (quelli nati dalla pelle ad alta definizione
     ne chiederebbero troppi); il resto del budget si divide tra gli altri.
+    padri: padre diverso per un osso base, {"bacino": "cavallo"} (il cavaliere segue il cavallo).
+    cavallo: {"corpo": nome, "mappa": {gruppo: osso}, "radice": osso, "pezzi": ["CV_*"]}: un secondo corpo
+    con i pesi dai suoi gruppi di vertici; i pezzi "pezzi" (sella, criniera) prendono i pesi da lui.
+    Le ossa del cavallo si passano in extra (padre None per la radice).
     Ogni pezzo si decima per conto suo, così quelli sottili (l'asta della lancia) non spariscono.
     """
-    OSSA[:] = list(OSSA_BASE)
+    OSSA[:] = [(nome, (padri or {}).get(nome, padre)) for nome, padre in OSSA_BASE]
     PERNI_EXTRA.clear()
     for nome, (padre, punto) in (extra or {}).items():
         OSSA.append((nome, padre))
@@ -173,13 +195,16 @@ def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli
     sorgenti = [o for o in col.all_objects if o.type == "MESH" and o.visible_get()]
     oggetto_corpo = bpy.data.objects.get(corpo)
     pesi_corpo = _pesi_corpo(oggetto_corpo) if oggetto_corpo else None
-    albero_corpo = None
+    albero_corpo = _albero(oggetto_corpo) if oggetto_corpo else None
+    # Corpi con pesi propri: oggetto -> (ossa dei gruppi, radice).
+    propri = {}
     if oggetto_corpo:
-        me_corpo = _mesh_valutata(oggetto_corpo)
-        albero_corpo = (BVHTree.FromPolygons([v.co.copy() for v in me_corpo.vertices], [tuple(p.vertices) for p in me_corpo.polygons]),
-                        [tuple(p.vertices) for p in me_corpo.polygons], [v.co.copy() for v in me_corpo.vertices])
-        bpy.data.meshes.remove(me_corpo)
-    ossa_corpo = {g.index: osso_gioco(g.name) for g in oggetto_corpo.vertex_groups} if oggetto_corpo else {}
+        propri[oggetto_corpo] = (_ossa_gruppi(oggetto_corpo), None)
+    oggetto_cavallo = bpy.data.objects.get(cavallo["corpo"]) if cavallo else None
+    if oggetto_cavallo:
+        propri[oggetto_cavallo] = (_ossa_gruppi(oggetto_cavallo, cavallo["mappa"]), cavallo.get("radice"))
+        pesi_cavallo = _pesi_corpo(oggetto_cavallo, cavallo["mappa"], cavallo.get("radice"))
+        albero_cavallo = _albero(oggetto_cavallo)
 
     # Prima passata: le copie dei pezzi (il corpo senza la pelle nascosta).
     copie = []
@@ -219,19 +244,25 @@ def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli
             w = np.zeros(len(OSSA), dtype=np.float32)
             if osso_rigido:
                 w[INDICE[osso_rigido]] = 1
-            elif o == oggetto_corpo:
+            elif o in propri:
+                ossa_gruppi, radice = propri[o]
                 for g in v.groups:
-                    osso = ossa_corpo.get(g.group)
+                    osso = ossa_gruppi.get(g.group)
                     if osso:
                         w[INDICE[osso]] += g.weight
-            elif albero_corpo:
-                albero, facce, punti = albero_corpo
+                if radice and w.sum() <= 0:
+                    w[INDICE[radice]] = 1
+            elif albero_corpo or oggetto_cavallo:
+                if oggetto_cavallo and any(fnmatch.fnmatch(o.name, e) for e in cavallo.get("pezzi", [])):
+                    (albero, facce, punti), pesi_vicini = albero_cavallo, pesi_cavallo
+                else:
+                    (albero, facce, punti), pesi_vicini = albero_corpo, pesi_corpo
                 _, _, faccia, _ = albero.find_nearest(v.co)
                 if faccia is not None:
                     somma = 0.0
                     for i in facce[faccia]:
                         d = 1.0 / max(1e-4, (punti[i] - v.co).length)
-                        w = w + pesi_corpo[i] * d
+                        w = w + pesi_vicini[i] * d
                         somma += d
                     w = w / somma
             if w.sum() <= 0:
@@ -381,13 +412,22 @@ def dati(lato_texture=256):
     me = gioco.data
     me.calc_loop_triangles()
     uv = me.uv_layers.active.data
-    gruppi = {g.index: INDICE.get(g.name) for g in gioco.vertex_groups}
+    # Ossa in ordine (ogni padre prima dei figli): Mesh.luau le crea in quest'ordine.
+    restanti, ordine = list(STATO.get("ossa", OSSA)), []
+    while restanti:
+        fatti = {nome for nome, _ in ordine}
+        pronte = [o for o in restanti if o[1] is None or o[1] in fatti]
+        assert pronte, "ossa con padri mancanti: %s" % restanti
+        ordine += pronte
+        restanti = [o for o in restanti if o not in pronte]
+    posto = {nome: i for i, (nome, _) in enumerate(ordine)}
+    gruppi = {g.index: posto.get(g.name) for g in gioco.vertex_groups}
     # Pesi per vertice: le 4 ossa più forti.
     pesi_vertice = []
     for v in me.vertices:
         coppie = sorted(((g.weight, gruppi[g.group]) for g in v.groups if gruppi.get(g.group) is not None), reverse=True)[:4]
         if not coppie:
-            coppie = [(1.0, INDICE["torace"])]
+            coppie = [(1.0, posto["torace"])]
         somma = sum(w for w, _ in coppie)
         coppie = [(w / somma, i) for w, i in coppie]
         pesi_vertice.append(coppie)
@@ -434,7 +474,7 @@ def dati(lato_texture=256):
     giunti = STATO["giunti"]
     PERNI_EXTRA.update(STATO.get("perni", {}))
     ossa = []
-    for nome, padre in STATO.get("ossa", OSSA):
+    for nome, padre in ordine:
         ossa.append({"nome": nome, "padre": padre, "posizione": roblox(perno(nome, giunti))})
     return {
         "minimo": list(minimo),
