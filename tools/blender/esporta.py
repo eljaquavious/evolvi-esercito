@@ -163,7 +163,7 @@ def _centro(nomi):
 
 
 def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli_dal_corpo=None, corpo="Corpo", extra=None,
-            quote=None, padri=None, cavallo=None):
+            quote=None, padri=None, cavallo=None, umano=True):
     """Crea l'oggetto "Gioco": copia unita, pesata e decimata dei pezzi della collezione.
 
     rigidi: {"Lancia_*": "mano.R", ...} pezzi che seguono un osso solo.
@@ -177,9 +177,10 @@ def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli
     cavallo: {"corpo": nome, "mappa": {gruppo: osso}, "radice": osso, "pezzi": ["CV_*"]}: un secondo corpo
     con i pesi dai suoi gruppi di vertici; i pezzi "pezzi" (sella, criniera) prendono i pesi da lui.
     Le ossa del cavallo si passano in extra (padre None per la radice).
+    umano=False: niente ossa del corpo (carri, cannoni): resta solo "bacino" più le extra.
     Ogni pezzo si decima per conto suo, così quelli sottili (l'asta della lancia) non spariscono.
     """
-    OSSA[:] = [(nome, (padri or {}).get(nome, padre)) for nome, padre in OSSA_BASE]
+    OSSA[:] = [(nome, (padri or {}).get(nome, padre)) for nome, padre in OSSA_BASE if umano or nome == "bacino"]
     PERNI_EXTRA.clear()
     for nome, (padre, punto) in (extra or {}).items():
         OSSA.append((nome, padre))
@@ -266,7 +267,7 @@ def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli
                         somma += d
                     w = w / somma
             if w.sum() <= 0:
-                w[INDICE["torace"]] = 1
+                w[INDICE.get("torace", 0)] = 1
             pesi.append(w / w.sum())
         for p in me.polygons:
             p.material_index = mappa[p.material_index] if p.material_index < len(mappa) else 0
@@ -427,7 +428,7 @@ def dati(lato_texture=256):
     for v in me.vertices:
         coppie = sorted(((g.weight, gruppi[g.group]) for g in v.groups if gruppi.get(g.group) is not None), reverse=True)[:4]
         if not coppie:
-            coppie = [(1.0, posto["torace"])]
+            coppie = [(1.0, posto.get("torace", 0))]
         somma = sum(w for w, _ in coppie)
         coppie = [(w / somma, i) for w, i in coppie]
         pesi_vertice.append(coppie)
