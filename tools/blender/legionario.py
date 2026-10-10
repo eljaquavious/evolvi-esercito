@@ -16,6 +16,7 @@ import bmesh
 import bpy
 import numpy as np
 from mathutils import Matrix, Vector
+from mathutils.bvhtree import BVHTree
 
 if "umano" not in sys.modules and "__file__" in globals():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -598,16 +599,37 @@ def calzari(c, corpo):
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z > 0.2], context="VERTS")
     bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0, 0, 0.115),
                            plane_no=Vector((0, -0.25, 1)).normalized(), clear_outer=True)
+    # Forma della scarpa: l'involucro convesso di ogni piede (niente dita, suola piatta), su cui si
+    # appoggia il guscio; vicino al bordo alto resta aderente alla caviglia.
+    piede = {1: [], -1: []}
+    for v in bm.verts:
+        piede[1 if v.co.x > 0 else -1].append(v.co.copy())
+    involucri = {}
+    for s, punti in piede.items():
+        hb = bmesh.new()
+        for q in punti:
+            hb.verts.new(q)
+        bmesh.ops.convex_hull(hb, input=hb.verts[:], use_existing_faces=False)
+        bmesh.ops.delete(hb, geom=[v for v in hb.verts if not v.link_faces], context="VERTS")
+        centro = sum(punti, Vector()) / len(punti)
+        involucri[s] = (BVHTree.FromBMesh(hb), centro)
+        hb.free()
     bm.normal_update()
     for v in bm.verts:
-        v.co += v.normal * 0.004
-    # Lisciato: una scarpa non mostra le dita; poi di nuovo fuori dalla pelle dove si è ritirato.
-    bordo = {v for v in bm.verts if v.is_boundary}
-    interni = [v for v in bm.verts if not v.is_boundary]
-    for _ in range(60):
-        bmesh.ops.smooth_vert(bm, verts=interni, factor=0.8, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+        albero, centro = involucri[1 if v.co.x > 0 else -1]
+        loc, normale, _, _ = albero.find_nearest(v.co)
+        if normale.dot(loc - centro) < 0:
+            normale = -normale
+        aderente = v.co + v.normal * 0.004
+        sulla_forma = loc + normale * 0.004
+        taglio = 0.115 + 0.25 * v.co.y            # quota del bordo alto in quel punto
+        t = min(1.0, max(0.0, (taglio - v.co.z) / 0.03))
+        v.co = aderente.lerp(sulla_forma, t)
+    for _ in range(4):
+        bmesh.ops.smooth_vert(bm, verts=[v for v in bm.verts if not v.is_boundary], factor=0.5,
+                              use_axis_x=True, use_axis_y=True, use_axis_z=True)
     for v in bm.verts:
-        v.co = fuori_dalla_pelle(v.co, 0.004 if v in bordo else 0.005)
+        v.co = fuori_dalla_pelle(v.co, 0.004)
     bm.normal_update()
     for f in bm.faces:
         f.material_index = 1 if f.normal.z < -0.55 else 0
