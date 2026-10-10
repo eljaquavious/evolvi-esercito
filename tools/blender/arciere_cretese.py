@@ -34,7 +34,9 @@ def materiali(u):
     u.materiale("Bordo", (0.62, 0.50, 0.30), ruvidita=0.85)
     u.materiale("Benda", (0.78, 0.72, 0.60), ruvidita=0.9)
     u.materiale("Cuoio", (0.22, 0.11, 0.05), ruvidita=0.65)
-    u.materiale("CuoioChiaro", (0.36, 0.21, 0.10), ruvidita=0.7)
+    u.materiale("CuoioChiaro", (0.30, 0.17, 0.08), ruvidita=0.7)
+    u.materiale("Stivali", (0.17, 0.085, 0.04), ruvidita=0.7)
+    u.materiale("Lacci", (0.07, 0.035, 0.015), ruvidita=0.7)
     u.materiale("Suola", (0.07, 0.04, 0.02), ruvidita=0.8)
     u.materiale("Bronzo", (0.80, 0.52, 0.24), metallo=1.0, ruvidita=0.35)
     u.materiale("Ferro", (0.42, 0.42, 0.44), metallo=1.0, ruvidita=0.4)
@@ -92,8 +94,8 @@ def vestiti(u):
     benda = V.anello_sul_corpo(u, (0, -0.01, 1.675), (0, 0.3, 1), 0.004, 0.02, n=48, portata=0.2)
     u.oggetto("Benda", benda, "Benda", spessore=0.003)
     # Stivaletti allacciati (krepides): scarpa chiusa fin sopra la caviglia, lacci sullo stinco.
-    V.calzature(u, "Calzari", "CuoioChiaro", "Suola", taglio=0.17, inclinazione=0.2)
-    V.lacci_gamba(u, "Calzari_Lacci", "Cuoio", [0.22, 0.29, 0.36], distacco=0.003, larghezza=0.012)
+    V.calzature(u, "Calzari", "Stivali", "Suola", taglio=0.135, inclinazione=0.2)
+    V.lacci_gamba(u, "Calzari_Lacci", "Lacci", [0.13, 0.2, 0.27, 0.34, 0.41], distacco=0.003, larghezza=0.011)
     u.nascondi_pelle()
 
 

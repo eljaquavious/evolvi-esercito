@@ -35,7 +35,7 @@ local function asta(lunghezza, spessore, punta, piume)
 	local fusto = parte({ Size = Vector3.new(spessore, spessore, lunghezza), Color = LEGNO, Material = Enum.Material.Wood })
 	fusto.Parent = modello
 	modello.PrimaryPart = fusto
-	local ferro = parte({ Size = Vector3.new(spessore * 2.4, spessore * 1.2, punta), Color = FERRO, Material = Enum.Material.Metal })
+	local ferro = parte({ Size = Vector3.new(spessore * (piume and 2.4 or 1.1), spessore * (piume and 1.2 or 1.1), punta), Color = FERRO, Material = Enum.Material.Metal })
 	ferro.CFrame = CFrame.new(0, 0, -lunghezza / 2 - punta / 2 + 0.05)
 	ferro.Parent = modello
 	if piume then
@@ -92,7 +92,7 @@ end
 
 function Effetti.pilum(da, a, durata)
 	local distanza = (a - da).Magnitude
-	vola(asta(3.8, 0.13, 0.9, false), da, a, durata, math.clamp(distanza * 0.14, 1.5, 9), true)
+	vola(asta(3.6, 0.09, 0.7, false), da, a, durata, math.clamp(distanza * 0.14, 1.5, 9), true)
 end
 
 local function vampata(posizione, colore, dimensione)

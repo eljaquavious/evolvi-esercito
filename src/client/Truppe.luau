@@ -68,10 +68,11 @@ end
 local function barraVita(s)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Vita"
-	gui.Size = UDim2.new(2.6, 0, 0.32, 0)
+	-- In pixel: da vicino non diventa enorme.
+	gui.Size = UDim2.fromOffset(30, 4)
 	gui.StudsOffset = Vector3.new(0, s.altezza + 0.9, 0)
 	gui.LightInfluence = 0
-	gui.MaxDistance = 220
+	gui.MaxDistance = 160
 	gui.Enabled = false
 	local sfondo = Instance.new("Frame")
 	sfondo.Size = UDim2.fromScale(1, 1)
