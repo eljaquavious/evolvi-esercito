@@ -304,6 +304,7 @@ def nascondi_sotto_vestiti(corpo):
     busto = ("bacino", "spina", "torace", "collo", "clavicola.L", "clavicola.R")
     peso = np.zeros(len(co))
     gambe = np.zeros(len(co))
+    testa = np.zeros(len(co))
     for v in me.vertices:
         for g in v.groups:
             nome = gruppi[g.group]
@@ -311,20 +312,28 @@ def nascondi_sotto_vestiti(corpo):
                 peso[v.index] += g.weight
             elif nome.startswith("coscia"):
                 gambe[v.index] += g.weight
-    for i in np.nonzero((peso > 0.5) | (gambe > 0.5))[0]:
+            elif nome == "testa":
+                testa[v.index] += g.weight
+    for i in np.nonzero((peso > 0.5) | (gambe > 0.5) | (peso + testa > 0.5))[0]:
         x, y, z = co[i]
+        cy = 0.0
         if 0.975 <= z <= 1.445 and peso[i] > 0.5:
             rx, ry = esterno_armatura(z)
             rx, ry = rx - 0.022, ry - 0.022
+        elif 1.445 < z <= 1.505 and math.hypot(x, y) < 0.17:
+            # Collo e trapezi dentro la focale; verso il bordo alto il margine si annulla.
+            cy, rx, ry = sciarpa_ellisse(z)
+            margine = 0.012 * min(1.0, (1.505 - z) / 0.015)
+            rx, ry = rx - margine, ry - margine
         elif 0.60 <= z < 0.975:
             t = (1.02 - z) / 0.42
             rx, ry = 0.165 + t * 0.045 - 0.008, 0.125 + t * 0.04 - 0.008
         else:
             continue
-        e = (x / rx) ** 2 + (y / ry) ** 2
+        e = (x / rx) ** 2 + ((y - cy) / ry) ** 2
         if e > 1:
             f = 0.99 / math.sqrt(e)
-            co[i, 0], co[i, 1] = x * f, y * f
+            co[i, 0], co[i, 1] = x * f, cy + (y - cy) * f
     umano.imposta_coordinate(me, co)
 
 
@@ -348,26 +357,8 @@ def tunica(c):
         d = Vector((v.co.x, v.co.y, 0)).normalized()
         v.co += d * onda
     c.oggetto("Tunica", bm, "tunica", spessore=0.006)
-    # Maniche corte sopra il gomito.
-    # Seguono il braccio vero: anelli di raggi dall'osso verso la pelle, un poco staccati.
-    maniche = []
-    for lato in ("d", "s"):
-        spalla, gomito = P("spalla_" + lato), P("gomito_" + lato)
-        asse = (gomito - spalla).normalized()
-        base = asse.orthogonal().normalized()
-        righe = []
-        for i in range(9):
-            p = spalla + (gomito - spalla) * (-0.2 + 0.65 * i / 8)
-            riga = []
-            for j in range(28):
-                d = Matrix.Rotation(2 * math.pi * j / 28, 3, asse) @ base
-                riga.append(sulla_pelle(p, d, 0.008 + 0.006 * (1 - i / 8), portata=0.12))
-            righe.append(riga)
-        maniche.append(griglia(righe, chiusa=True))
-    c.oggetto("Maniche", unisci(*maniche), "tunica", spessore=0.004)
     # Focale: sciarpa avvolta al collo, con le pieghe, il nodo davanti e i due capi sul petto.
-    sciarpa = tubo_ellittico([((0, -0.006, 1.43), 0.094, 0.084), ((0, -0.01, 1.455), 0.086, 0.078),
-                              ((0, -0.006, 1.48), 0.074, 0.07), ((0, -0.004, 1.5), 0.066, 0.063)], n=48)
+    sciarpa = tubo_ellittico([((0, y, z), rx, ry) for z, y, rx, ry in SCIARPA], n=48)
     for v in sciarpa.verts:
         a = math.atan2(v.co.y, v.co.x)
         d = Vector((v.co.x, v.co.y, 0)).normalized()
@@ -377,11 +368,119 @@ def tunica(c):
     for s in (-1, 1):
         rot = Matrix.Rotation(math.radians(s * 16), 4, "Y") @ Matrix.Rotation(math.radians(-14), 4, "X")
         capi.append(sfera((s * 0.012, -0.112, 1.408), (0.013, 0.0035, 0.032), 10, 6, rot))
-    c.oggetto("Focale", sciarpa, "tunica", spessore=0.01)
+    c.oggetto("Focale", sciarpa, "tunica", spessore=0.008)
     c.oggetto("Focale_Nodo", unisci(nodo, *capi), "tunica")
 
 
 # Lorica segmentata -----------------------------------------------------------------------------------
+
+# Anelli della focale (quota, centro y, raggio x, raggio y): un rotolo di stoffa che riempie lo scollo
+# della lorica e si stringe sul collo. La pelle del collo sotto viene tenuta dentro (nascondi_sotto_vestiti).
+SCIARPA = [(1.43, 0.0, 0.096, 0.09), (1.455, 0.002, 0.092, 0.086), (1.48, 0.004, 0.08, 0.075),
+           (1.503, 0.004, 0.072, 0.068)]
+
+
+def sciarpa_ellisse(z):
+    zz = [a[0] for a in SCIARPA]
+    return tuple(float(np.interp(z, zz, [a[k] for a in SCIARPA])) for k in (1, 2, 3))
+
+
+MANICHE = {}   # per lato: spalla, asse, lunghezza, base e anelli (t, centro, raggi) del tubo della manica
+FINE_MANICA = 0.48   # dove finisce la manica, in frazione dell'omero
+DIREZIONI_MANICA = 32
+
+
+def sezione_braccio(spalla, asse, lunghezza, base, t):
+    """Centro e raggi della sezione del braccio vero a una quota t dell'omero, senza avvallamenti."""
+    n = DIREZIONI_MANICA
+    direzioni = [Matrix.Rotation(2 * math.pi * j / n, 3, asse) @ base for j in range(n)]
+    p = spalla + asse * lunghezza * t
+    punti = [h for h in (ALBERO.ray_cast(p, d, 0.12)[0] for d in direzioni) if h is not None]
+    centro = sum(punti, Vector()) / len(punti)
+    raggi = []
+    for d in direzioni:
+        h = ALBERO.ray_cast(centro, d, 0.12)[0]
+        raggi.append((h - centro).length if h is not None else None)
+    massimo = max(r for r in raggi if r is not None)
+    r = np.array([massimo if x is None else x for x in raggi])
+    r = np.maximum(np.maximum(r, np.roll(r, 1)), np.roll(r, -1))
+    for _ in range(2):
+        r = (np.roll(r, 1) + r + np.roll(r, -1)) / 3
+    return centro, r
+
+
+def maniche(c):
+    """Maniche corte: un tubo liscio misurato sul braccio vero, dalla spalla (sotto gli spallacci)
+    fin sopra il gomito, con qualche piega verso l'orlo."""
+    tubi = []
+    n = DIREZIONI_MANICA
+    for lato in ("d", "s"):
+        spalla, gomito = P("spalla_" + lato), P("gomito_" + lato)
+        lunghezza = (gomito - spalla).length
+        asse = (gomito - spalla) / lunghezza
+        base = asse.orthogonal().normalized()
+        chiave = [(t,) + sezione_braccio(spalla, asse, lunghezza, base, t) for t in (0.1, 0.2, 0.3, 0.4, 0.5)]
+        _, c1, r1 = chiave[0]
+        # Sopra la prima misura il braccio entra nella spalla: si allarga un poco il deltoide.
+        chiave = [(-0.12, c1 - asse * lunghezza * 0.22, r1 * 1.12), (0.0, c1 - asse * lunghezza * 0.1, r1 * 1.06)] + chiave
+        ts = [k[0] for k in chiave]
+        anelli = []
+        for t in np.linspace(-0.12, FINE_MANICA, 16):
+            i = min(int(np.searchsorted(ts, t, side="right")) - 1, len(ts) - 2)
+            f = (t - ts[i]) / (ts[i + 1] - ts[i])
+            centro = chiave[i][1].lerp(chiave[i + 1][1], f)
+            raggi = chiave[i][2] * (1 - f) + chiave[i + 1][2] * f + 0.009
+            anelli.append((float(t), centro, raggi))
+        MANICHE[lato] = (spalla, asse, lunghezza, base, anelli)
+        righe = []
+        for t, centro, raggi in anelli:
+            pieghe = 0.001 + 0.0025 * max(t, 0) / FINE_MANICA
+            riga = []
+            for j in range(n):
+                a = 2 * math.pi * j / n
+                d = Matrix.Rotation(a, 3, asse) @ base
+                riga.append(centro + d * (raggi[j] + pieghe * math.sin(a * 5 + t * 4)))
+            righe.append(riga)
+        bm = griglia(righe, chiusa=True)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        tubi.append(bm)
+    c.oggetto("Maniche", unisci(*tubi), "tunica", spessore=0.004)
+
+
+def pelle_dentro_maniche(corpo):
+    """Tiene la pelle del braccio dentro la manica, così non buca la stoffa."""
+    global ALBERO
+    me = corpo.data
+    co = umano.coordinate(me)
+    gruppi = {g.index: g.name for g in corpo.vertex_groups}
+    n = DIREZIONI_MANICA
+    for lato, (spalla, asse, lunghezza, base, anelli) in MANICHE.items():
+        nome = "braccio" + (".R" if lato == "d" else ".L")
+        secondo = asse.cross(base)
+        ts = [a[0] for a in anelli]
+        for v in me.vertices:
+            if sum(g.weight for g in v.groups if gruppi[g.group] == nome) < 0.3:
+                continue
+            p = Vector(co[v.index])
+            t = (p - spalla).dot(asse) / lunghezza
+            if not -0.05 <= t <= FINE_MANICA - 0.005:
+                continue
+            i = min(int(np.searchsorted(ts, t, side="right")) - 1, len(ts) - 2)
+            f = (t - ts[i]) / (ts[i + 1] - ts[i])
+            centro = anelli[i][1].lerp(anelli[i + 1][1], f)
+            raggi = anelli[i][2] * (1 - f) + anelli[i + 1][2] * f
+            q = p - centro
+            q -= asse * q.dot(asse)
+            a = math.atan2(q.dot(secondo), q.dot(base)) % (2 * math.pi)
+            jf = a / (2 * math.pi) * n
+            j0 = int(jf) % n
+            r = raggi[j0] + (raggi[(j0 + 1) % n] - raggi[j0]) * (jf - int(jf))
+            eccesso = q.length - (r - 0.005)   # le pieghe rientrano al massimo di 3,5 mm
+            if 0 < eccesso < 0.03:
+                co[v.index] = p - q.normalized() * eccesso
+    umano.imposta_coordinate(me, co)
+    ALBERO = umano.albero(me)
+
 
 def busto(z):
     """Raggi (x, y) dell'armatura alla quota z: segue il busto e ci sta sopra."""
@@ -930,6 +1029,8 @@ def costruisci():
     c = Costruttore(col, materiali())
     corpo_vero = corpo(c)
     tunica(c)
+    maniche(c)
+    pelle_dentro_maniche(corpo_vero)
     lorica(c)
     cintura(c)
     balteo(c)
