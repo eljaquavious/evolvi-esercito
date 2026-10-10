@@ -349,12 +349,22 @@ def tunica(c):
         v.co += d * onda
     c.oggetto("Tunica", bm, "tunica", spessore=0.006)
     # Maniche corte sopra il gomito.
+    # Seguono il braccio vero: anelli di raggi dall'osso verso la pelle, un poco staccati.
     maniche = []
     for lato in ("d", "s"):
         spalla, gomito = P("spalla_" + lato), P("gomito_" + lato)
-        fine = spalla + (gomito - spalla) * 0.45
-        maniche.append(cilindro(spalla + (gomito - spalla) * -0.05, fine, 0.07, 0.064, n=20, tappi=False))
-    c.oggetto("Maniche", unisci(*maniche), "tunica", spessore=0.005)
+        asse = (gomito - spalla).normalized()
+        base = asse.orthogonal().normalized()
+        righe = []
+        for i in range(9):
+            p = spalla + (gomito - spalla) * (-0.2 + 0.65 * i / 8)
+            riga = []
+            for j in range(28):
+                d = Matrix.Rotation(2 * math.pi * j / 28, 3, asse) @ base
+                riga.append(sulla_pelle(p, d, 0.008 + 0.006 * (1 - i / 8), portata=0.12))
+            righe.append(riga)
+        maniche.append(griglia(righe, chiusa=True))
+    c.oggetto("Maniche", unisci(*maniche), "tunica", spessore=0.004)
     # Focale: sciarpa avvolta al collo, con le pieghe, il nodo davanti e i due capi sul petto.
     sciarpa = tubo_ellittico([((0, -0.006, 1.43), 0.094, 0.084), ((0, -0.01, 1.455), 0.086, 0.078),
                               ((0, -0.006, 1.48), 0.074, 0.07), ((0, -0.004, 1.5), 0.066, 0.063)], n=48)
