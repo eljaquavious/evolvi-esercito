@@ -27,8 +27,8 @@ U = None
 
 
 def materiali(u):
-    u.materiale("Kaki", (0.24, 0.19, 0.10), ruvidita=0.9)
-    u.materiale("KakiChiaro", (0.36, 0.30, 0.18), ruvidita=0.85)
+    u.materiale("Kaki", (0.15, 0.12, 0.065), ruvidita=0.9)
+    u.materiale("KakiChiaro", (0.26, 0.21, 0.12), ruvidita=0.85)
     u.materiale("Rosso", (0.42, 0.03, 0.03), ruvidita=0.85)
     u.materiale("NeroVelluto", (0.02, 0.02, 0.025), ruvidita=0.95)
     u.materiale("Oro", (0.85, 0.63, 0.25), metallo=1.0, ruvidita=0.3)
