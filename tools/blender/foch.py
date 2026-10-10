@@ -106,8 +106,9 @@ def uniforme(u):
     u.oggetto("Fibbia", V.scatola(p, (0.05, 0.008, 0.05)), "Oro")
 
 
-def kepi(u):
-    """Képi da maresciallo: fascia d'oro (le foglie di quercia), calotta rossa inclinata in avanti, visiera."""
+def kepi(u, fascia_mat="Oro", calotta_mat="Rosso", foglie=None, stelle=0, stelle_mat="Argento"):
+    """Képi da maresciallo: fascia d'oro (le foglie di quercia), calotta rossa inclinata in avanti, visiera.
+    Per un generale: fascia scura con una sola fila di foglie (foglie = materiale) e le stelle davanti."""
     n = 40
     centro_y = -0.02
     bordo = []
@@ -131,12 +132,34 @@ def kepi(u):
 
     fascia = V.griglia([anello(t) for t in (0.0, 0.25, 0.48)], chiusa=True)
     V._verso_fuori(fascia)
-    u.oggetto("Kepi_Fascia", fascia, "Oro", spessore=0.003)
+    u.oggetto("Kepi_Fascia", fascia, fascia_mat, spessore=0.003)
+    if foglie:
+        giri = []
+        for t in (0.07, 0.2):
+            giro = []
+            for q, b in zip(anello(t), bordo):
+                r = Vector((q.x - centro.x, q.y - centro.y, 0)).normalized()
+                giro.append(q + r * 0.0035)
+            giri.append(giro)
+        fila = V.griglia(giri, chiusa=True)
+        V._verso_fuori(fila)
+        u.oggetto("Kepi_Foglie", fila, foglie, spessore=0.002)
+    if stelle:
+        pezzi = []
+        fronte = anello(0.34)
+        j0 = 3 * n // 4                           # -Y: davanti
+        for k in range(stelle):
+            j = j0 + (k - (stelle - 1) / 2) * 2
+            q = fronte[int(round(j)) % n]
+            r = Vector((q.x - centro.x, q.y - centro.y, 0)).normalized()
+            pezzi.append(V.sfera(q + r * 0.006, (0.012, 0.004, 0.012), 10, 4,
+                                 Matrix.Rotation(math.atan2(r.x, -r.y), 4, "Z")))
+        u.oggetto("Kepi_Stelle", V.unisci(*pezzi), stelle_mat)
     calotta = V.griglia([anello(t) for t in (0.48, 0.75, 1.0)], chiusa=True)
     calotta.verts.ensure_lookup_table()
     calotta.faces.new([calotta.verts[len(calotta.verts) - n + j] for j in range(n)])
     V._verso_fuori(calotta)
-    u.oggetto("Kepi_Calotta", calotta, "Rosso", spessore=0.003)
+    u.oggetto("Kepi_Calotta", calotta, calotta_mat, spessore=0.003)
     # Visiera nera piatta, appena calata, con il bordo dorato.
     davanti = [p for p in bordo if Vector((p.x - centro.x, p.y - centro.y, 0)).normalized().y < -0.55]
     davanti.sort(key=lambda p: p.x)
@@ -156,7 +179,7 @@ def kepi(u):
     u.oggetto("Kepi_Galloni", V.unisci(*croce), "Oro")
 
 
-def baffi(u):
+def baffi(u, scala=1.0, fino=1.0):
     """Baffi grigi folti, a spazzola, che coprono il labbro. Appoggiati alla pelle cercata da davanti
     (il raggio da dentro la testa troverebbe prima l'interno della bocca)."""
     pezzi = []
@@ -168,6 +191,9 @@ def baffi(u):
             p = hit[0] if hit[0] is not None else Vector((s * x, -0.12, z))
             # Sotto il naso il raggio lo prende in punta: il labbro sta più indietro.
             p = Vector((p.x, max(p.y, -0.124), p.z))
+            if x > 0.056 * fino:
+                break
+            r *= scala
             punti.append(p + Vector((s * 0.002, -0.004 - r * 0.5, 0)))
             raggi.append(r)
         pezzi.append(V.tubo_lungo(punti, raggi, n=8))
