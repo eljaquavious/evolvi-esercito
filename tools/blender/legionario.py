@@ -840,16 +840,16 @@ def studio(larghezza=1080, altezza=1440):
         punta_a(o, Vector((0.05, 0, 1.0)))
         return o
 
-    luce("Chiave", "AREA", 600, (2.6, -3.2, 3.6), (1.0, 0.96, 0.9), 2.0)
-    luce("Riempimento", "AREA", 220, (-3.0, -2.4, 1.8), (0.85, 0.9, 1.0), 3.0)
-    luce("Controluce", "AREA", 400, (0.5, 3.0, 3.0), (1.0, 0.95, 0.85), 2.0)
+    luce("Chiave", "AREA", 380, (2.6, -3.2, 3.6), (1.0, 0.96, 0.9), 2.0)
+    luce("Riempimento", "AREA", 160, (-3.0, -2.4, 1.8), (0.85, 0.9, 1.0), 3.0)
+    luce("Controluce", "AREA", 300, (0.5, 3.0, 3.0), (1.0, 0.95, 0.85), 2.0)
     pavimento = bpy.data.meshes.new("Pavimento")
     bm = bmesh.new()
     bmesh.ops.create_circle(bm, cap_ends=True, segments=64, radius=3.0)
     bm.to_mesh(pavimento)
     bm.free()
     o = bpy.data.objects.new("Pavimento", pavimento)
-    o.data.materials.append(materiale("Pavimento", (0.55, 0.47, 0.36), ruvidita=0.95))
+    o.data.materials.append(materiale("Pavimento", (0.30, 0.26, 0.20), ruvidita=0.95))
     col.objects.link(o)
     mondo = scena.world or bpy.data.worlds.new("Mondo")
     scena.world = mondo
