@@ -361,7 +361,7 @@ def tunica(c):
         d = Vector((v.co.x, v.co.y, 0)).normalized()
         v.co += d * onda
     c.oggetto("Tunica", bm, "tunica", spessore=0.006)
-    # Focale: sciarpa avvolta al collo, con le pieghe, il nodo davanti e i due capi sul petto.
+    # Focale: sciarpa avvolta al collo, con le pieghe e il nodo davanti.
     sciarpa = tubo_ellittico([((0, y, z), rx, ry) for z, y, rx, ry in SCIARPA], n=48)
     for v in sciarpa.verts:
         a = math.atan2(v.co.y, v.co.x)
@@ -369,13 +369,9 @@ def tunica(c):
         # Liscia dove entra nel bordo d'ottone della lorica, con le pieghe sopra.
         sopra = min(1.0, max(0.0, (v.co.z - 1.452) / 0.015))
         v.co += d * 0.006 * sopra * math.sin(a * 7 + v.co.z * 90)
-    nodo = sfera((0, -0.092, 1.442), (0.019, 0.013, 0.015), 12, 8)
-    capi = []
-    for s in (-1, 1):
-        rot = Matrix.Rotation(math.radians(s * 16), 4, "Y") @ Matrix.Rotation(math.radians(-14), 4, "X")
-        capi.append(sfera((s * 0.012, -0.112, 1.408), (0.013, 0.0035, 0.032), 10, 6, rot))
-    c.oggetto("Focale", sciarpa, "tunica", spessore=0.008)
-    c.oggetto("Focale_Nodo", unisci(nodo, *capi), "tunica")
+    # Nodo davanti, sopra il bordo d'ottone; i capi restano infilati sotto la lorica.
+    nodo = sfera((0, -0.09, 1.466), (0.02, 0.013, 0.016), 12, 8)
+    c.oggetto("Focale_Nodo", nodo, "tunica")
 
 
 # Lorica segmentata -----------------------------------------------------------------------------------
