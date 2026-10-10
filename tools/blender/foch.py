@@ -114,7 +114,7 @@ def kepi(u):
     for j in range(n):
         a = 2 * math.pi * j / n
         d = Vector((math.cos(a), math.sin(a), 0))
-        z = 1.725 - 0.025 * max(0.0, d.y)
+        z = 1.705 - 0.04 * max(0.0, d.y)
         bordo.append(u.sulla_pelle(Vector((0, centro_y, z)), d, 0.012, 0.2))
     centro = sum(bordo, Vector()) / n
 
@@ -138,13 +138,13 @@ def kepi(u):
     V._verso_fuori(calotta)
     u.oggetto("Kepi_Calotta", calotta, "Rosso", spessore=0.003)
     # Visiera nera piatta, appena calata, con il bordo dorato.
-    davanti = [p for p in bordo if (p - centro).normalized().y < -0.25]
+    davanti = [p for p in bordo if Vector((p.x - centro.x, p.y - centro.y, 0)).normalized().y < -0.55]
     davanti.sort(key=lambda p: p.x)
     dentro, fuori = [], []
     for p in davanti:
         r = Vector((p.x - centro.x, p.y - centro.y, 0)).normalized()
         dentro.append(p + Vector((0, 0, 0.004)))
-        fuori.append(p + r * 0.06 + Vector((0, -0.02, -0.025)))
+        fuori.append(p + r * 0.05 + Vector((0, -0.012, -0.02)))
     u.oggetto("Kepi_Visiera", V.griglia([dentro, fuori]), "Nero", spessore=0.004)
     u.oggetto("Kepi_Bordo", V.tubo_lungo(fuori, 0.004, n=6), "Oro")
     # Galloni d'oro sulla calotta (le soutaches): una croce sulla cima e i montanti.
@@ -154,6 +154,22 @@ def kepi(u):
     for j in (0, n // 4, n // 2, 3 * n // 4):
         croce.append(V.tubo_lungo([anello(0.5)[j], anello(0.97)[j]], 0.0035, n=5))
     u.oggetto("Kepi_Galloni", V.unisci(*croce), "Oro")
+
+
+def baffi(u):
+    """Baffi grigi folti, a spazzola, che coprono il labbro. Appoggiati alla pelle cercata da davanti
+    (il raggio da dentro la testa troverebbe prima l'interno della bocca)."""
+    pezzi = []
+    for s in (1, -1):
+        punti, raggi = [], []
+        for x, z, r in ((0.004, 1.578, 0.009), (0.02, 1.574, 0.011), (0.036, 1.562, 0.010), (0.05, 1.545, 0.006),
+                        (0.056, 1.53, 0.002)):
+            hit = u.albero.ray_cast(Vector((s * x, -0.4, z)), Vector((0, 1, 0)), 0.5)
+            p = hit[0] if hit[0] is not None else Vector((s * x, -0.12, z))
+            punti.append(p + Vector((s * 0.002, -0.004 - r * 0.5, 0)))
+            raggi.append(r)
+        pezzi.append(V.tubo_lungo(punti, raggi, n=8))
+    u.oggetto("Baffi", V.unisci(*pezzi), "Peli")
 
 
 # Pistola e bastone ---------------------------------------------------------------------------------
@@ -203,7 +219,7 @@ def costruisci():
     materiali(u)
     u.costruisci_corpo(posa, barba=0.2)
     uniforme(u)
-    V.baffi(u, "Baffi", "Peli", folti=2.0)
+    baffi(u)
     kepi(u)
     revolver(u)
     bastone(u)
