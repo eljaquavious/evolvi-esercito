@@ -315,8 +315,10 @@ def esporta(triangoli=4200, lato=512):
     import esporta as E
     r = E.prepara(NOME, U.giunti,
                   rigidi={"Arco_*": "arco", "Scudo_*": "bacino", "Spada_*": "bacino", "Faretra_*": "torace",
-                          "Occhio*": "testa", "Benda": "testa"},
-                  escludi=["Calzari_Lacci", "Faretra_Fasce", "Tunica_Orlo"],
+                          "Occhio*": "testa", "Benda*": "testa"},
+                  escludi=["Calzari_Lacci*", "Faretra_Fasce*", "Tunica_Orlo*"],
+                  quote={"Calzari*": 240, "Occhio*": 60, "Tunica.*": 420, "Tunica": 420, "Tunica_Maniche*": 260,
+                         "Faretra_Corpo*": 90, "Arco_Legno*": 120},
                   togli_dal_corpo=[SIGLA + "_Nascosta"], triangoli=triangoli, corpo=U.corpo.name,
                   extra={"arco": ("mano.L", IMPUGNATURA)})
     E.cuoci(lato=lato)

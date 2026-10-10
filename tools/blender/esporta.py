@@ -144,7 +144,8 @@ def _centro(nomi):
     return sum(punti, Vector()) / len(punti)
 
 
-def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli_dal_corpo=None, corpo="Corpo", extra=None):
+def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli_dal_corpo=None, corpo="Corpo", extra=None,
+            quote=None):
     """Crea l'oggetto "Gioco": copia unita, pesata e decimata dei pezzi della collezione.
 
     rigidi: {"Lancia_*": "mano.R", ...} pezzi che seguono un osso solo.
@@ -152,6 +153,8 @@ def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli
     togli_dal_corpo: materiali del corpo da buttare (pelle nascosta sotto i vestiti).
     extra: ossa in più per i pezzi che si staccano dal corpo, {"lancia": ("mano.R", punto)} dove punto
     è un Vector o una lista di oggetti di cui prendere il centro (per esempio l'elsa del gladio).
+    quote: triangoli fissi per alcuni pezzi, {"Calzari*": 220} (quelli nati dalla pelle ad alta definizione
+    ne chiederebbero troppi); il resto del budget si divide tra gli altri.
     Ogni pezzo si decima per conto suo, così quelli sottili (l'asta della lancia) non spariscono.
     """
     OSSA[:] = list(OSSA_BASE)
@@ -193,7 +196,11 @@ def prepara(collezione, giunti, rigidi=None, escludi=None, triangoli=4000, togli
             bm.to_mesh(me)
             bm.free()
         copie.append((o, me))
-    budget = _budget([sum(len(p.vertices) - 2 for p in me.polygons) for _, me in copie], triangoli)
+    quote = quote or {}
+    fissi = [next((q for schema, q in quote.items() if fnmatch.fnmatch(o.name, schema)), None) for o, _ in copie]
+    liberi = [sum(len(p.vertices) - 2 for p in me.polygons) for (_, me), f in zip(copie, fissi) if f is None]
+    resto = iter(_budget(liberi, triangoli - sum(f for f in fissi if f)))
+    budget = [f if f is not None else next(resto) for f in fissi]
 
     bm = bmesh.new()
     deform = bm.verts.layers.deform.verify()
