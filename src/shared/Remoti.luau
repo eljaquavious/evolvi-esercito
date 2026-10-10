@@ -6,6 +6,7 @@ return {
 		"Notifica", -- server -> client: messaggio breve
 		"ApriShop", -- server -> client
 		"Fase", -- server -> client: lobby, mappa, piazzamento, battaglia, round, risultato
+		"Truppe", -- server -> client: soldati da disegnare (schieramento, inizio, passo, fine, pulisci)
 	},
 	Funzioni = {
 		"ChiediStato",

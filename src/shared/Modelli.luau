@@ -1,9 +1,10 @@
--- Modelli dei soldati e dei reggimenti, costruiti con parti semplici.
--- Condiviso: il server li usa sul campo, il client per i ritratti delle carte.
--- Ogni modello ha una parte "Radice" ancorata a terra; le altre sono saldate alla radice,
--- quindi basta muovere la radice. Il fronte del modello è la direzione -Z.
+-- Modelli dei soldati: quelli fatti in Blender (Shared/Mesh, con ossa) e, per le truppe che non li hanno
+-- ancora, figure costruite con parti semplici. Entrambi hanno le stesse "articolazioni" con i nomi delle
+-- ossa del gioco (bacino, torace, testa, braccio.R...), che il client anima con .Transform
+-- (Bone o Motor6D): a riposo sono orientate come il modello, quindi si ruota attorno agli assi del soldato.
+-- Il fronte del modello è la direzione -Z, la sua destra è +X. La parte "Radice" è ancorata a terra.
 
-local TweenService = game:GetService("TweenService")
+local Mesh = require(script.Parent.Mesh)
 
 local Modelli = {}
 
@@ -41,8 +42,77 @@ local function nuovaRadice(modello, cframe)
 	return radice
 end
 
--- Aggiunge una parte saldata a "base", posizionata con offset (in studs già scalati).
-local function parte(genitore, base, dimensione, offset, colore, forma, materiale)
+-- Figure a parti: ogni pezzo è saldato al segmento del corpo a cui appartiene; i segmenti sono uniti
+-- da Motor6D nei punti delle articolazioni (coordinate della figura prima della scala).
+local SCHELETRI = {
+	fante = {
+		{ "bacino", nil, Vector3.new(0, 1.45, 0) },
+		{ "torace", "bacino", Vector3.new(0, 1.5, 0) },
+		{ "testa", "torace", Vector3.new(0, 2.95, 0) },
+		{ "braccio.R", "torace", Vector3.new(0.93, 2.8, -0.1) },
+		{ "braccio.L", "torace", Vector3.new(-0.93, 2.8, -0.1) },
+		{ "coscia.R", "bacino", Vector3.new(0.32, 1.4, 0) },
+		{ "coscia.L", "bacino", Vector3.new(-0.32, 1.4, 0) },
+	},
+	cavallo = {
+		{ "bacino", nil, Vector3.new(0, 2.0, 0) },
+		{ "torace", "bacino", Vector3.new(0, 2.9, 0.2) },
+		{ "testa", "torace", Vector3.new(0, 4.1, 0.2) },
+		{ "braccio.R", "torace", Vector3.new(0.85, 3.9, 0.1) },
+		{ "braccio.L", "torace", Vector3.new(-0.85, 3.9, 0.1) },
+		{ "collo", "bacino", Vector3.new(0, 2.6, -1.3) },
+		{ "zampa.AR", "bacino", Vector3.new(0.45, 1.4, -1.1) },
+		{ "zampa.AL", "bacino", Vector3.new(-0.45, 1.4, -1.1) },
+		{ "zampa.PR", "bacino", Vector3.new(0.45, 1.4, 1.1) },
+		{ "zampa.PL", "bacino", Vector3.new(-0.45, 1.4, 1.1) },
+		{ "coda", "bacino", Vector3.new(0, 2.5, 1.5) },
+	},
+	carro = {
+		{ "bacino", nil, Vector3.new(0, 1.2, 0) },
+		{ "torretta", "bacino", Vector3.new(0, 1.9, 0.4) },
+	},
+	rigido = {
+		{ "bacino", nil, Vector3.new(0, 1, 0) },
+	},
+}
+
+-- Segmento di un pezzo, dalla posizione del suo centro.
+local CLASSIFICA = {
+	fante = function(x, y, _z)
+		if y < 1.45 and math.abs(x) < 0.75 then
+			return x > 0 and "coscia.R" or "coscia.L"
+		elseif math.abs(x) >= 0.75 and y >= 1.2 then
+			return x > 0 and "braccio.R" or "braccio.L"
+		elseif y >= 3.0 then
+			return "testa"
+		end
+		return "torace"
+	end,
+	cavallo = function(x, y, z)
+		if y < 1.45 and math.abs(x) < 0.8 then
+			return (z < 0 and "zampa.A" or "zampa.P") .. (x > 0 and "R" or "L")
+		elseif math.abs(x) >= 0.75 and y >= 2.9 then
+			return x > 0 and "braccio.R" or "braccio.L"
+		elseif y >= 4.2 then
+			return "testa"
+		elseif z < -1.2 and y > 2.5 then
+			return "collo"
+		elseif z > 1.5 then
+			return "coda"
+		elseif y >= 2.9 and z > -0.6 then
+			return "torace"
+		end
+		return "bacino"
+	end,
+	carro = function(_x, y, _z)
+		return y >= 1.9 and "torretta" or "bacino"
+	end,
+	rigido = function()
+		return "bacino"
+	end,
+}
+
+local function parteSemplice(genitore, dimensione, cframe, colore, forma, materiale)
 	local p = Instance.new("Part")
 	p.Size = dimensione
 	p.Color = colore
@@ -56,24 +126,52 @@ local function parte(genitore, base, dimensione, offset, colore, forma, material
 	p.Massless = true
 	p.Anchored = false
 	p.CastShadow = true
-	p.CFrame = base.CFrame * offset
-	local saldatura = Instance.new("WeldConstraint")
-	saldatura.Part0 = base
-	saldatura.Part1 = p
-	saldatura.Parent = p
+	p.CFrame = cframe
 	p.Parent = genitore
 	return p
 end
 
--- Costruttore di figure in scala: f(dimensione, x, y, z, colore, forma, materiale, rotazione)
-local function scalatore(genitore, base, origine, s)
-	return function(dimensione, x, y, z, colore, forma, materiale, rotazione)
-		local offset = origine * CFrame.new(x * s, y * s, z * s)
+-- Costruisce i segmenti e restituisce la funzione p(dimensione, x, y, z, colore, forma, materiale, rotazione)
+-- con cui le FIGURE aggiungono i pezzi, già saldati al segmento giusto.
+local function rig(modello, radice, tipoScheletro, s)
+	local segmenti, giunti = {}, {}
+	for _, voce in ipairs(SCHELETRI[tipoScheletro]) do
+		local nome, padre, perno = voce[1], voce[2], voce[3]
+		local seg = Instance.new("Part")
+		seg.Name = nome
+		seg.Size = Vector3.one * 0.1
+		seg.Transparency = 1
+		seg.CanCollide = false
+		seg.CanQuery = false
+		seg.CanTouch = false
+		seg.Massless = true
+		seg.CFrame = radice.CFrame * CFrame.new(perno * s)
+		seg.Parent = modello
+		local base = padre and segmenti[padre] or radice
+		local motore = Instance.new("Motor6D")
+		motore.Name = nome
+		motore.Part0 = base
+		motore.Part1 = seg
+		motore.C0 = base.CFrame:ToObjectSpace(seg.CFrame)
+		motore.Parent = seg
+		segmenti[nome] = seg
+		giunti[nome] = motore
+	end
+	local classifica = CLASSIFICA[tipoScheletro]
+	local function p(dimensione, x, y, z, colore, forma, materiale, rotazione)
+		local offset = CFrame.new(x * s, y * s, z * s)
 		if rotazione then
 			offset = offset * rotazione
 		end
-		return parte(genitore, base, dimensione * s, offset, colore, forma, materiale)
+		local seg = segmenti[classifica(x, y, z)]
+		local pezzo = parteSemplice(modello, dimensione * s, radice.CFrame * offset, colore, forma, materiale)
+		local saldatura = Instance.new("WeldConstraint")
+		saldatura.Part0 = seg
+		saldatura.Part1 = pezzo
+		saldatura.Parent = pezzo
+		return pezzo
 	end
+	return p, giunti, segmenti
 end
 
 -- Corpo umano base: gambe, busto, braccia, testa. altezza sposta tutto in su (per i cavalieri).
@@ -361,168 +459,103 @@ function FIGURE.FortezzaNovecento(p, colore)
 	p(Vector3.new(0.08, 1.2, 1.8), 2.8, 6.4, 3.3, colore, nil, Enum.Material.Fabric)
 end
 
--- Formazioni: posizioni dei soldati nel reggimento (in studs, la casella è larga 10).
-local FORMAZIONI = {
-	[1] = { Vector3.new(0, 0, 0) },
-	[3] = { Vector3.new(-3, 0, 0), Vector3.new(0, 0, 0.4), Vector3.new(3, 0, 0) },
-	[5] = { Vector3.new(-3, 0, -1.6), Vector3.new(0, 0, -1.6), Vector3.new(3, 0, -1.6), Vector3.new(-1.5, 0, 1.8), Vector3.new(1.5, 0, 1.8) },
+-- Come è fatto ogni tipo. scheletro = articolazioni delle figure a parti; scala = studs per unità della
+-- figura a parti; metri = studs per metro dei modelli Blender. Le truppe sono un po' più basse del
+-- giocatore (circa 4 studs contro 5), i comandanti più grandi delle truppe.
+local TIPI = {
+	Legionario = { scheletro = "fante", scala = 1.0, metri = 2.34 },
+	ArciereCretese = { scheletro = "fante", scala = 1.0, metri = 2.34 },
+	Compagno = { scheletro = "cavallo", scala = 1.0, metri = 2.34 },
+	Spadaccino = { scheletro = "fante", scala = 1.0, metri = 2.34 },
+	Arciere = { scheletro = "fante", scala = 1.0, metri = 2.34 },
+	Cavaliere = { scheletro = "cavallo", scala = 1.0, metri = 2.34 },
+	Fante = { scheletro = "fante", scala = 1.0, metri = 2.34 },
+	Mitragliere = { scheletro = "rigido", scala = 1.0, metri = 2.34 },
+	CarroArmato = { scheletro = "carro", scala = 1.7, metri = 2.34 },
+	Annibale = { scheletro = "cavallo", scala = 1.2, metri = 2.8 },
+	Cesare = { scheletro = "fante", scala = 1.2, metri = 2.8 },
+	Guglielmo = { scheletro = "cavallo", scala = 1.2, metri = 2.8 },
+	Giovanna = { scheletro = "fante", scala = 1.2, metri = 2.8 },
+	Foch = { scheletro = "fante", scala = 1.2, metri = 2.8 },
+	DeGaulle = { scheletro = "fante", scala = 1.2, metri = 2.8 },
+	FortezzaAntica = { scheletro = "rigido", scala = 2.3, metri = 2.34 },
+	FortezzaMedievale = { scheletro = "rigido", scala = 2.3, metri = 2.34 },
+	FortezzaNovecento = { scheletro = "rigido", scala = 2.3, metri = 2.34 },
 }
-local function formazione(numero)
-	if FORMAZIONI[numero] then
-		return FORMAZIONI[numero]
-	end
-	local lista = {}
-	local perRiga = math.ceil(numero / 2)
-	for i = 0, numero - 1 do
-		local colonna, riga = i % perRiga, math.floor(i / perRiga)
-		table.insert(lista, Vector3.new((colonna - (perRiga - 1) / 2) * 2.1, 0, (riga - 0.5) * 2.6 + (colonna % 2) * 0.3))
-	end
-	return lista
+
+-- Cerchio a terra del colore della squadra (oro per i comandanti), per riconoscere i soldati da lontano.
+local function cerchio(modello, radice, diametro, colore, comandante)
+	local disco = Instance.new("Part")
+	disco.Name = "Cerchio"
+	disco.Shape = Enum.PartType.Cylinder
+	disco.Size = Vector3.new(0.12, diametro, diametro)
+	disco.CFrame = radice.CFrame * CFrame.new(0, 0.08, 0) * CFrame.Angles(0, 0, math.rad(90))
+	disco.Color = comandante and Color3.fromRGB(255, 200, 70) or colore
+	disco.Material = Enum.Material.Neon
+	disco.Transparency = 0.55
+	disco.CanCollide = false
+	disco.CanQuery = false
+	disco.CanTouch = false
+	disco.CastShadow = false
+	disco.Massless = true
+	disco.Anchored = false
+	local saldatura = Instance.new("WeldConstraint")
+	saldatura.Part0 = radice
+	saldatura.Part1 = disco
+	saldatura.Parent = disco
+	disco.Parent = modello
+	return disco
 end
 
--- Scala dei soldati nel reggimento: alti più o meno come l'avatar del giocatore, che cammina tra loro.
-local SCALE = {
-	Spadaccino = 1.13,
-	Arciere = 1.13,
-	Cavaliere = 1.1,
-	Fante = 1.13,
-	Mitragliere = 1.17,
-	CarroArmato = 1.93,
-	Legionario = 1.13,
-	ArciereCretese = 1.13,
-	Compagno = 1.1,
-	Annibale = 1.59,
-	Cesare = 1.66,
-	Guglielmo = 1.59,
-	Giovanna = 1.66,
-	Foch = 1.66,
-	DeGaulle = 1.66,
-	FortezzaAntica = 1.5,
-	FortezzaMedievale = 1.5,
-	FortezzaNovecento = 1.5,
-}
--- Le formazioni sono pensate per la scala 0.62 e caselle da 10: con soldati e caselle più grandi si allargano.
-local ALLARGAMENTO = 1.85
-
-local function figura(genitore, base, tipo, colore, origine, s)
-	local p = scalatore(genitore, base, origine, s)
-	local costruttore = FIGURE[tipo] or FIGURE.Spadaccino
-	costruttore(p, colore)
-end
-
--- Un solo soldato in un modello, per i ritratti delle carte.
-function Modelli.soldato(tipo, squadra)
+-- Un soldato pronto da animare, con i piedi in "cframe" (default: origine).
+-- opzioni: { cerchio = diametro in studs (nil = niente cerchio), comandante = bool }
+-- Restituisce il modello e una tabella { giunti = { nome -> Bone | Motor6D }, mesh = bool, radice }.
+function Modelli.crea(tipo, squadra, cframe, opzioni)
+	opzioni = opzioni or {}
+	cframe = cframe or CFrame.new()
+	local info = TIPI[tipo] or TIPI.Spadaccino
 	local modello = Instance.new("Model")
 	modello.Name = tipo
-	local radice = nuovaRadice(modello, CFrame.new())
-	figura(modello, radice, tipo, Modelli.COLORI_SQUADRA[squadra or "giocatore"], CFrame.new(), 1)
-	local anello = modello:FindFirstChild("Anello")
-	if anello then
-		anello:Destroy()
-	end
-	return modello
-end
-
-local function barraVita(radice, colore, numero)
-	local gui = Instance.new("BillboardGui")
-	gui.Name = "Vita"
-	gui.Size = UDim2.fromOffset(70, 16)
-	gui.StudsOffset = Vector3.new(0, 9.5, 0)
-	gui.AlwaysOnTop = true
-	gui.LightInfluence = 0
-	gui.MaxDistance = 400
-
-	local sfondo = Instance.new("Frame")
-	sfondo.Name = "Sfondo"
-	sfondo.AnchorPoint = Vector2.new(0, 0.5)
-	sfondo.Position = UDim2.new(0, 18, 0.5, 0)
-	sfondo.Size = UDim2.new(1, -18, 0, 7)
-	sfondo.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
-	sfondo.BorderSizePixel = 0
-	sfondo.Parent = gui
-	Instance.new("UICorner", sfondo).CornerRadius = UDim.new(1, 0)
-
-	local riempimento = Instance.new("Frame")
-	riempimento.Name = "Riempimento"
-	riempimento.Size = UDim2.fromScale(1, 1)
-	riempimento.BackgroundColor3 = colore
-	riempimento.BorderSizePixel = 0
-	riempimento.Parent = sfondo
-	Instance.new("UICorner", riempimento).CornerRadius = UDim.new(1, 0)
-
-	local conteggio = Instance.new("TextLabel")
-	conteggio.Name = "Conteggio"
-	conteggio.Size = UDim2.new(0, 16, 1, 0)
-	conteggio.BackgroundColor3 = colore
-	conteggio.BorderSizePixel = 0
-	conteggio.Text = tostring(numero)
-	conteggio.TextColor3 = Color3.new(1, 1, 1)
-	conteggio.TextScaled = true
-	conteggio.Font = Enum.Font.GothamBlack
-	conteggio.Parent = gui
-	Instance.new("UICorner", conteggio).CornerRadius = UDim.new(0, 4)
-
-	gui.Parent = radice
-end
-
--- Un reggimento intero: i soldati in formazione attorno al punto a terra "cframe".
-function Modelli.reggimento(def, squadra, cframe)
-	local modello = Instance.new("Model")
-	modello.Name = def.id
 	local radice = nuovaRadice(modello, cframe)
-	local colore = Modelli.COLORI_SQUADRA[squadra]
-	local scala = SCALE[def.id] or 1.13
-	for i, posizione in ipairs(formazione(def.soldati)) do
-		local soldato = Instance.new("Model")
-		soldato.Name = "Soldato" .. i
-		local origine = CFrame.new(posizione * ALLARGAMENTO) * CFrame.Angles(0, math.rad((i * 37) % 11 - 5), 0)
-		figura(soldato, radice, def.id, colore, origine, scala)
-		soldato.Parent = modello
-	end
-	barraVita(radice, colore, def.soldati)
-	modello:SetAttribute("Squadra", squadra)
-	modello:SetAttribute("Soldati", def.soldati)
-	return modello
-end
-
-local function abbatti(soldato)
-	for _, p in ipairs(soldato:GetDescendants()) do
-		if p:IsA("BasePart") then
-			local saldatura = p:FindFirstChildWhichIsA("WeldConstraint")
-			if saldatura then
-				saldatura:Destroy()
+	local colore = Modelli.COLORI_SQUADRA[squadra or "giocatore"]
+	local giunti, conMesh = {}, false
+	if Mesh.disponibile(tipo) then
+		local parte, centro = Mesh.copia(tipo, info.metri)
+		if parte then
+			parte.CFrame = cframe * CFrame.new(centro)
+			local saldatura = Instance.new("WeldConstraint")
+			saldatura.Part0 = radice
+			saldatura.Part1 = parte
+			saldatura.Parent = parte
+			parte.Parent = modello
+			for _, osso in ipairs(parte:GetDescendants()) do
+				if osso:IsA("Bone") then
+					giunti[osso.Name] = osso
+				end
 			end
-			p.Anchored = true
-			TweenService:Create(p, TweenInfo.new(0.5), {
-				CFrame = p.CFrame * CFrame.new(0, -0.6, 0) * CFrame.Angles(math.rad(70), 0, 0),
-				Transparency = 1,
-			}):Play()
+			conMesh = true
 		end
 	end
-	task.delay(0.6, function()
-		soldato:Destroy()
-	end)
+	if not conMesh then
+		local p, g = rig(modello, radice, info.scheletro, info.scala)
+		giunti = g
+		local costruttore = FIGURE[tipo] or FIGURE.Spadaccino
+		costruttore(p, colore)
+		local anello = modello:FindFirstChild("Anello")
+		if anello then
+			anello:Destroy()
+		end
+	end
+	if opzioni.cerchio then
+		cerchio(modello, radice, opzioni.cerchio, colore, opzioni.comandante)
+	end
+	modello:SetAttribute("Squadra", squadra)
+	return modello, { giunti = giunti, mesh = conMesh, radice = radice }
 end
 
--- Aggiorna barra e soldati visibili in base alla vita rimasta (0-1).
-function Modelli.aggiornaVita(modello, frazione)
-	frazione = math.clamp(frazione, 0, 1)
-	local radice = modello.PrimaryPart
-	local gui = radice and radice:FindFirstChild("Vita")
-	local totale = modello:GetAttribute("Soldati") or 1
-	local vivi = frazione <= 0 and 0 or math.max(1, math.ceil(totale * frazione))
-	if gui then
-		gui.Sfondo.Riempimento.Size = UDim2.fromScale(frazione, 1)
-		gui.Conteggio.Text = tostring(vivi)
-	end
-	-- Rimuove i soldati in eccesso partendo dal fondo della formazione.
-	for i = totale, vivi + 1, -1 do
-		local soldato = modello:FindFirstChild("Soldato" .. i)
-		if soldato and not soldato:GetAttribute("Caduto") then
-			soldato:SetAttribute("Caduto", true)
-			abbatti(soldato)
-		end
-	end
+-- Un solo soldato fermo, per i ritratti delle carte e le icone.
+function Modelli.soldato(tipo, squadra)
+	return (Modelli.crea(tipo, squadra))
 end
 
 return Modelli

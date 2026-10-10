@@ -2,12 +2,9 @@
 -- automatiche, assedio della fortezza nemica sul match point, stelle e ricompense.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
-local Debris = game:GetService("Debris")
 
 local Shared = ReplicatedStorage.Shared
 local Battaglia = require(Shared.Battaglia)
-local Modelli = require(Shared.Modelli)
 local Campagna = require(Shared.Config.Campagna)
 local Epoche = require(Shared.Config.Epoche)
 local Progressi = require(Shared.Config.Progressi)
@@ -25,10 +22,6 @@ local PAUSA_TRA_ROUND = 2.8
 
 local sessioni = {}
 local remoti
-
-local effetti = Instance.new("Folder")
-effetti.Name = "Effetti"
-effetti.Parent = workspace
 
 -- destinazione: Vector3 o CFrame (che dice anche dove guardare).
 local function teletrasporta(player, destinazione, blocca)
@@ -53,6 +46,9 @@ local function chiudiSessione(player)
 		Arena.distruggi(sessione.arena)
 	end
 	sessioni[player] = nil
+	if player.Parent then
+		remoti.Truppe:FireClient(player, { tipo = "pulisci" })
+	end
 end
 
 -- Indici del mazzo già sul campo, come lista (le tabelle sparse non passano bene tra server e client).
@@ -64,11 +60,19 @@ local function usate(sessione)
 	return lista
 end
 
-local function modelloGiocatore(sessione, tipo, col, riga)
-	local posizione = Arena.posizione(sessione.arena, col, riga)
-	local modello = Modelli.reggimento(Epoche.Truppe[tipo], "giocatore", CFrame.lookAt(posizione, posizione + Vector3.zAxis))
-	modello.Parent = sessione.arena.truppe
-	return modello
+-- Il client disegna i reggimenti piazzati: gli si manda la lista ogni volta che cambia.
+local function inviaSchieramento(player, sessione)
+	local reggimenti = {}
+	for _, piazzata in pairs(sessione.piazzate) do
+		table.insert(reggimenti, { tipo = piazzata.tipo, col = piazzata.col, riga = piazzata.riga })
+	end
+	remoti.Truppe:FireClient(player, {
+		tipo = "schieramento",
+		origine = sessione.arena.origine,
+		colonne = Arena.COLONNE,
+		righe = Arena.RIGHE,
+		reggimenti = reggimenti,
+	})
 end
 
 -- Inizio di un round: rimette i reggimenti dove erano nel round prima e manda al client il resoconto degli esploratori.
@@ -77,9 +81,7 @@ local function inizioRound(player, sessione)
 	sessione.fase = "piazzamento"
 	sessione.assedio = sessione.vinti == Campagna.ROUND_PER_VINCERE - 1 and sessione.persi < Campagna.ROUND_PER_VINCERE - 1
 	sessione.armata = Campagna.armata(livello, sessione.round, sessione.assedio)
-	for _, piazzata in pairs(sessione.piazzate) do
-		piazzata.modello = modelloGiocatore(sessione, piazzata.tipo, piazzata.col, piazzata.riga)
-	end
+	inviaSchieramento(player, sessione)
 	Arena.mostraCaselle(sessione.arena, true)
 	local esploratori = {}
 	for _, nemico in ipairs(sessione.armata) do
@@ -140,7 +142,7 @@ function GestoreCampagna.avvia(player, numero)
 		fase = "costruzione",
 		livello = livello,
 		mazzo = table.clone(dati.mazzo),
-		piazzate = {}, -- ["col,riga"] = { indice, tipo, modello, col, riga }
+		piazzate = {}, -- ["col,riga"] = { indice, tipo, col, riga }
 		usate = {}, -- indice del mazzo -> chiave della casella
 		numero = 0,
 		round = 1,
@@ -182,10 +184,10 @@ function GestoreCampagna.casella(player, indice, col, riga)
 	local chiave = col .. "," .. riga
 	local occupata = sessione.piazzate[chiave]
 	if occupata then
-		occupata.modello:Destroy()
 		sessione.piazzate[chiave] = nil
 		sessione.usate[occupata.indice] = nil
 		sessione.numero -= 1
+		inviaSchieramento(player, sessione)
 		return true, nil, usate(sessione)
 	end
 	if typeof(indice) ~= "number" or not sessione.mazzo[indice] then
@@ -198,168 +200,73 @@ function GestoreCampagna.casella(player, indice, col, riga)
 		return false, "Maximum " .. sessione.livello.maxReggimenti .. " regiments in this battle."
 	end
 	local tipo = sessione.mazzo[indice]
-	sessione.piazzate[chiave] = { indice = indice, tipo = tipo, modello = modelloGiocatore(sessione, tipo, col, riga), col = col, riga = riga }
+	sessione.piazzate[chiave] = { indice = indice, tipo = tipo, col = col, riga = riga }
 	sessione.usate[indice] = chiave
 	sessione.numero += 1
+	inviaSchieramento(player, sessione)
 	return true, nil, usate(sessione)
 end
 
--- Effetti visivi ----------------------------------------------------------
-
-local function parteEffetto(proprieta)
-	local p = Instance.new("Part")
-	p.Anchored = true
-	p.CanCollide = false
-	p.CanQuery = false
-	p.CanTouch = false
-	p.CastShadow = false
-	p.Material = Enum.Material.Neon
-	for k, v in pairs(proprieta) do
-		p[k] = v
-	end
-	p.Parent = effetti
-	return p
-end
-
-local function proiettile(da, a, dimensione, colore, durata)
-	local p = parteEffetto({
-		Size = dimensione,
-		Color = colore,
-		CFrame = CFrame.lookAt(da, a),
-	})
-	TweenService:Create(p, TweenInfo.new(durata, Enum.EasingStyle.Linear), { CFrame = CFrame.lookAt(a, a + (a - da)) }):Play()
-	Debris:AddItem(p, durata + 0.05)
-end
-
-local function scintille(posizione, colore)
-	for _ = 1, 4 do
-		local p = parteEffetto({
-			Size = Vector3.new(0.25, 0.25, 0.25),
-			Color = colore,
-			Position = posizione,
-		})
-		local direzione = Vector3.new(math.random() - 0.5, math.random() * 0.8, math.random() - 0.5).Unit * 2.5
-		TweenService:Create(p, TweenInfo.new(0.25), { Position = posizione + direzione, Transparency = 1 }):Play()
-		Debris:AddItem(p, 0.3)
-	end
-end
-
-local function esplosione(posizione)
-	local e = Instance.new("Explosion")
-	e.Position = posizione
-	e.BlastRadius = 5
-	e.BlastPressure = 0
-	e.DestroyJointRadiusPercent = 0
-	e.ExplosionType = Enum.ExplosionType.NoCraters
-	e.Parent = effetti
-end
-
-local function scritta(posizione, testo, colore, grande)
-	local ancora = parteEffetto({ Size = Vector3.one * 0.2, Transparency = 1, Position = posizione })
-	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.fromOffset(grande and 160 or 70, grande and 40 or 26)
-	gui.AlwaysOnTop = true
-	gui.LightInfluence = 0
-	gui.Parent = ancora
-	local etichetta = Instance.new("TextLabel")
-	etichetta.Size = UDim2.fromScale(1, 1)
-	etichetta.BackgroundTransparency = 1
-	etichetta.Text = testo
-	etichetta.TextColor3 = colore
-	etichetta.TextScaled = true
-	etichetta.Font = Enum.Font.LuckiestGuy
-	etichetta.TextStrokeTransparency = 0.2
-	etichetta.Parent = gui
-	TweenService:Create(ancora, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = posizione + Vector3.new(0, 4, 0) }):Play()
-	TweenService:Create(etichetta, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
-	Debris:AddItem(ancora, 1)
-end
-
--- Raffica di frecce ad arco: più frecce sparse attorno al bersaglio.
-local function frecce(da, a, numero)
-	for i = 1, numero do
-		local scarto = Vector3.new(math.random() * 3 - 1.5, 0, math.random() * 3 - 1.5)
-		local partenza = da + Vector3.new(math.random() * 2 - 1, 0, 0)
-		task.delay((i - 1) * 0.06, proiettile, partenza, a + scarto, Vector3.new(0.22, 0.22, 2.8), Color3.fromRGB(240, 220, 170), 0.4)
-	end
-end
-
-local function sparo(da, a)
-	proiettile(da, a, Vector3.new(0.12, 0.12, 3), Color3.fromRGB(255, 230, 140), 0.12)
-end
-
-local function raffica(da, a)
-	for i = 0, 2 do
-		task.delay(i * 0.07, proiettile, da, a + Vector3.new(math.random() - 0.5, 0, math.random() - 0.5), Vector3.new(0.12, 0.12, 2.5), Color3.fromRGB(255, 220, 120), 0.1)
-	end
-end
-
-local COLPI = {
-	Arciere = function(da, a)
-		frecce(da, a, 4)
-	end,
-	ArciereCretese = function(da, a)
-		frecce(da, a, 4)
-	end,
-	FortezzaAntica = function(da, a)
-		frecce(da + Vector3.new(0, 4, 0), a, 3)
-	end,
-	FortezzaMedievale = function(da, a)
-		frecce(da + Vector3.new(0, 5, 0), a, 4)
-	end,
-	FortezzaNovecento = raffica,
-	Fante = sparo,
-	Foch = sparo,
-	DeGaulle = sparo,
-	Mitragliere = raffica,
-	CarroArmato = function(da, a)
-		proiettile(da, a, Vector3.new(0.6, 0.6, 1.2), Color3.fromRGB(255, 160, 60), 0.2)
-		task.delay(0.2, esplosione, a)
-	end,
-}
-
-local function mostraAttacco(arena, evento, attaccante, bersaglio)
-	local altezza = Vector3.new(0, 2.6, 0)
-	local da = Arena.posizione(arena, attaccante.x, attaccante.y) + altezza
-	local a = Arena.posizione(arena, bersaglio.x, bersaglio.y) + altezza
-	local colpo = COLPI[attaccante.def.id]
-	if colpo and evento.distanza then
-		colpo(da, a)
-	else
-		scintille(da:Lerp(a, 0.6), Color3.fromRGB(255, 240, 200))
-	end
-	if evento.carica then
-		scritta(a + Vector3.new(0, 4, 0), "CHARGE!", Color3.fromRGB(255, 200, 60), true)
-	end
-	local colore = bersaglio.squadra == "giocatore" and Color3.fromRGB(255, 120, 120) or Color3.fromRGB(255, 255, 255)
-	scritta(a + Vector3.new(math.random() * 2 - 1, 3, 0), "-" .. math.floor(evento.danno + 0.5), colore, false)
-end
-
 -- Battaglia ----------------------------------------------------------------
+
+-- Posizioni dei soldati vivi per il client: id (u16), x e y in millesimi di casella (u16), angolo (u8).
+local function posizioni(battaglia)
+	local vivi = {}
+	for _, s in ipairs(battaglia.soldati) do
+		if s.vivo then
+			table.insert(vivi, s)
+		end
+	end
+	local b = buffer.create(2 + #vivi * 7)
+	buffer.writeu16(b, 0, #vivi)
+	for i, s in ipairs(vivi) do
+		local o = 2 + (i - 1) * 7
+		buffer.writeu16(b, o, s.id)
+		buffer.writeu16(b, o + 2, math.clamp(math.floor(s.x * 1000 + 0.5), 0, 65535))
+		buffer.writeu16(b, o + 4, math.clamp(math.floor(s.y * 1000 + 0.5), 0, 65535))
+		buffer.writeu8(b, o + 6, math.floor((s.rivolto % (2 * math.pi)) / (2 * math.pi) * 256) % 256)
+	end
+	return b
+end
+
+-- Eventi della simulazione ridotti a quello che serve al client per animarli.
+local function eventiPerClient(eventi)
+	local lista = {}
+	for _, e in ipairs(eventi) do
+		if e.tipo == "attacco" then
+			table.insert(lista, { tipo = "attacco", da = e.da, a = e.a, colpo = e.colpo, gesto = e.gesto, ritardo = e.ritardo, carica = e.carica or nil })
+		elseif e.tipo == "colpo" then
+			local area = nil
+			if #e.area > 0 then
+				area = {}
+				for _, v in ipairs(e.area) do
+					table.insert(area, { id = v.id, danno = v.danno })
+				end
+			end
+			table.insert(lista, { tipo = "colpo", a = e.a, danno = e.danno, area = area })
+		elseif e.tipo == "morte" then
+			table.insert(lista, { tipo = "morte", id = e.id })
+		end
+	end
+	return lista
+end
 
 -- Combatte un round; restituisce true se l'ha vinto il giocatore (nil se la sessione è stata chiusa).
 local function combattiRound(player, sessione)
 	local livello = sessione.livello
 	local arena = sessione.arena
-	local unita, modelli = {}, {}
+	local reggimenti = {}
 
 	local id = 0
 	for _, piazzata in pairs(sessione.piazzate) do
 		id += 1
-		table.insert(unita, { id = id, squadra = "giocatore", def = Epoche.Truppe[piazzata.tipo], x = piazzata.col, y = piazzata.riga })
-		modelli[id] = piazzata.modello
+		table.insert(reggimenti, { id = id, squadra = "giocatore", def = Epoche.Truppe[piazzata.tipo], x = piazzata.col, y = piazzata.riga })
 	end
 	for i, nemico in ipairs(sessione.armata) do
-		local idNemico = 100 + i
-		local def = Epoche.Truppe[nemico.tipo]
-		local posizione = Arena.posizione(arena, nemico.col, nemico.riga)
-		local modello = Modelli.reggimento(def, "nemico", CFrame.lookAt(posizione, posizione - Vector3.zAxis))
-		modello.Parent = arena.truppe
-		modelli[idNemico] = modello
-		table.insert(unita, {
-			id = idNemico,
+		table.insert(reggimenti, {
+			id = 100 + i,
 			squadra = "nemico",
-			def = def,
+			def = Epoche.Truppe[nemico.tipo],
 			x = nemico.col,
 			y = nemico.riga,
 			forza = Campagna.forza(livello, sessione.round, nemico.tipo),
@@ -375,66 +282,38 @@ local function combattiRound(player, sessione)
 		end
 	end
 
+	local battaglia = Battaglia.nuova(reggimenti, { colonne = Arena.COLONNE, righe = Arena.RIGHE, ostacoli = ostacoli, terreno = terreno })
+	local elenco = {}
+	for _, s in ipairs(battaglia.soldati) do
+		table.insert(elenco, { id = s.id, tipo = s.def.id, squadra = s.squadra, x = s.x, y = s.y, hp = s.hpMax })
+	end
 	Arena.mostraCaselle(arena, false)
+	remoti.Truppe:FireClient(player, {
+		tipo = "inizio",
+		origine = arena.origine,
+		colonne = Arena.COLONNE,
+		righe = Arena.RIGHE,
+		velocita = VELOCITA_BATTAGLIA,
+		soldati = elenco,
+	})
 	remoti.Fase:FireClient(player, { fase = "battaglia", conto = 3, assedio = sessione.assedio })
 	task.wait(3.2) -- conto alla rovescia sul client, intanto si vede lo schieramento nemico
 	if not sessione.attiva then
 		return nil
 	end
 
-	local battaglia = Battaglia.nuova(unita, { colonne = Arena.COLONNE, righe = Arena.RIGHE, ostacoli = ostacoli, terreno = terreno })
-	local perId = {}
-	for _, u in ipairs(battaglia.unita) do
-		perId[u.id] = u
-	end
-
 	while sessione.attiva and not battaglia.finita do
 		local eventi = battaglia:passo(TICK * VELOCITA_BATTAGLIA)
-		for _, u in ipairs(battaglia.unita) do
-			local modello = modelli[u.id]
-			-- Le fortezze non si muovono e non si girano.
-			if u.vivo and modello and modello.PrimaryPart and not u.def.fortezza then
-				local posizione = Arena.posizione(arena, u.x, u.y)
-				local guarda = posizione + (u.squadra == "giocatore" and Vector3.zAxis or -Vector3.zAxis)
-				if u.bersaglio then
-					guarda = Arena.posizione(arena, u.bersaglio.x, u.bersaglio.y)
-				end
-				local cframe = CFrame.lookAt(posizione, Vector3.new(guarda.X, posizione.Y, guarda.Z))
-				TweenService:Create(modello.PrimaryPart, TweenInfo.new(TICK, Enum.EasingStyle.Linear), { CFrame = cframe }):Play()
-			end
-		end
-		for _, evento in ipairs(eventi) do
-			if evento.tipo == "attacco" then
-				local attaccante, bersaglio = perId[evento.da], perId[evento.a]
-				mostraAttacco(arena, evento, attaccante, bersaglio)
-				local colpiti = { evento.a }
-				for _, v in ipairs(evento.area) do
-					table.insert(colpiti, v.id)
-				end
-				for _, colpito in ipairs(colpiti) do
-					local u = perId[colpito]
-					if modelli[colpito] then
-						Modelli.aggiornaVita(modelli[colpito], u.hp / u.hpMax)
-					end
-				end
-			elseif evento.tipo == "morte" then
-				local modello = modelli[evento.id]
-				if modello then
-					Modelli.aggiornaVita(modello, 0)
-					Debris:AddItem(modello, 0.8)
-					modelli[evento.id] = nil
-				end
-			end
-		end
+		remoti.Truppe:FireClient(player, { tipo = "passo", posizioni = posizioni(battaglia), eventi = eventiPerClient(eventi) })
 		task.wait(TICK)
 	end
 	if not sessione.attiva then
 		return nil
 	end
 
-	for _, u in ipairs(battaglia.unita) do
-		if not u.vivo then
-			if u.squadra == "nemico" then
+	for _, r in ipairs(battaglia.reggimenti) do
+		if not r.vivo then
+			if r.squadra == "nemico" then
 				sessione.sconfitti += 1
 			else
 				sessione.caduti += 1
@@ -443,12 +322,7 @@ local function combattiRound(player, sessione)
 	end
 	-- Il campo si svuota: i reggimenti tornano al loro posto all'inizio del prossimo round.
 	task.wait(1)
-	for _, modello in pairs(modelli) do
-		modello:Destroy()
-	end
-	for _, piazzata in pairs(sessione.piazzate) do
-		piazzata.modello = nil
-	end
+	remoti.Truppe:FireClient(player, { tipo = "fine" })
 	return battaglia.vincitore == "giocatore"
 end
 
