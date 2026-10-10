@@ -32,8 +32,8 @@ U = None
 
 
 def materiali(u):
-    u.materiale("Acciaio", (0.66, 0.67, 0.70), metallo=1.0, ruvidita=0.34)
-    u.materiale("AcciaioScuro", (0.40, 0.41, 0.43), metallo=1.0, ruvidita=0.4)
+    u.materiale("Acciaio", (0.54, 0.555, 0.59), metallo=1.0, ruvidita=0.34)
+    u.materiale("AcciaioScuro", (0.30, 0.31, 0.33), metallo=1.0, ruvidita=0.4)
     u.materiale("Ottone", (0.80, 0.60, 0.26), metallo=1.0, ruvidita=0.35)
     u.materiale("Cuoio", (0.22, 0.11, 0.05), ruvidita=0.6)
     u.materiale("Suola", (0.07, 0.04, 0.02), ruvidita=0.8)
