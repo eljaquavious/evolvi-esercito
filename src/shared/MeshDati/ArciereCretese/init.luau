@@ -1,9 +1,9 @@
 -- Generato da tools/converti_mesh.py dal modello Blender: non modificare a mano.
--- 5957 vertici, 4711 triangoli, texture 256x256. Misure in metri, assi di Roblox.
+-- 5960 vertici, 4592 triangoli, texture 256x256. Misure in metri, assi di Roblox.
 return {
 	versione = 1,
-	minimo = { -0.35290, -0.01000, -0.25688 },
-	massimo = { 0.41428, 1.75079, 0.36122 },
+	minimo = { -0.35290, -0.01593, -0.25688 },
+	massimo = { 0.41259, 1.74995, 0.36122 },
 	ossa = {
 		{ nome = "bacino", padre = nil, posizione = { 0.00000, 0.93000, 0.02000 } },
 		{ nome = "spina", padre = "bacino", posizione = { 0.00000, 1.06000, 0.02000 } },
@@ -23,9 +23,9 @@ return {
 		{ nome = "piede.R", padre = "stinco.R", posizione = { 0.14436, 0.08185, 0.06500 } },
 		{ nome = "arco", padre = "mano.L", posizione = { -0.25500, 1.00000, -0.23500 } },
 	},
-	vertici = 5957,
-	triangoli = 4711,
-	lunghezzaGeometria = 153371,
+	vertici = 5960,
+	triangoli = 4592,
+	lunghezzaGeometria = 152720,
 	geometria = require(script.Geometria),
 	lato = 256,
 	lunghezzaTexture = 196608,
