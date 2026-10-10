@@ -310,7 +310,7 @@ def costruisci():
     return {"oggetti": len(u.col.objects), "triangoli": triangoli}
 
 
-def esporta(triangoli=4200, lato=512):
+def esporta(triangoli=4600, lato=512):
     """Versione da gioco (dopo costruisci())."""
     import esporta as E
     r = E.prepara(NOME, U.giunti,
@@ -318,7 +318,7 @@ def esporta(triangoli=4200, lato=512):
                           "Occhio*": "testa", "Benda*": "testa"},
                   escludi=["Calzari", "Calzari.0*", "Calzari_Lacci*", "Faretra_Fasce*", "Tunica_Orlo*"],
                   quote={"Calzari*": 240, "Occhio*": 60, "Tunica.*": 420, "Tunica": 420, "Tunica_Maniche*": 260,
-                         "Faretra_Corpo*": 90, "Arco_Legno*": 120},
+                         "Faretra_Corpo*": 90, "Arco_Legno*": 792, "Arco_Corno*": 120},
                   togli_dal_corpo=[SIGLA + "_Nascosta"], triangoli=triangoli, corpo=U.corpo.name,
                   extra={"arco": ("mano.L", IMPUGNATURA)})
     E.cuoci(lato=lato)
