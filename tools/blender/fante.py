@@ -117,15 +117,15 @@ def equipaggiamento(u):
                 z = 1.44 - t * 0.42
                 x = s * (0.10 + 0.02 * t)
                 d = Vector((x, lato_y * 0.12, 0)).normalized()
-                punti.append(u.sulla_pelle(Vector((0, 0, z)), d, 0.048, 0.35))
+                punti.append(u.sulla_pelle(Vector((0, 0, z)), d, 0.058, 0.35))
                 normali.append(d)
             pezzi.append(V.striscia(punti, normali, 0.03))
     u.oggetto("Bretelle", V.unisci(*pezzi), "Cuoio", spessore=0.003)
     # Tascapane (musette) al fianco sinistro e borraccia al destro, appesi al cinturone, un po' indietro.
-    p = u.sulla_pelle(Vector((0, 0, 0.88)), Vector((0.8, 0.45, 0)).normalized(), 0.09, 0.4)
+    p = u.sulla_pelle(Vector((0, 0, 0.88)), Vector((0.8, 0.45, 0)).normalized(), 0.14, 0.4)
     u.oggetto("Tascapane", V.scatola(p, (0.06, 0.24, 0.20), Matrix.Rotation(math.radians(-30), 4, "Z")), "Tela",
               suddividi=1)
-    p = u.sulla_pelle(Vector((0, 0, 0.88)), Vector((-0.7, 0.6, 0)).normalized(), 0.09, 0.4)
+    p = u.sulla_pelle(Vector((0, 0, 0.88)), Vector((-0.7, 0.6, 0)).normalized(), 0.15, 0.4)
     u.oggetto("Borraccia", V.sfera(p, (0.05, 0.08, 0.11), 14, 8, Matrix.Rotation(math.radians(40), 4, "Z")), "BluScuro")
 
 
