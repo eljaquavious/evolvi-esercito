@@ -495,6 +495,8 @@ def calzature(u, nome, mat, mat_suola, taglio=0.115, inclinazione=0.25, distacco
     bm.normal_update()
     for f in bm.faces:
         f.material_index = 1 if f.normal.z < -0.55 or f.calc_center_median().z < 0.012 else 0
+    # Copre il piede: la pelle sotto la scarpa si nasconde (le normali di bm guardano fuori dal piede).
+    u.coperti.append(BVHTree.FromBMesh(bm))
     me = bpy.data.meshes.new(nome)
     bm.to_mesh(me)
     bm.free()

@@ -51,8 +51,8 @@ def _grana_maglia(m):
     onde = nt.nodes.new("ShaderNodeTexVoronoi")
     onde.inputs["Scale"].default_value = 260.0
     rampa = nt.nodes.new("ShaderNodeValToRGB")
-    rampa.color_ramp.elements[0].color = (0.22, 0.22, 0.24, 1)
-    rampa.color_ramp.elements[1].color = (0.55, 0.56, 0.58, 1)
+    rampa.color_ramp.elements[0].color = (0.16, 0.16, 0.18, 1)
+    rampa.color_ramp.elements[1].color = (0.42, 0.43, 0.45, 1)
     nt.links.new(coord.outputs["Object"], onde.inputs["Vector"])
     nt.links.new(onde.outputs["Distance"], rampa.inputs["Fac"])
     nt.links.new(rampa.outputs["Color"], bsdf.inputs["Base Color"])
@@ -91,12 +91,12 @@ def vestiti(u):
     V.pantaloni(u, "Brache", "Brache", t_inizio=0.55, t_fine=1.2, margine=0.008)
     V.pantaloni(u, "Fasce", "Fasce", t_inizio=1.12, t_fine=1.9, margine=0.013, spessore=0.003)
     V.lacci_gamba(u, "Fasce_Giri", "Cuoio", [0.12, 0.4, 0.68], distacco=0.016, larghezza=0.01)
+    V.calzature(u, "Scarpe", "Cuoio", "Suola", taglio=0.105, inclinazione=0.25)
     u.nascondi_pelle()
     # La cotta di maglia sopra la tunica (misurata sul corpo, con più margine).
     V.veste(u, "Cotta", 1.45, 0.56, "Maglia", margine=0.026, svasatura=0.055, pieghe=0.004, n_pieghe=10,
             spessore=0.006)
     V.maniche(u, "Cotta_Maniche", "Maglia", t_inizio=-0.15, t_fine=0.85, margine=0.019, spessore=0.005)
-    V.calzature(u, "Scarpe", "Cuoio", "Suola", taglio=0.105, inclinazione=0.25)
     u.oggetto("Cintura", V.anello_sul_corpo(u, (0, 0.01, 1.0), (0, 0, 1), 0.044, 0.045, n=64, portata=0.3), "Cuoio",
               spessore=0.004)
     fibbia = V.scatola(u.sulla_pelle(Vector((0, 0, 1.0)), Vector((0, -1, 0)), 0.05, 0.3), (0.045, 0.012, 0.05))
@@ -118,6 +118,7 @@ def elmo(u):
     n = 40
     centro = Vector((0, -0.02, 0))
     apice = Vector((0, -0.005, 1.845))
+    # (l'ultimo anello resta un cerchietto: la punta è un tappo, non un ventaglio di triangoli schiacciati)
     bordo = []
     for j in range(n):
         a = 2 * math.pi * j / n
@@ -128,7 +129,7 @@ def elmo(u):
     for t in np.linspace(0, 1, 12):
         anello = []
         for j, p in enumerate(bordo):
-            q = p.lerp(apice, t ** 1.1)
+            q = p.lerp(apice, min(t, 0.96) ** 1.1)
             radiale = Vector((q.x, q.y - centro.y, 0))
             if radiale.length > 1e-6:
                 q = q + radiale.normalized() * 0.022 * math.sin(math.pi * t) * (1 - t * 0.3)
@@ -137,6 +138,7 @@ def elmo(u):
             anello.append(q)
         anelli.append(anello)
     bm = V.griglia(anelli, chiusa=True)
+    bm.faces.new([bm.verts[len(bm.verts) - n + j] for j in range(n)])
     V._verso_fuori(bm)
     u.oggetto("Elmo_Calotta", bm, "Ferro", spessore=0.003)
     # Fascia del bordo, nervature e nasale.
@@ -272,8 +274,8 @@ def esporta(triangoli=4400, lato=512):
                           "Scudo_Bordo*": "torace", "Scudo_Umbone*": "torace", "Occhio*": "testa", "Elmo_*": "testa",
                           "Baffi*": "testa"},
                   escludi=["Fasce_Giri*", "Cintura_Fibbia*", "Elmo_Nervature*"],
-                  quote={"Scarpe*": 220, "Occhio*": 60, "Cotta.*": 460, "Cotta": 460, "Cotta_Maniche*": 260,
-                         "Tunica*": 160, "Ascia_Manico*": 60},
+                  quote={"Scarpe*": 260, "Occhio*": 60, "Cotta.*": 460, "Cotta": 460, "Cotta_Maniche*": 260,
+                         "Tunica*": 160, "Brache*": 120, "Ascia_*": 400, "Elmo_*": 600, "Baffi*": 100},
                   togli_dal_corpo=[SIGLA + "_Nascosta"], triangoli=triangoli, corpo=U.corpo.name)
     E.cuoci(lato=lato)
     return r
