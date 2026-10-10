@@ -187,13 +187,17 @@ function POSE.cavalleria(p, _a, k, r, ritorno)
 end
 
 -- Fucile: lo porta alla spalla, mira, rinculo.
+-- Fucile: a riposo è basso e pronto (calcio al fianco); per mirare le braccia lo portano su all'altezza
+-- della spalla tenendolo in piano (braccio su, avambraccio che compensa), poi il rinculo.
 function POSE.fucile(p, _a, k, r, ritorno)
 	local mira = k * ritorno
 	local rinculo = r * ritorno * (1 - r)
-	p["braccio.R"] = ruota(1.35 * mira - 0.3 * rinculo, 0.25 * mira, 0)
-	p["braccio.L"] = ruota(1.45 * mira, -0.35 * mira, 0)
-	p.torace = ruota(-0.25 * rinculo, -0.2 * mira, 0)
-	p.testa = ruota(-0.1 * mira, 0.2 * mira, 0)
+	p["braccio.R"] = ruota(0.55 * mira - 0.12 * rinculo, 0.1 * mira, 0)
+	p["avambraccio.R"] = ruota(-0.85 * mira, 0, 0)
+	p["braccio.L"] = ruota(0.5 * mira, -0.1 * mira, 0)
+	p["avambraccio.L"] = ruota(-0.8 * mira, 0, 0)
+	p.torace = ruota(-0.2 * rinculo + 0.06 * mira, -0.15 * mira, 0)
+	p.testa = ruota(0.12 * mira, 0.15 * mira, 0)
 end
 
 function POSE.pistola(p, _a, k, r, ritorno)
