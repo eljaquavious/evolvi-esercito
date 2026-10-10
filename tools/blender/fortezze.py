@@ -150,7 +150,7 @@ def tex_cemento(nome, base=(0.50, 0.49, 0.45), lato=512, seme=4, file=8, mimetic
         a = rumore(lato, 3, 3, seme + 7) + 0.3 * rumore(lato, 9, 9, seme + 8)
         b = rumore(lato, 4, 4, seme + 9) + 0.3 * rumore(lato, 11, 11, seme + 10)
         for maschera, colore in ((a > 0.8, mimetica[0]), (b > 0.85, mimetica[1])):
-            rgb[maschera] = rgb[maschera] * 0.35 + np.array(colore) * (0.65 * (0.8 + 0.4 * macchie[maschera]))[:, None]
+            rgb[maschera] = rgb[maschera] * 0.62 + np.array(colore) * (0.38 * (0.8 + 0.4 * macchie[maschera]))[:, None]
     return immagine(nome, rgb)
 
 

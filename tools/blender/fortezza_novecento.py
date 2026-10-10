@@ -31,7 +31,8 @@ U = None
 
 
 def materiali(u):
-    F.materiale_tex(u, "Cemento", F.tex_cemento(SIGLA + "_Cemento", mimetica=((0.30, 0.31, 0.19), (0.30, 0.23, 0.15))),
+    F.materiale_tex(u, "Cemento", F.tex_cemento(SIGLA + "_Cemento", base=(0.46, 0.45, 0.41),
+                                                mimetica=((0.30, 0.31, 0.19), (0.30, 0.23, 0.15))),
                     3.0)
     F.materiale_tex(u, "CementoLiscio", F.tex_cemento(SIGLA + "_CementoLiscio", base=(0.55, 0.54, 0.50), seme=14), 3.0)
     F.materiale_tex(u, "Terra", F.tex_terra(SIGLA + "_Terra", erba=(0.24, 0.29, 0.12), terra=(0.30, 0.23, 0.15),
@@ -40,7 +41,7 @@ def materiali(u):
     F.materiale_tex(u, "Casse", F.tex_assi(SIGLA + "_Casse", n=6, base=(0.38, 0.30, 0.17), seme=21, giunti=1), 1.0)
     u.materiale("Buio", (0.02, 0.02, 0.02), ruvidita=0.9)
     u.materiale("Acciaio", (0.17, 0.18, 0.17), metallo=1.0, ruvidita=0.55)
-    u.materiale("Ruggine", (0.24, 0.12, 0.07), metallo=0.6, ruvidita=0.8)
+    u.materiale("Ruggine", (0.17, 0.10, 0.07), metallo=0.6, ruvidita=0.8)
     u.materiale("Canne", (0.07, 0.07, 0.07), metallo=1.0, ruvidita=0.4)
     u.materiale("Legno", (0.30, 0.21, 0.12), ruvidita=0.8)
     u.materiale("Filo", (0.30, 0.29, 0.27), metallo=1.0, ruvidita=0.6)
