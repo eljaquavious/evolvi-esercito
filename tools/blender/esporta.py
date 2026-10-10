@@ -376,8 +376,7 @@ def dati(lato_texture=256):
     pixel = np.array(immagine.pixels[:], dtype=np.float32).reshape(lato, lato, 4)[::-1, :, :3]
     passo = lato // lato_texture
     pixel = pixel.reshape(lato_texture, passo, lato_texture, passo, 3).mean(axis=(1, 3))
-    # Da lineare a sRGB.
-    pixel = np.where(pixel <= 0.0031308, pixel * 12.92, 1.055 * np.power(np.clip(pixel, 0, 1), 1 / 2.4) - 0.055)
+    # Un'immagine a 8 bit di Blender dà già i valori sRGB, come li vuole Roblox.
     rgb = np.clip(np.round(pixel * 255), 0, 255).astype(np.uint8).tobytes()
     giunti = STATO["giunti"]
     ossa = []
