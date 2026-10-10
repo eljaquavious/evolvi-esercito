@@ -166,6 +166,8 @@ def baffi(u):
                         (0.056, 1.53, 0.002)):
             hit = u.albero.ray_cast(Vector((s * x, -0.4, z)), Vector((0, 1, 0)), 0.5)
             p = hit[0] if hit[0] is not None else Vector((s * x, -0.12, z))
+            # Sotto il naso il raggio lo prende in punta: il labbro sta più indietro.
+            p = Vector((p.x, max(p.y, -0.124), p.z))
             punti.append(p + Vector((s * 0.002, -0.004 - r * 0.5, 0)))
             raggi.append(r)
         pezzi.append(V.tubo_lungo(punti, raggi, n=8))
