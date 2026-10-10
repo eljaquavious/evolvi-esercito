@@ -130,7 +130,8 @@ local function costruisci(nome, scala)
 end
 
 -- Copia della MeshPart del modello "nome" alla scala data (studs per metro).
--- Restituisce la parte (non ancora nel workspace) e la sua posizione rispetto al punto a terra del modello.
+-- Restituisce la parte (non ancora nel workspace), la sua posizione rispetto all'origine del modello e quanto
+-- scende il punto più basso sotto il centro della parte.
 function Mesh.copia(nome, scala)
 	local chiave = nome .. "@" .. scala
 	while inCostruzione[chiave] do
@@ -148,7 +149,7 @@ function Mesh.copia(nome, scala)
 		modello = risultato
 		modelli[chiave] = modello
 	end
-	return modello.parte:Clone(), modello.centro
+	return modello.parte:Clone(), modello.centro, modello.basso
 end
 
 return Mesh

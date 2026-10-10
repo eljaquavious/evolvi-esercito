@@ -168,7 +168,9 @@ local function schieramento(dati)
 			local def = Epoche.Truppe[r.tipo]
 			local gruppo = {}
 			for _, offset in ipairs(Battaglia.formazione(def.soldati, def)) do
-				local s = nuovoSoldato(r.tipo, "giocatore", punto(r.col + offset[1], r.riga + offset[2]), 0)
+				-- Sopra le piastrelle (la cima è 0,45 sul terreno): così non coprono i piedi.
+				local sopra = punto(r.col + offset[1], r.riga + offset[2]) + Vector3.new(0, 0.46, 0)
+				local s = nuovoSoldato(r.tipo, "giocatore", sopra, 0)
 				table.insert(gruppo, s)
 			end
 			schierati[chiave] = gruppo

@@ -522,9 +522,16 @@ function Modelli.crea(tipo, squadra, cframe, opzioni)
 	local colore = Modelli.COLORI_SQUADRA[squadra or "giocatore"]
 	local giunti, conMesh = {}, false
 	if Mesh.disponibile(tipo) then
-		local parte, centro = Mesh.copia(tipo, info.metri)
+		local parte, centro, basso = Mesh.copia(tipo, info.metri)
 		if parte then
-			parte.CFrame = cframe * CFrame.new(centro)
+			-- L'origine dei modelli Blender è sotto i piedi del soldato; nei cavalieri il cavaliere è stato
+			-- costruito in piedi e poi messo in sella, così gli zoccoli scendono sotto l'origine: si alza tutto
+			-- finché gli zoccoli toccano terra.
+			local fondo = centro.Y + basso
+			local alza = fondo < -0.5 and -fondo or 0
+			parte.CFrame = cframe * CFrame.new(centro + Vector3.new(0, alza, 0))
+			modello:SetAttribute("MeshBasso", basso)
+			modello:SetAttribute("MeshMetri", info.metri)
 			local saldatura = Instance.new("WeldConstraint")
 			saldatura.Part0 = radice
 			saldatura.Part1 = parte

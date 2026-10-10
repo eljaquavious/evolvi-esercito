@@ -130,7 +130,8 @@ function Animatore:_mano(p, lato, bersaglio, polo, peso, tieni)
 	p["braccio." .. lato] = r1
 	p["avambraccio." .. lato] = r2
 	if tieni then
-		p["mano." .. lato] = CFrame.identity:Lerp((busto.Rotation * r1 * r2):Inverse() * tieni, peso)
+		-- Rispetto alle rotazioni davvero applicate (già dosate): a metà gesto la mano non si inclina.
+		p["mano." .. lato] = (busto.Rotation * r1 * r2):Inverse() * tieni
 	end
 end
 
@@ -279,12 +280,16 @@ function POSE.arcoMesh(p, _a, k, r, ritorno, self)
 	local spalla = R["braccio.L"]
 	local braccio = (R["avambraccio.L"] - spalla).Magnitude + (R["mano.L"] - R["avambraccio.L"]).Magnitude
 	local collo = R.testa
-	-- Il pugno dell'arco davanti al viso, all'altezza della spalla; la corda all'angolo della bocca.
-	local arco = Vector3.new(collo.X - 0.12, spalla.Y + 0.08, collo.Z - braccio * 0.92)
-	local mento = Vector3.new(collo.X - 0.06, collo.Y + 0.2, collo.Z - 0.3)
+	-- Il braccio dell'arco tutto disteso verso il bersaglio, il pugno all'altezza della spalla (l'IK si ferma
+	-- dove il braccio arriva); la corda tirata fino all'angolo della mascella, a destra del viso, con il gomito
+	-- dietro in linea con la freccia.
+	local arco = Vector3.new(collo.X - 0.05, spalla.Y + 0.1, collo.Z - braccio * 1.1)
+	local mento = Vector3.new(collo.X + 0.13, collo.Y + 0.1, collo.Z + 0.05)
 	self:_mano(p, "L", arco, Vector3.new(-1, -0.4, 0.2), tende, CFrame.identity)
-	local tiro = mento + Vector3.new(0.12, 0.02, 0.35) * scocca
-	self:_mano(p, "R", tiro, Vector3.new(1, 0.15, 0.6), tende)
+	local tiro = mento + Vector3.new(0.15, 0.03, 0.3) * scocca
+	self:_mano(p, "R", tiro, Vector3.new(0.35, 0.1, 1), tende)
+	-- La freccia incoccata si vede finché la corda è tesa e non è ancora partita.
+	self.incoccata = tende * (1 - math.min(1, scocca * 4))
 end
 
 -- Cavaliere: affondo con la lancia, il cavallo si impenna un poco.
@@ -310,7 +315,7 @@ function POSE.cavalleriaMesh(p, _a, k, r, ritorno, self)
 	local avanti = r * ritorno
 	p.torace = ruota(0.04 * avanti, -0.25 * indietro + 0.3 * avanti, 0)
 	if self.riposo["mano.R"] then
-		local presa = self.riposo["mano.R"] + LANCIA * (-1.0 * indietro + 1.4 * avanti) + Vector3.new(0, 0.35 * indietro, 0)
+		local presa = self.riposo["mano.R"] + LANCIA * (-0.9 * indietro + 0.85 * avanti) + Vector3.new(0, 0.3 * indietro, 0)
 		self:_mano(p, "R", presa, Vector3.new(1, -0.3, 0.6), math.max(indietro, avanti), CFrame.identity)
 	end
 	local alza = indietro * 0.8 + avanti * 0.4
@@ -450,7 +455,11 @@ local function caduta(self, p)
 	end
 	if self.cavalloMesh then
 		-- Il cavallo crolla sul fianco, con le zampe piegate; il cavaliere va giù con lui.
-		p.cavallo = CFrame.new(0.4 * f, -2.5 * f, 0) * ruota(0, 0, -1.4 * f)
+		-- Il corpo del cavallo finisce a terra: dal suo osso al suolo meno mezzo ventre.
+		local metri = self.modello:GetAttribute("MeshMetri") or 2.34
+		local basso = self.modello:GetAttribute("MeshBasso")
+		local giu = basso and (self.riposo.cavallo.Y - basso - 0.32 * metri) or 2.9
+		p.cavallo = CFrame.new(0.4 * f, -giu * f, 0) * ruota(0, 0, -1.4 * f)
 		p["cavallo.collo"] = ruota(-0.3 * f, 0, 0)
 		for _, zampa in ipairs({ "AR", "AL", "PR", "PL" }) do
 			local davanti = zampa:sub(1, 1) == "A"
@@ -487,6 +496,44 @@ local function respiro(self, p)
 	p.testa = (p.testa or CFrame.identity) * ruota(-b * 0.6, math.sin(self.tempo * 0.37) * 0.12, 0)
 end
 
+-- Freccia incoccata dell'arciere di Blender: dalla mano della corda oltre il pugno dell'arco.
+function Animatore:_freccia()
+	if self.stile ~= "arco" or not self.riposo or not self.giunti["mano.L"] then
+		return
+	end
+	local visibile = self.incoccata > 0.6 and not self.morte
+	if not visibile then
+		if self.freccia then
+			self.freccia.Transparency = 1
+		end
+		return
+	end
+	if not self.freccia then
+		local f = Instance.new("Part")
+		f.Name = "FrecciaIncoccata"
+		f.Anchored = true
+		f.CanCollide = false
+		f.CanQuery = false
+		f.CanTouch = false
+		f.CastShadow = false
+		f.Material = Enum.Material.Wood
+		f.Color = Color3.fromRGB(150, 110, 64)
+		f.Parent = self.modello
+		self.freccia = f
+	end
+	local a = self.giunti["mano.R"].TransformedWorldCFrame.Position
+	local b = self.giunti["mano.L"].TransformedWorldCFrame.Position
+	local d = b - a
+	if d.Magnitude < 0.2 then
+		self.freccia.Transparency = 1
+		return
+	end
+	local lunghezza = d.Magnitude + 0.45
+	self.freccia.Size = Vector3.new(0.05, 0.05, lunghezza)
+	self.freccia.CFrame = CFrame.lookAt(a + d.Unit * (lunghezza / 2), b)
+	self.freccia.Transparency = 0
+end
+
 -- dt in secondi, velocita in studs al secondo (quanto si sta spostando il soldato).
 function Animatore:aggiorna(dt, velocita)
 	self.tempo += dt
@@ -495,6 +542,7 @@ function Animatore:aggiorna(dt, velocita)
 	local obiettivo = math.clamp(velocita / 4, 0, 1)
 	self.marcia += (obiettivo - self.marcia) * math.min(1, dt * 8)
 	local p = {}
+	self.incoccata = 0
 	if self.morte then
 		caduta(self, p)
 	else
@@ -516,6 +564,7 @@ function Animatore:aggiorna(dt, velocita)
 		end
 		colpito(self, p)
 	end
+	self:_freccia()
 	if self.lanciaVia and not self.gladioInMano then
 		p.lancia = CFrame.new(0, -400, 0)
 	elseif self.lanciaVia then
