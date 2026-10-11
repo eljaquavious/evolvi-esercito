@@ -12,8 +12,10 @@ local RunService = game:GetService("RunService")
 local Campagna = require(ReplicatedStorage.Shared.Config.Campagna)
 local MappaEuropa = require(ReplicatedStorage.Shared.Config.MappaEuropa)
 local Biomi = require(ReplicatedStorage.Shared.Config.Biomi)
+local Epoche = require(ReplicatedStorage.Shared.Config.Epoche)
 local Stile = require(script.Parent.Stile)
 local Carta = require(script.Parent.Carta)
+local Icone = require(script.Parent.Icone)
 local Notifiche = require(script.Parent.Notifiche)
 
 local Mappa = {}
@@ -29,7 +31,14 @@ local costruitaConMisure = false -- true se i nodi stanno sulle quote misurate d
 local nodi = {} -- numero -> { base, gui, stelle }
 local puntini = {} -- numero -> lista di puntini del tratto che porta a quel livello
 
-local interfaccia, titoloStelle, pannello, nomeLivello, dettagli, stellePannello, bottoneAttacca, spazioBoss
+-- Interfaccia 2D (sulla tela 1920x1080 di Stile.radice).
+local interfaccia, pannello, cielo, chipBattaglia, nomeLivello, infoLivello, dettagli
+local stellePannello = {} -- le 3 stelle in alto a destra nel pannello
+local scudi = {} -- i 5 scudi della difficoltà
+local spazioNemici, contaNemici, spazioPremi, testoMonetePremio, tesseraCarta, iconaCarta
+local bottoneAttacca, testoAttacca, iconaAttacca
+local chipEpoca, numeroStelle, numeroMonete
+local schede = {} -- linguette delle epoche in basso a sinistra
 local ambienteSalvato
 local connessioneAnimazione
 
@@ -100,7 +109,7 @@ local function etichettaMare(testo, lat, lon, scala)
 	Stile.testo({
 		Size = UDim2.fromScale(1, 1),
 		Text = testo,
-		Font = Stile.FontTitolo,
+		FontFace = Stile.FontTitolo,
 		TextColor3 = Color3.fromRGB(220, 240, 255),
 		TextTransparency = 0.35,
 		Parent = gui,
@@ -135,37 +144,95 @@ local function costruisci()
 			Color = Color3.fromRGB(40, 32, 26),
 			Material = Enum.Material.SmoothPlastic,
 		})
+		-- Etichetta sopra il livello: bollino tondo col numero, stelline sotto, "BOSS" sopra.
+		-- Le BillboardGui non stanno sulla tela di Stile.radice: misure in pixel veri dello schermo.
 		local gui = Instance.new("BillboardGui")
-		gui.Size = UDim2.fromOffset(120, 70)
+		gui.Size = UDim2.fromOffset(160, 136)
 		gui.StudsOffset = Vector3.new(0, 6, 0)
 		gui.LightInfluence = 0
 		gui.AlwaysOnTop = true
 		gui.Parent = base
-		local numeroTesto = Stile.titolo({
+		local fila = Stile.crea("Frame", {
 			AnchorPoint = Vector2.new(0.5, 1),
 			Position = UDim2.fromScale(0.5, 1),
-			Size = UDim2.fromOffset(60, 30),
-			Text = boss and "BOSS" or tostring(numero),
+			Size = UDim2.fromOffset(78, 24),
+			BackgroundTransparency = 1,
 			Parent = gui,
+		}, {
+			Stile.crea("UIListLayout", {
+				FillDirection = Enum.FillDirection.Horizontal,
+				HorizontalAlignment = Enum.HorizontalAlignment.Center,
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				Padding = UDim.new(0, 1),
+			}),
 		})
-		local stelle = Stile.titolo({
+		local stelline = {}
+		for i = 1, Campagna.STELLE_MASSIME do
+			stelline[i] = Stile.icona("star", { Size = UDim2.fromOffset(24, 24), LayoutOrder = i, Parent = fila })
+		end
+		local bollino = Stile.crea("Frame", {
+			Name = "Bollino",
 			AnchorPoint = Vector2.new(0.5, 1),
-			Position = UDim2.new(0.5, 0, 1, -30),
-			Size = UDim2.fromOffset(90, 26),
-			Text = "",
-			Font = Stile.Font,
-			TextColor3 = ORO,
+			Position = UDim2.new(0.5, 0, 1, -16),
+			Size = UDim2.fromOffset(58, 58),
+			BackgroundColor3 = Stile.BIANCO,
 			Parent = gui,
+		}, { Stile.tondo(), Stile.bordo(Stile.CONTORNO, 4) })
+		local sfumaturaBollino = Stile.sfumatura(Stile.PAL.grigio.t, Stile.PAL.grigio.b)
+		sfumaturaBollino.Parent = bollino
+		Stile.crea("Frame", {
+			Position = UDim2.fromScale(0.22, 0.08),
+			Size = UDim2.fromScale(0.56, 0.32),
+			BackgroundColor3 = Stile.BIANCO,
+			BackgroundTransparency = 0.7,
+			Parent = bollino,
+		}, { Stile.tondo() })
+		local numeroTesto = Stile.scritta({
+			Size = UDim2.fromScale(1, 1),
+			Text = tostring(numero),
+			TextSize = numero >= 10 and 28 or 32,
+			Contorno = 3,
+			Parent = bollino,
 		})
-		local nome = Stile.titolo({
+		local lucchetto = Stile.icona("lock", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(0.6, 0.6),
+			Visible = false,
+			Parent = bollino,
+		})
+		local chipBoss
+		if boss then
+			chipBoss = Stile.chip({
+				AnchorPoint = Vector2.new(0.5, 1),
+				Position = UDim2.new(0.5, 0, 1, -82),
+				Size = UDim2.fromOffset(72, 26),
+				Parent = gui,
+			}, "rosso", "BOSS", 18)
+			chipBoss:FindFirstChildOfClass("UIStroke").Thickness = 3
+		end
+		-- Nome della battaglia, solo sul livello selezionato.
+		local nome = Stile.scritta({
 			AnchorPoint = Vector2.new(0.5, 1),
-			Position = UDim2.new(0.5, 0, 1, -54),
-			Size = UDim2.fromOffset(120, 18),
+			Position = UDim2.new(0.5, 0, 1, boss and -110 or -82),
+			Size = UDim2.fromOffset(160, 24),
 			Text = battaglia.nome,
+			TextSize = 20,
+			Contorno = 3,
 			Visible = false,
 			Parent = gui,
 		})
-		nodi[numero] = { base = base, gui = gui, stelle = stelle, numero = numeroTesto, nome = nome }
+		nodi[numero] = {
+			base = base,
+			gui = gui,
+			stelle = stelline,
+			fila = fila,
+			bollino = bollino,
+			sfumatura = sfumaturaBollino,
+			numero = numeroTesto,
+			lucchetto = lucchetto,
+			nome = nome,
+		}
 
 		-- Tratto di sentiero dal livello precedente (calcolato insieme alla mappa). Sulla terra è tracciato
 		-- nel Terrain dal server; qui si aggiungono le tratte per mare e le luci del prossimo tratto.
@@ -196,6 +263,15 @@ local function costruisci()
 	end
 end
 
+-- Rende più o meno trasparente un'icona (immagine o emoji: Icone.crea può dare l'una o l'altra).
+local function sfumaIcona(icona, trasparenza)
+	if icona:IsA("ImageLabel") then
+		icona.ImageTransparency = trasparenza
+	elseif icona:IsA("TextLabel") then
+		icona.TextTransparency = trasparenza
+	end
+end
+
 local function aggiornaNodi()
 	for numero, nodo in pairs(nodi) do
 		local stelle = stelleDi(numero)
@@ -209,8 +285,17 @@ local function aggiornaNodi()
 		end
 		nodo.base.Color = colore
 		nodo.base.Transparency = sbloccato(numero) and 0 or 0.3
-		nodo.stelle.Text = sbloccato(numero) and string.rep("★", stelle) .. string.rep("☆", Campagna.STELLE_MASSIME - stelle) or ""
-		nodo.numero.TextColor3 = sbloccato(numero) and Color3.new(1, 1, 1) or Color3.fromRGB(170, 170, 180)
+		-- Bollino: oro se vinto, verde se è il prossimo da giocare, grigio col lucchetto se bloccato.
+		local pal = stelle > 0 and Stile.PAL.oro or (sbloccato(numero) and Stile.PAL.verde or Stile.PAL.grigio)
+		nodo.sfumatura.Color = ColorSequence.new(pal.t, pal.b)
+		nodo.numero.Visible = sbloccato(numero) and true or false
+		nodo.lucchetto.Visible = not sbloccato(numero)
+		local lato = numero == selezionato and 66 or 58
+		nodo.bollino.Size = UDim2.fromOffset(lato, lato)
+		nodo.fila.Visible = stelle > 0
+		for i, stellina in ipairs(nodo.stelle) do
+			sfumaIcona(stellina, i <= stelle and 0 or 0.65)
+		end
 		nodo.nome.Visible = numero == selezionato
 		-- Luci lungo il sentiero dell'epoca: oro i tratti fatti, arancio il prossimo, bianche tenui
 		-- quelli ancora da fare. Le epoche non ancora raggiunte non si illuminano.
@@ -248,62 +333,124 @@ local function aggiornaCamera(istantanea)
 	end
 end
 
-local function aggiornaPannello()
-	local livello = Campagna.livello(selezionato)
-	nomeLivello.Text = ("%d. %s"):format(selezionato, string.upper(livello.nome))
-	local righe = {
-		("%s  ·  %s era  ·  %s"):format(livello.anno, livello.epoca.nome, Biomi.Dati[livello.bioma].nome),
-		("Enemy regiments: %d  ·  Your regiments: %d"):format(livello.numeroNemici, livello.maxReggimenti),
-	}
-	local fiume = false
-	for _, t in ipairs(livello.terreno) do
-		fiume = fiume or t.tipo == "fiume"
+-- Tipi di truppa dell'armata nemica (primo round, più l'eventuale comandante), senza ripetizioni.
+local function tipiNemici(livello)
+	local tipi, visti = {}, {}
+	local function aggiungi(tipo)
+		if tipo and not visti[tipo] and Epoche.Truppe[tipo] then
+			visti[tipo] = true
+			table.insert(tipi, tipo)
+		end
 	end
-	if fiume then
-		table.insert(righe, "A river crosses the battlefield.")
+	aggiungi(livello.comandante)
+	for _, reggimento in ipairs(Campagna.armata(livello, 1, false)) do
+		aggiungi(reggimento.tipo)
 	end
-	table.insert(righe, ("Reward: %d coins"):format(livello.ricompensa))
-	dettagli.Text = table.concat(righe, "\n")
-	local stelle = stelleDi(selezionato)
-	stellePannello.Text = string.rep("★", stelle) .. string.rep("☆", Campagna.STELLE_MASSIME - stelle)
+	return tipi
+end
 
-	for _, figlio in ipairs(spazioBoss:GetChildren()) do
+-- Difficoltà da 1 a 5 scudi: cresce col posto del livello nella sua epoca (1-2 → 1 scudo, 9-10 → 5),
+-- che è anche quello che fa crescere numero e forza dei nemici.
+local function difficolta(livello)
+	return math.clamp(math.ceil(livello.locale / 2), 1, 5)
+end
+
+local function svuota(contenitore)
+	for _, figlio in ipairs(contenitore:GetChildren()) do
 		if figlio:IsA("GuiObject") then
 			figlio:Destroy()
 		end
 	end
-	spazioBoss.Visible = livello.comandante ~= nil
-	-- Il pannello è alto quanto serve: testo (o carta del boss) e sotto il bottone, senza vuoti.
-	local larghezzaTesto = livello.comandante and -150 or -32
-	nomeLivello.Size = UDim2.new(1, larghezzaTesto, 0, 34)
-	dettagli.Size = UDim2.new(1, larghezzaTesto, 0, 200)
-	local altezzaTesto = math.max(#righe * 20, dettagli.TextBounds.Y) -- le righe lunghe vanno a capo
-	dettagli.Size = UDim2.new(1, larghezzaTesto, 0, altezzaTesto)
-	local fondo = 84 + altezzaTesto
-	if livello.comandante then
-		fondo = math.max(fondo, 14 + 160)
+end
+
+-- Epoca raggiunta dal giocatore (quella del prossimo livello da giocare).
+local function epocaRaggiunta()
+	return stato and Campagna.livello(math.min(stato.livello, Campagna.TOTALE)).indiceEpoca or 1
+end
+
+local function aggiornaSchede(epocaScelta)
+	for i, scheda in ipairs(schede) do
+		local raggiunta = i <= epocaRaggiunta()
+		Stile.coloraPulsante(scheda.bottone, i == epocaScelta and "blu" or "grigio")
+		scheda.lucchetto.Visible = not raggiunta
+		local sinistra = raggiunta and 0 or 44
+		scheda.etichetta.Position = UDim2.new(0, sinistra + 8, 0.5, 0)
+		scheda.etichetta.Size = UDim2.new(1, -sinistra - 16, 0, 40)
 	end
-	pannello.Size = UDim2.fromOffset(460, fondo + 12 + 56 + 14)
-	if livello.comandante then
-		local carta = Carta.crea(livello.comandante)
-		carta.Size = UDim2.fromScale(1, 1)
-		carta.Parent = spazioBoss
+end
+
+local function aggiornaPannello()
+	local livello = Campagna.livello(selezionato)
+	local stelle = stelleDi(selezionato)
+	local bioma = Biomi.Dati[livello.bioma]
+
+	-- Testata: colore del bioma, numero della battaglia, nome e stelle conquistate.
+	local colore = bioma and bioma.casella or Color3.fromRGB(150, 196, 110)
+	cielo:FindFirstChildOfClass("UIGradient").Color =
+		ColorSequence.new(colore:Lerp(Stile.BIANCO, 0.2), colore:Lerp(Color3.new(0, 0, 0), 0.4))
+	chipBattaglia.Text = "BATTLE " .. selezionato
+	nomeLivello.Text = livello.nome
+	for i, stella in ipairs(stellePannello) do
+		sfumaIcona(stella, i <= stelle and 0 or 0.7)
 	end
 
-	if sbloccato(selezionato) then
-		bottoneAttacca.Text = "ATTACK"
-		bottoneAttacca.BackgroundColor3 = ARANCIO
-		bottoneAttacca.AutoButtonColor = true
-	else
-		bottoneAttacca.Text = "LOCKED"
-		bottoneAttacca.BackgroundColor3 = GRIGIO
-		bottoneAttacca.AutoButtonColor = false
+	infoLivello.Text = ("%s · %s ERA"):format(livello.anno, string.upper(livello.epoca.nome))
+	local fiume = false
+	for _, t in ipairs(livello.terreno) do
+		fiume = fiume or t.tipo == "fiume"
 	end
+	local righe = { bioma and bioma.nome or livello.bioma }
+	if fiume then
+		table.insert(righe, "River crossing")
+	end
+	table.insert(righe, ("Your regiments: %d"):format(livello.maxReggimenti))
+	dettagli.Text = table.concat(righe, " · ")
+
+	local scudiPieni = difficolta(livello)
+	for i, scudo in ipairs(scudi) do
+		sfumaIcona(scudo, i <= scudiPieni and 0 or 0.75)
+	end
+
+	-- Armata nemica: le carte dei reggimenti che si incontrano (e del comandante, se c'è).
+	svuota(spazioNemici)
+	local tipi = tipiNemici(livello)
+	local larghezza = #tipi >= 4 and 94 or 118
+	for i, tipo in ipairs(tipi) do
+		local carta = Carta.mini(tipo)
+		carta.Size = UDim2.fromOffset(larghezza, math.floor(larghezza / Carta.PROPORZIONE))
+		carta.LayoutOrder = i
+		carta.Parent = spazioNemici
+	end
+	contaNemici.Text = ("%d REGIMENTS"):format(livello.numeroNemici)
+
+	-- Premi: monete e, alla prima vittoria, una carta.
+	testoMonetePremio.Text = Stile.numero(livello.ricompensa)
+	local defPremio = stelle == 0 and livello.cartaPremio and Epoche.Truppe[livello.cartaPremio]
+	tesseraCarta.Visible = defPremio and true or false
+	if defPremio then
+		Icone.cambia(iconaCarta, Icone.carta(defPremio))
+	end
+	spazioPremi.Monete.Size = UDim2.new(defPremio and 0.5 or 1, defPremio and -6 or 0, 1, 0)
+
+	if sbloccato(selezionato) then
+		Stile.coloraPulsante(bottoneAttacca, "rosso")
+		testoAttacca.Text = "ATTACK"
+		Icone.cambia(iconaAttacca, "fight")
+	else
+		Stile.coloraPulsante(bottoneAttacca, "grigio")
+		testoAttacca.Text = "LOCKED"
+		Icone.cambia(iconaAttacca, "lock")
+	end
+
+	-- Barra in alto: epoca, stelle totali e monete.
+	chipEpoca.Text = string.upper(livello.epoca.nome)
 	local totale = 0
-	for _, n in pairs(stato.stelle or {}) do
+	for _, n in pairs(stato and stato.stelle or {}) do
 		totale += n
 	end
-	titoloStelle.Text = ("★ %d/%d"):format(totale, Campagna.TOTALE * Campagna.STELLE_MASSIME)
+	numeroStelle.Text = ("%d/%d"):format(totale, Campagna.TOTALE * Campagna.STELLE_MASSIME)
+	numeroMonete.Text = Stile.numero(stato and stato.monete or 0)
+	aggiornaSchede(livello.indiceEpoca)
 end
 
 local function seleziona(numero, istantanea)
@@ -406,61 +553,175 @@ function Mappa.aggiorna(nuovoStato)
 	end
 end
 
+-- Etichetta grigia in maiuscolo del pannello ("DIFFICULTY", "ENEMY ARMY"...).
+local function etichettaSezione(genitore, y, testo)
+	return Stile.testo({
+		Position = UDim2.fromOffset(26, y),
+		Size = UDim2.new(1, -52, 0, 30),
+		Text = testo,
+		TextSize = 24,
+		TextScaled = false,
+		TextColor3 = Stile.Colori.TestoSecondario,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = genitore,
+	})
+end
+
+-- Tessera blu notte dei premi (monete, carta).
+local function tesseraPremio(proprieta, icona, testo)
+	proprieta.BackgroundColor3 = Stile.BIANCO
+	local tessera = Stile.crea("Frame", proprieta, {
+		Stile.angoli(20),
+		Stile.bordo(Stile.CONTORNO, 4),
+		Stile.sfumatura(Stile.PAL.notte.t, Stile.PAL.notte.d),
+	})
+	local immagine = Stile.icona(icona, {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 8, 0.5, 0),
+		Size = UDim2.fromOffset(64, 64),
+		Parent = tessera,
+	})
+	local scritta = Stile.scritta({
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -14, 0.5, 0),
+		Size = UDim2.new(1, -92, 0, 44),
+		Text = testo,
+		TextSize = 38,
+		Contorno = 4,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = tessera,
+	})
+	scritta.TextScaled = true
+	Stile.crea("UITextSizeConstraint", { MaxTextSize = 38, Parent = scritta })
+	return tessera, scritta, immagine
+end
+
 function Mappa.inizializza(gui, r)
 	remoti = r
+	local tela = Stile.radice(gui)
 	interfaccia = Stile.crea("Frame", {
 		Name = "Mappa",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		Visible = false,
-		Parent = gui,
+		Parent = tela,
 	})
 
-	local intestazione = Stile.pannello({
-		Position = UDim2.fromOffset(16, 10),
-		Size = UDim2.fromOffset(360, 56),
-		BackgroundColor3 = Stile.Colori.Sfondo,
-		BackgroundTransparency = 0.1,
-		Parent = interfaccia,
-	})
-	Stile.titolo({
-		Position = UDim2.fromOffset(16, 10),
-		Size = UDim2.new(0.55, -16, 1, -20),
-		Text = "CAMPAIGN",
-		TextColor3 = ORO,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = intestazione,
-	})
-	titoloStelle = Stile.titolo({
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -16, 0, 12),
-		Size = UDim2.new(0.45, -16, 1, -24),
-		Text = "",
-		Font = Stile.Font,
-		TextColor3 = ORO,
-		TextXAlignment = Enum.TextXAlignment.Right,
-		Parent = intestazione,
-	})
-
-	local chiudi = Stile.bottone({
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -16, 0, 10),
-		Size = UDim2.fromOffset(56, 52),
-		Text = "X",
-		Parent = interfaccia,
-	}, Stile.Colori.Rosso)
-	chiudi.Activated:Connect(function()
+	-- In alto a sinistra: indietro (torna alla lobby) e targa arancione "Campaign" con l'epoca.
+	local indietro = Stile.pulsanteTondo({
+		Name = "Indietro",
+		Position = UDim2.fromOffset(26, 20),
+	}, "blu", "back", 100)
+	indietro.Parent = interfaccia
+	indietro.Activated:Connect(function()
 		remoti.TornaLobby:InvokeServer()
 	end)
 
-	-- Frecce per scorrere i livelli e zoom.
+	local targa = Stile.crea("Frame", {
+		Name = "Targa",
+		Position = UDim2.fromOffset(150, 24),
+		Size = UDim2.fromOffset(560, 92),
+		BackgroundColor3 = Stile.BIANCO,
+		Parent = interfaccia,
+	}, { Stile.angoli(26), Stile.bordo(Stile.CONTORNO, 6), Stile.sfumatura(Stile.PAL.arancio.t, Stile.PAL.arancio.b) })
+	Stile.crea("Frame", {
+		Position = UDim2.fromOffset(12, 6),
+		Size = UDim2.new(1, -24, 0.4, 0),
+		BackgroundColor3 = Stile.BIANCO,
+		BackgroundTransparency = 0.75,
+		Parent = targa,
+	}, { Stile.angoli(18) })
+	Stile.icona("campaign", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, -8, 0.5, -4),
+		Size = UDim2.fromOffset(118, 118),
+		ZIndex = 2,
+		Parent = targa,
+	})
+	Stile.scritta({
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 116, 0.5, 0),
+		Size = UDim2.fromOffset(250, 70),
+		Text = "Campaign",
+		TextSize = 60,
+		Contorno = 6,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = targa,
+	})
+	local _, etichettaEpoca = Stile.chip({
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -16, 0.5, 0),
+		Size = UDim2.fromOffset(170, 50),
+		Parent = targa,
+	}, "notte", "", 26)
+	chipEpoca = etichettaEpoca
+
+	-- In alto al centro: stelle conquistate e monete.
+	local _, stelleNumero = Stile.pillola({
+		Name = "Stelle",
+		Position = UDim2.fromOffset(770, 30),
+		Size = UDim2.fromOffset(240, 78),
+		Parent = interfaccia,
+	}, "star", "0/90")
+	numeroStelle = stelleNumero
+	local _, moneteNumero, piu = Stile.pillola({
+		Name = "Monete",
+		Position = UDim2.fromOffset(1066, 30),
+		Size = UDim2.fromOffset(270, 78),
+		Parent = interfaccia,
+	}, "coin", "0", true)
+	numeroMonete = moneteNumero
+	piu.Activated:Connect(function()
+		Notifiche.mostra("Visit the shop in the lobby to get more coins.")
+	end)
+
+	-- In basso a sinistra: linguette delle epoche (portano al livello da giocare di quell'epoca).
+	local larghezzeSchede = { 206, 200, 290 }
+	local x = 26
+	for i, epoca in ipairs(Epoche.Lista) do
+		local larghezza = larghezzeSchede[i] or 220
+		local bottone, etichetta, faccia = Stile.pulsante({
+			Name = "Epoca" .. i,
+			AnchorPoint = Vector2.new(0, 1),
+			Position = UDim2.new(0, x, 1, -22),
+			Size = UDim2.fromOffset(larghezza, 72),
+			Parent = interfaccia,
+		}, "grigio", { Testo = string.upper(epoca.nome), TestoSize = 32, Raggio = 36, Profondita = 7 })
+		local lucchetto = Stile.icona("lock", {
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 14, 0.5, 0),
+			Size = UDim2.fromOffset(40, 40),
+			Visible = false,
+			Parent = faccia,
+		})
+		schede[i] = { bottone = bottone, etichetta = etichetta, lucchetto = lucchetto }
+		bottone.Activated:Connect(function()
+			if i > epocaRaggiunta() then
+				Notifiche.mostra("Win the previous era to unlock " .. epoca.nome .. ".")
+				return
+			end
+			-- Il livello da giocare se è in questa epoca, altrimenti l'ultimo dell'epoca.
+			local ultimo = i * Campagna.LIVELLI_PER_EPOCA
+			seleziona(math.min(stato and stato.livello or 1, ultimo, Campagna.TOTALE))
+		end)
+		x += larghezza + 12
+	end
+
+	-- Frecce per scorrere i livelli e zoom: piccoli pulsanti tondi accanto alle epoche.
 	local comandi = Stile.crea("Frame", {
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 16, 1, -16),
-		Size = UDim2.fromOffset(4 * 62, 56),
+		Position = UDim2.new(0, x + 18, 1, -22),
+		Size = UDim2.fromOffset(4 * 76, 72),
 		BackgroundTransparency = 1,
 		Parent = interfaccia,
-	}, { Stile.crea("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) }) })
+	}, {
+		Stile.crea("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 10),
+		}),
+	})
 	local voci = {
 		{ "<", function() seleziona(selezionato - 1) end },
 		{ ">", function() seleziona(selezionato + 1) end },
@@ -468,59 +729,190 @@ function Mappa.inizializza(gui, r)
 		{ "+", function() zoom = math.max(zoom / 1.4, 0.45); aggiornaCamera() end },
 	}
 	for i, voce in ipairs(voci) do
-		local b = Stile.bottone({ Size = UDim2.fromOffset(54, 54), Text = voce[1], LayoutOrder = i, Parent = comandi }, Stile.Colori.Secondario)
+		local b = Stile.pulsante({
+			Size = UDim2.fromOffset(66, 66),
+			LayoutOrder = i,
+			Parent = comandi,
+		}, "blu", { Testo = voce[1], TestoSize = 40, Raggio = 33, Profondita = 6, Contorno = 4 })
 		b.Activated:Connect(voce[2])
 	end
 
-	pannello = Stile.pannello({
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -16, 1, -16),
-		Size = UDim2.fromOffset(460, 250),
-		BackgroundColor3 = Color3.fromRGB(60, 44, 30),
+	-- A destra: pannello bianco della battaglia selezionata.
+	local lato = Stile.crea("Frame", {
+		Name = "Lato",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -28, 0, 146),
+		Size = UDim2.fromOffset(456, 904),
+		BackgroundTransparency = 1,
 		Parent = interfaccia,
 	})
-	nomeLivello = Stile.titolo({
-		Position = UDim2.fromOffset(16, 12),
-		Size = UDim2.new(1, -150, 0, 34),
-		Text = "",
-		TextXAlignment = Enum.TextXAlignment.Left,
+	Stile.crea("Frame", {
+		Name = "Ombra",
+		Position = UDim2.fromOffset(0, 12),
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Stile.CONTORNO,
+		BackgroundTransparency = 0.55,
+		Parent = lato,
+	}, { Stile.angoli(36) })
+	pannello = Stile.crea("Frame", {
+		Name = "Pannello",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Stile.Colori.PannelloChiaro,
+		Parent = lato,
+	}, { Stile.angoli(36), Stile.bordo(Stile.CONTORNO, 7) })
+
+	-- Testata colorata col bioma della battaglia.
+	cielo = Stile.crea("Frame", {
+		Name = "Testata",
+		Position = UDim2.fromOffset(8, 8),
+		Size = UDim2.new(1, -16, 0, 226),
+		BackgroundColor3 = Stile.BIANCO,
 		Parent = pannello,
+	}, { Stile.angoli(30), Stile.sfumatura(Stile.BIANCO, Stile.BIANCO) })
+	Stile.crea("Frame", {
+		Name = "Ombra",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Stile.CONTORNO,
+		Parent = cielo,
+	}, {
+		Stile.angoli(30),
+		Stile.crea("UIGradient", {
+			Rotation = 90,
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 1),
+				NumberSequenceKeypoint.new(0.45, 0.9),
+				NumberSequenceKeypoint.new(1, 0.35),
+			}),
+		}),
 	})
-	stellePannello = Stile.testo({
-		Position = UDim2.fromOffset(16, 48),
-		Size = UDim2.fromOffset(120, 30),
+	local _, etichettaBattaglia = Stile.chip({
+		Position = UDim2.fromOffset(14, 14),
+		Size = UDim2.fromOffset(176, 46),
+		Parent = cielo,
+	}, "verde", "BATTLE 1", 26)
+	chipBattaglia = etichettaBattaglia
+	local filaStelle = Stile.crea("Frame", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -12, 0, 14),
+		Size = UDim2.fromOffset(138, 46),
+		BackgroundTransparency = 1,
+		Parent = cielo,
+	}, {
+		Stile.crea("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Right,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 2),
+		}),
+	})
+	for i = 1, Campagna.STELLE_MASSIME do
+		stellePannello[i] = Stile.icona("star", { Size = UDim2.fromOffset(44, 44), LayoutOrder = i, Parent = filaStelle })
+	end
+	nomeLivello = Stile.scritta({
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 18, 1, -12),
+		Size = UDim2.new(1, -36, 0, 76),
 		Text = "",
-		Font = Stile.Font,
-		TextColor3 = ORO,
+		TextSize = 68,
+		Contorno = 6,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = cielo,
+	})
+	nomeLivello.TextScaled = true
+	Stile.crea("UITextSizeConstraint", { MaxTextSize = 68, Parent = nomeLivello })
+
+	-- Anno, epoca e dettagli del campo.
+	infoLivello = Stile.testo({
+		Position = UDim2.fromOffset(26, 246),
+		Size = UDim2.new(1, -52, 0, 32),
+		Text = "",
+		TextSize = 27,
+		TextScaled = false,
+		TextColor3 = Stile.Colori.TestoSecondario,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = pannello,
 	})
 	dettagli = Stile.testo({
-		Position = UDim2.fromOffset(16, 84),
-		Size = UDim2.new(1, -150, 0, 90),
+		Position = UDim2.fromOffset(26, 280),
+		Size = UDim2.new(1, -52, 0, 26),
 		Text = "",
-		Font = Stile.FontTesto,
+		TextSize = 21,
 		TextScaled = false,
-		TextSize = 16,
-		TextWrapped = true,
+		FontFace = Stile.FontTesto,
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Top,
 		Parent = pannello,
 	})
-	spazioBoss = Stile.crea("Frame", {
+
+	-- Difficoltà: 5 scudi, quelli pieni accesi.
+	etichettaSezione(pannello, 326, "DIFFICULTY")
+	for i = 1, 5 do
+		scudi[i] = Stile.icona("cls_inf", {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -24 - (5 - i) * 46, 0, 341),
+			Size = UDim2.fromOffset(44, 44),
+			Parent = pannello,
+		})
+	end
+
+	-- Armata nemica.
+	etichettaSezione(pannello, 380, "ENEMY ARMY")
+	contaNemici = Stile.testo({
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -14, 0, 14),
-		Size = UDim2.fromOffset(112, 160),
+		Position = UDim2.new(1, -26, 0, 383),
+		Size = UDim2.fromOffset(200, 26),
+		Text = "",
+		TextSize = 20,
+		TextScaled = false,
+		TextColor3 = Stile.Colori.TestoSecondario,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = pannello,
+	})
+	spazioNemici = Stile.crea("Frame", {
+		Name = "Nemici",
+		Position = UDim2.fromOffset(18, 414),
+		Size = UDim2.new(1, -36, 0, 176),
+		BackgroundTransparency = 1,
+		Parent = pannello,
+	}, {
+		Stile.crea("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 8),
+		}),
+	})
+
+	-- Premi.
+	etichettaSezione(pannello, 604, "REWARDS")
+	spazioPremi = Stile.crea("Frame", {
+		Name = "Premi",
+		Position = UDim2.fromOffset(20, 640),
+		Size = UDim2.new(1, -40, 0, 84),
 		BackgroundTransparency = 1,
 		Parent = pannello,
 	})
-	bottoneAttacca = Stile.bottone({
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -14, 1, -14),
-		Size = UDim2.new(1, -28, 0, 56),
-		Text = "ATTACK",
+	local _, testoMonete = tesseraPremio({ Name = "Monete", Size = UDim2.new(0.5, -6, 1, 0), Parent = spazioPremi }, "coin", "0")
+	testoMonetePremio = testoMonete
+	local tessera, _, icona = tesseraPremio({
+		Name = "Carta",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(1, 0),
+		Size = UDim2.new(0.5, -6, 1, 0),
+		Parent = spazioPremi,
+	}, "card_roman_legionaries", "CARD")
+	tesseraCarta, iconaCarta = tessera, icona
+
+	-- ATTACCA: grande pulsante rosso (grigio "LOCKED" se la battaglia è bloccata).
+	local bottone, etichetta, faccia = Stile.pulsante({
+		Name = "Attacca",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -22),
+		Size = UDim2.new(1, -40, 0, 130),
 		Parent = pannello,
-	}, ARANCIO)
+	}, "rosso", { Testo = "ATTACK", TestoSize = 68, Icona = "fight", IconaSize = 90, IconaX = 22, Raggio = 26, Profondita = 10 })
+	bottoneAttacca, testoAttacca, iconaAttacca = bottone, etichetta, faccia:FindFirstChild("Icona")
 	bottoneAttacca.Activated:Connect(function()
 		if not sbloccato(selezionato) then
 			Notifiche.mostra("Win the previous battles to unlock this one.")
