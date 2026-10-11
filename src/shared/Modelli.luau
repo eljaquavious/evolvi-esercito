@@ -526,9 +526,10 @@ function Modelli.crea(tipo, squadra, cframe, opzioni)
 		if parte then
 			-- L'origine dei modelli Blender è sotto i piedi del soldato; nei cavalieri il cavaliere è stato
 			-- costruito in piedi e poi messo in sella, così gli zoccoli scendono sotto l'origine: si alza tutto
-			-- finché gli zoccoli toccano terra.
+			-- finché gli zoccoli toccano terra. Lo stesso per il mitragliere, i cui sacchetti scendevano di 0,26.
+			-- Qualche centesimo sotto (le suole dei fanti, i cingoli) resta: sembra appoggiato meglio.
 			local fondo = centro.Y + basso
-			local alza = fondo < -0.5 and -fondo or 0
+			local alza = fondo < -0.15 and -fondo or 0
 			parte.CFrame = cframe * CFrame.new(centro + Vector3.new(0, alza, 0))
 			modello:SetAttribute("MeshBasso", basso)
 			modello:SetAttribute("MeshMetri", info.metri)
