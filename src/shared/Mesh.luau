@@ -71,33 +71,40 @@ end
 -- Superficie opaca: la SmoothPlastic luccica. Con una SurfaceAppearance che ha la texture e una mappa di
 -- ruvidità tutta bianca il modello diventa del tutto opaco; dove Roblox non la permette si usa un
 -- materiale ruvido. La mappa di ruvidità è una sola, condivisa da tutti i modelli.
-local mappaRuvida
-function opaca(parte, texture)
-	if mappaRuvida == nil then
-		mappaRuvida = false
-		local ok, immagine = pcall(AssetService.CreateEditableImage, AssetService, { Size = Vector2.new(4, 4) })
-		if ok and immagine then
+-- CreateSurfaceAppearanceAsync accetta solo immagini modificabili (e uno script di gioco non può scrivere le
+-- mappe di una SurfaceAppearance): se riesce restituisce true e la texture modificabile deve restare viva.
+local immagineRuvida
+function opaca(parte, immagine)
+	if immagineRuvida == nil then
+		immagineRuvida = false
+		local ok, bianca = pcall(AssetService.CreateEditableImage, AssetService, { Size = Vector2.new(4, 4) })
+		if ok and bianca then
 			local bianco = buffer.create(4 * 4 * 4)
 			buffer.fill(bianco, 0, 255)
-			immagine:WritePixelsBuffer(Vector2.zero, Vector2.new(4, 4), bianco)
-			mappaRuvida = fissa(immagine) or Content.fromObject(immagine)
+			bianca:WritePixelsBuffer(Vector2.zero, Vector2.new(4, 4), bianco)
+			immagineRuvida = bianca
 		end
 	end
-	if mappaRuvida then
-		local ok, aspetto = pcall(AssetService.CreateSurfaceAppearance, AssetService, {
-			ColorMap = texture,
-			RoughnessMap = mappaRuvida,
-		})
+	local motivo = "mappa di ruvidità non creata"
+	if immagineRuvida then
+		local ok, aspetto = pcall(function()
+			return AssetService:CreateSurfaceAppearanceAsync({
+				ColorMap = Content.fromObject(immagine),
+				RoughnessMap = Content.fromObject(immagineRuvida),
+			})
+		end)
 		if ok and aspetto then
 			aspetto.Parent = parte
-			return
+			return true
 		end
-		if not avvisati.opaca then
-			avvisati.opaca = true
-			warn("Modelli: superficie opaca non disponibile, uso un materiale ruvido (" .. tostring(aspetto) .. ")")
-		end
+		motivo = aspetto
+	end
+	if not avvisati.opaca then
+		avvisati.opaca = true
+		warn("Modelli: superficie opaca non disponibile, uso un materiale ruvido (" .. tostring(motivo) .. ")")
 	end
 	parte.Material = Enum.Material.Fabric
+	return false
 end
 
 -- Riempie la mesh vuota (ossa, vertici, triangoli) e ne fa la MeshPart con texture e ossa.
@@ -182,8 +189,8 @@ function riempi(em, nome, dati, geometria, minimo, estensione, centro, scala)
 	immagine:WritePixelsBuffer(Vector2.zero, Vector2.new(lato, lato), rgba)
 	local textureFissa = fissa(immagine)
 	parte.TextureContent = textureFissa or Content.fromObject(immagine)
-	opaca(parte, parte.TextureContent)
-	if textureFissa then
+	local serveImmagine = opaca(parte, immagine)
+	if textureFissa and not serveImmagine then
 		immagine:Destroy()
 		immagine = nil
 	end
