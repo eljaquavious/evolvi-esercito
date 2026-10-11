@@ -1513,6 +1513,80 @@ local function avvolgi(modello, g, nomeMesh, cf, s)
 	modello.Parent = g
 end
 
+-- Modelli fotografici (fotoscansioni CC0 con SurfaceAppearance PBR), messi a mano in Studio dentro
+-- ServerStorage.ModelliFoto: ogni modello ha l'attributo Oggetto (il nome dell'oggetto che sostituisce, per
+-- esempio "quercia"), Altezza (studs alla scala 1), facoltativi Neve / Sabbia (true: solo lì; false: mai lì)
+-- e Urto (raggio del tronco che ferma chi cammina). Il perno del modello è a terra, al centro della base.
+-- Hanno la precedenza sui modelli generati: il server li clona, quindi li vedono tutti senza altro lavoro.
+local foto = {} -- nome oggetto -> lista di modelli
+do
+	local ServerStorage = game:GetService("ServerStorage")
+	local cartellaFoto = typeof(ServerStorage) == "Instance" and ServerStorage:FindFirstChild("ModelliFoto") or nil
+	for _, m in ipairs(cartellaFoto and cartellaFoto:GetChildren() or {}) do
+		local oggetto = m:IsA("Model") and m:GetAttribute("Oggetto")
+		if oggetto then
+			foto[oggetto] = foto[oggetto] or {}
+			table.insert(foto[oggetto], m)
+		end
+	end
+end
+Paesaggio.foto = foto
+
+local function adatto(m, ctx)
+	for _, campo in ipairs({ "Neve", "Sabbia" }) do
+		local v = m:GetAttribute(campo)
+		local qui = ctx[campo:lower()] == true
+		if v == true and not qui or v == false and qui then
+			return false
+		end
+	end
+	return true
+end
+
+local function mettiFoto(g, nome, cf, rng, s, ctx)
+	local scelte = {}
+	for _, m in ipairs(foto[nome] or {}) do
+		if adatto(m, ctx) then
+			table.insert(scelte, m)
+		end
+	end
+	if #scelte == 0 then
+		return false
+	end
+	local originale = scelte[rng:NextInteger(1, #scelte)]
+	local copia = originale:Clone()
+	local altezza = originale:GetAttribute("Altezza")
+	if altezza then
+		local _, misura = originale:GetBoundingBox()
+		copia:ScaleTo(altezza * s / math.max(misura.Y, 0.1) * rng:NextNumber(0.92, 1.08))
+	else
+		copia:ScaleTo(s)
+	end
+	copia:PivotTo(cf * CFrame.Angles(0, rng:NextNumber(0, 2 * math.pi), 0))
+	for _, p in ipairs(copia:GetDescendants()) do
+		if p:IsA("BasePart") then
+			p.Anchored = true
+			p.CanCollide = false
+			p.CanTouch = false
+		end
+	end
+	local urto = originale:GetAttribute("Urto")
+	if urto then
+		local tronco = Instance.new("Part")
+		tronco.Name = "Urto"
+		tronco.Shape = Enum.PartType.Cylinder
+		tronco.Size = Vector3.new(8 * s, urto * 2 * s, urto * 2 * s)
+		tronco.CFrame = cf * CFrame.new(0, 4 * s, 0) * CFrame.Angles(0, 0, math.pi / 2)
+		tronco.Anchored = true
+		tronco.Transparency = 1
+		tronco.CanQuery = false
+		tronco.Parent = copia
+	end
+	copia.Name = nome
+	copia.Parent = g
+	return true
+end
+
 for nome, aParti in pairs(P) do
 	Paesaggio.originali[nome] = aParti
 	local scegli = NATURA[nome]
@@ -1556,6 +1630,19 @@ for nome, aParti in pairs(P) do
 				error(errore, 0)
 			end
 			avvolgi(modello, g, nomeMesh, cf, s)
+		end
+	end
+end
+
+-- Sopra a tutto, i modelli fotografici dove ci sono (altrimenti il modello generato o le parti).
+for nome in pairs(foto) do
+	local generato = P[nome]
+	if generato then
+		P[nome] = function(g, cf, rng, s, ctx)
+			ctx = ctx or {}
+			if dentro or not mettiFoto(g, nome, cf, rng, s, ctx) then
+				return generato(g, cf, rng, s, ctx)
+			end
 		end
 	end
 end
