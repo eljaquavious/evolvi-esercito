@@ -22,14 +22,14 @@ function Ambiente.imposta()
 	Lighting.ClockTime = 16.2
 	Lighting.GeographicLatitude = 41
 	Lighting.Brightness = 3
-	Lighting.Ambient = Color3.fromRGB(46, 48, 58)
-	Lighting.OutdoorAmbient = Color3.fromRGB(112, 116, 128)
+	Lighting.Ambient = Color3.fromRGB(70, 72, 82)
+	Lighting.OutdoorAmbient = Color3.fromRGB(138, 140, 150)
 	Lighting.EnvironmentDiffuseScale = 1
 	-- Poca luce speculare: superfici opache, niente effetto plastica.
 	Lighting.EnvironmentSpecularScale = 0.3
 	Lighting.GlobalShadows = true
 	Lighting.ShadowSoftness = 0.12
-	Lighting.ExposureCompensation = 0.1
+	Lighting.ExposureCompensation = 0.25
 
 	effetto("Atmosphere", "Atmosfera", {
 		Density = 0.3,
@@ -66,8 +66,8 @@ function Ambiente.imposta()
 	-- Colori del terreno un po' più naturali (meno saturi) e l'erba mossa dal vento dove c'è Grass.
 	terreno:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(98, 118, 60))
 	terreno:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(104, 120, 66))
-	terreno:SetMaterialColor(Enum.Material.Ground, Color3.fromRGB(104, 92, 66))
-	terreno:SetMaterialColor(Enum.Material.Mud, Color3.fromRGB(70, 56, 42))
+	terreno:SetMaterialColor(Enum.Material.Ground, Color3.fromRGB(118, 104, 78))
+	terreno:SetMaterialColor(Enum.Material.Mud, Color3.fromRGB(96, 80, 62))
 	terreno:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(176, 154, 116))
 	terreno:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(112, 110, 106))
 end
