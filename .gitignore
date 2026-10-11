@@ -6,3 +6,6 @@ sourcemap.json
 tools/cache_quote/
 __pycache__/
 *.pyc
+
+# Chiave API di Roblox: mai su GitHub
+chiave-roblox.txt
