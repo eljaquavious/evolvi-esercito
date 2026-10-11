@@ -1157,8 +1157,8 @@ function Partita.inizializza(gui, r, callbackLobby)
 	bottoneContinua, testoContinua = Stile.pulsante({
 		Name = "Continua",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, -360, 0, 880),
-		Size = UDim2.fromOffset(330, 116),
+		Position = UDim2.new(0.5, -330, 0, 880),
+		Size = UDim2.fromOffset(410, 116),
 		ZIndex = 5,
 		Parent = scheda,
 	}, "verde", { Testo = "NEXT BATTLE", TestoSize = 44, Icona = "fight", IconaSize = 62, Profondita = 10, Raggio = 26 })
@@ -1168,8 +1168,8 @@ function Partita.inizializza(gui, r, callbackLobby)
 	local mappa = Stile.pulsante({
 		Name = "Mappa",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 880),
-		Size = UDim2.fromOffset(330, 116),
+		Position = UDim2.new(0.5, 55, 0, 880),
+		Size = UDim2.fromOffset(300, 116),
 		ZIndex = 5,
 		Parent = scheda,
 	}, "blu", { Testo = "MAP", TestoSize = 56, Icona = "campaign", IconaSize = 84, Profondita = 10, Raggio = 26 })
@@ -1179,8 +1179,8 @@ function Partita.inizializza(gui, r, callbackLobby)
 	bottoneLobbyRisultato = Stile.pulsante({
 		Name = "Lobby",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 360, 0, 880),
-		Size = UDim2.fromOffset(330, 116),
+		Position = UDim2.new(0.5, 385, 0, 880),
+		Size = UDim2.fromOffset(300, 116),
 		ZIndex = 5,
 		Parent = scheda,
 	}, "verde", { Testo = "LOBBY", TestoSize = 56, Icona = "army", IconaSize = 84, Profondita = 10, Raggio = 26 })
