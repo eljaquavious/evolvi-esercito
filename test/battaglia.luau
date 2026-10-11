@@ -274,4 +274,48 @@ for _, n in pairs(lanci) do
 end
 verifica("i legionari lanciano il pilum una volta", lanciatori >= 4 and not ripetuti)
 
+-- Ordini: il reggimento attacca quello indicato, anche se un altro è più vicino.
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = SPADACCINO, x = 1, y = 2 },
+	{ id = 101, squadra = "nemico", def = SPADACCINO, x = 1, y = 5 },
+	{ id = 102, squadra = "nemico", def = SPADACCINO, x = 6, y = 5 },
+})
+verifica("l'ordine verso un nemico vivo vale", b:ordina(1, 102))
+verifica("non si ordina di attaccare un alleato", not b:ordina(1, 1))
+local colpitoLontano, colpitoVicino = false, false
+for _ = 1, 150 do
+	for _, evento in ipairs(b:passo(0.1)) do
+		if evento.tipo == "attacco" and evento.da // 16 == 1 then
+			colpitoLontano = colpitoLontano or evento.a // 16 == 102
+			colpitoVicino = colpitoVicino or evento.a // 16 == 101
+		end
+	end
+end
+verifica("il reggimento va contro il bersaglio ordinato", colpitoLontano and not colpitoVicino)
+
+-- Abilità dei comandanti: una volta sola, bonus doppio per chi è della stessa origine.
+local CESARE = { id = "Cesare", soldati = 1, classe = "Fanteria", comandante = true, origine = "Rome", hp = 700, danno = 36, cadenza = 1, gittata = 1.2, velocita = 1, armatura = 0.35, abilita = { nome = "Veni, Vidi, Vici", danno = 0.2, durata = 8 } }
+local ROMANI = table.clone(SPADACCINO)
+ROMANI.origine = "Rome"
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = CESARE, x = 1, y = 1 },
+	{ id = 2, squadra = "giocatore", def = ROMANI, x = 2, y = 1 },
+	{ id = 3, squadra = "giocatore", def = SPADACCINO, x = 3, y = 1 },
+	{ id = 101, squadra = "nemico", def = SPADACCINO, x = 3, y = 6 },
+})
+verifica("l'abilità si attiva", b:attivaAbilita(1))
+verifica("l'abilità si usa una volta", not b:attivaAbilita(1))
+verifica("solo i comandanti hanno abilità", not b:attivaAbilita(2))
+local romano, altro = b.perReggimento[2].soldati[1], b.perReggimento[3].soldati[1]
+verifica("stessa origine: bonus doppio", math.abs(b:_bonus(romano, "danno") - 0.4) < 1e-6 and math.abs(b:_bonus(altro, "danno") - 0.2) < 1e-6)
+local eventoAbilita = false
+for _, evento in ipairs(b:passo(0.1)) do
+	eventoAbilita = eventoAbilita or evento.tipo == "abilita"
+end
+verifica("l'abilità arriva al client come evento", eventoAbilita)
+for _ = 1, 90 do
+	b:passo(0.1)
+end
+verifica("l'abilità finisce", b:_bonus(romano, "danno") == 0)
+
 print(falliti == 0 and "Tutti i test passati" or (falliti .. " test falliti"))

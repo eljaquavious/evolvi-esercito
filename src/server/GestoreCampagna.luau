@@ -20,6 +20,8 @@ local TICK = 0.1
 -- Secondi di battaglia simulati per ogni secondo reale: sotto 1 la battaglia si gode di più, senza cambiare il bilanciamento.
 local VELOCITA_BATTAGLIA = 0.75
 local PAUSA_TRA_ROUND = 2.8
+-- Secondi di battaglia dopo cui i comandanti nemici usano la loro abilità.
+local ATTESA_ABILITA_NEMICA = 6
 
 local sessioni = {}
 local remoti
@@ -246,7 +248,9 @@ local function eventiPerClient(eventi)
 			end
 			table.insert(lista, { tipo = "colpo", a = e.a, danno = e.danno, area = area })
 		elseif e.tipo == "morte" then
-			table.insert(lista, { tipo = "morte", id = e.id })
+			table.insert(lista, { tipo = "morte", id = e.id, reggimento = e.reggimentoCaduto and e.reggimento or nil })
+		elseif e.tipo == "ordine" or e.tipo == "abilita" then
+			table.insert(lista, e)
 		end
 	end
 	return lista
@@ -264,9 +268,11 @@ local function combattiRound(player, sessione)
 	local reggimenti = {}
 
 	local id = 0
+	local mieiReggimenti, reggimentiNemici = {}, {}
 	for _, piazzata in pairs(sessione.piazzate) do
 		id += 1
 		table.insert(reggimenti, { id = id, squadra = "giocatore", def = Epoche.Truppe[piazzata.tipo], x = piazzata.col, y = piazzata.riga })
+		table.insert(mieiReggimenti, { id = id, indice = piazzata.indice, tipo = piazzata.tipo })
 	end
 	for i, nemico in ipairs(sessione.armata) do
 		table.insert(reggimenti, {
@@ -277,6 +283,7 @@ local function combattiRound(player, sessione)
 			y = nemico.riga,
 			forza = Campagna.forza(livello, sessione.round, nemico.tipo),
 		})
+		table.insert(reggimentiNemici, { id = 100 + i, tipo = nemico.tipo })
 	end
 
 	local ostacoli, terreno = {}, {}
@@ -302,17 +309,31 @@ local function combattiRound(player, sessione)
 		velocita = VELOCITA_BATTAGLIA,
 		soldati = elenco,
 	})
-	remoti.Fase:FireClient(player, { fase = "battaglia", conto = 3, assedio = sessione.assedio })
+	remoti.Fase:FireClient(player, {
+		fase = "battaglia",
+		conto = 3,
+		assedio = sessione.assedio,
+		reggimenti = mieiReggimenti,
+		nemici = reggimentiNemici,
+	})
 	task.wait(3.2) -- conto alla rovescia sul client, intanto si vede lo schieramento nemico
 	if not sessione.attiva then
 		return nil
 	end
 
+	sessione.battaglia = battaglia
 	while sessione.attiva and not battaglia.finita and not sessione.vinciSubito do
+		-- I comandanti nemici usano la loro abilità quando gli eserciti stanno per scontrarsi.
+		if battaglia.tempo >= ATTESA_ABILITA_NEMICA then
+			for _, r in ipairs(reggimentiNemici) do
+				battaglia:attivaAbilita(r.id)
+			end
+		end
 		local eventi = battaglia:passo(TICK * VELOCITA_BATTAGLIA)
 		remoti.Truppe:FireClient(player, { tipo = "passo", posizioni = posizioni(battaglia), eventi = eventiPerClient(eventi) })
 		task.wait(TICK)
 	end
+	sessione.battaglia = nil
 	if not sessione.attiva then
 		return nil
 	end
@@ -457,6 +478,33 @@ function GestoreCampagna.combatti(player)
 	return true
 end
 
+-- Ordine dal giocatore in battaglia: il suo reggimento "id" attacca il reggimento nemico "idBersaglio".
+function GestoreCampagna.ordine(player, id, idBersaglio)
+	local sessione = sessioni[player]
+	local battaglia = sessione and sessione.battaglia
+	if not battaglia or typeof(id) ~= "number" or typeof(idBersaglio) ~= "number" then
+		return false
+	end
+	-- I reggimenti del giocatore hanno id sotto 100, quelli nemici da 101.
+	if id < 1 or id >= 100 or idBersaglio <= 100 then
+		return false
+	end
+	return battaglia:ordina(id, idBersaglio)
+end
+
+-- Abilità del comandante "id" del giocatore, una volta per round.
+function GestoreCampagna.abilita(player, id)
+	local sessione = sessioni[player]
+	local battaglia = sessione and sessione.battaglia
+	if not battaglia or typeof(id) ~= "number" or id < 1 or id >= 100 then
+		return false, "Abilities can be used during the battle."
+	end
+	if not battaglia:attivaAbilita(id) then
+		return false, "This ability is not available right now."
+	end
+	return true
+end
+
 -- Modalità prova (solo in Studio): vince subito il round, in battaglia o durante lo schieramento,
 -- per arrivare in fretta alla fortezza del match point o alla fine del livello.
 function GestoreCampagna.vinciRound(player)
@@ -518,6 +566,8 @@ function GestoreCampagna.inizializza(r)
 	remoti.ApriMappa.OnServerInvoke = GestoreCampagna.apriMappa
 	remoti.Casella.OnServerInvoke = GestoreCampagna.casella
 	remoti.Combatti.OnServerInvoke = GestoreCampagna.combatti
+	remoti.Ordine.OnServerInvoke = GestoreCampagna.ordine
+	remoti.Abilita.OnServerInvoke = GestoreCampagna.abilita
 	remoti.VinciRound.OnServerInvoke = GestoreCampagna.vinciRound
 	remoti.TornaLobby.OnServerInvoke = GestoreCampagna.tornaLobby
 end

@@ -264,15 +264,23 @@ local function disegnaDettaglio()
 		}),
 	})
 	Stile.chip({
-		Size = UDim2.fromOffset(200, 46),
+		Size = UDim2.fromOffset(180, 46),
 		LayoutOrder = 1,
 		Parent = riga,
 	}, PAL_EPOCA[def.epoca] or "grigio", string.upper(Epoche.epoca(def.epoca).nome), 24)
 	Stile.chip({
-		Size = UDim2.fromOffset(160, 46),
+		Size = UDim2.fromOffset(120, 46),
 		LayoutOrder = 2,
 		Parent = riga,
 	}, "blu", ("x%d MEN"):format(def.soldati or 1), 24)
+	-- Origine: le abilità dei comandanti valgono doppio per le truppe della stessa origine.
+	if def.origine then
+		Stile.chip({
+			Size = UDim2.fromOffset(150, 46),
+			LayoutOrder = 3,
+			Parent = riga,
+		}, "verde", string.upper(def.origine), 24)
+	end
 
 	-- Triangolo delle classi (le fortezze non sono nella collezione).
 	local batte = Battaglia.BATTE[def.classe]
@@ -282,7 +290,44 @@ local function disegnaDettaglio()
 			battutoDa = attacco
 		end
 	end
-	if batte or battutoDa then
+	if def.abilita then
+		-- I comandanti mostrano la loro abilità al posto del triangolo delle classi.
+		local riquadro = Stile.crea("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 0, 586),
+			Size = UDim2.new(1, -40, 0, 112),
+			BackgroundColor3 = Color3.fromHex("#15163A"),
+			BackgroundTransparency = 0.25,
+			BorderSizePixel = 0,
+			Parent = dettaglio,
+		}, { Stile.angoli(20) })
+		Stile.testo({
+			Position = UDim2.fromOffset(18, 8),
+			Size = UDim2.new(1, -36, 0, 32),
+			Text = "ABILITY: " .. string.upper(def.abilita.nome),
+			TextSize = 26,
+			TextScaled = false,
+			FontFace = Stile.FontTitolo,
+			TextColor3 = Stile.Colori.Oro,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 3,
+			Parent = riquadro,
+		})
+		local testo = Stile.testo({
+			Position = UDim2.fromOffset(18, 42),
+			Size = UDim2.new(1, -36, 0, 64),
+			Text = Epoche.testoAbilita(def),
+			TextSize = 20,
+			TextScaled = false,
+			TextWrapped = true,
+			TextColor3 = Stile.BIANCO,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			ZIndex = 3,
+			Parent = riquadro,
+		})
+		Stile.crea("UITextSizeConstraint", { MaxTextSize = 20, Parent = testo })
+	elseif batte or battutoDa then
 		local riquadro = Stile.crea("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0),
 			Position = UDim2.new(0.5, 0, 0, 586),

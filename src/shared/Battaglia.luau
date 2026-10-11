@@ -133,6 +133,9 @@ function Battaglia.nuova(reggimenti, opzioni)
 	self.soldati = {}
 	self.perId = {}
 	self.colpi = {} -- colpi partiti che devono ancora arrivare
+	self.effetti = {} -- abilità dei comandanti in corso: { squadra, origine, fine, danno, velocita, difesa }
+	self.eventiInAttesa = {} -- eventi nati fuori da un passo (ordini, abilità): escono col passo dopo
+	self.perReggimento = {}
 	self.tempo = 0
 	self.finita = false
 	self.vincitore = nil
@@ -153,6 +156,8 @@ function Battaglia.nuova(reggimenti, opzioni)
 			soldati = {},
 			vivo = true,
 			hpMax = def.hp * forza,
+			ordine = nil, -- reggimento nemico da attaccare per ordine del giocatore
+			abilitaUsata = false,
 		}
 		local avanti = r.squadra == "giocatore" and 1 or -1
 		for i, offset in ipairs(Battaglia.formazione(numero, def)) do
@@ -184,6 +189,7 @@ function Battaglia.nuova(reggimenti, opzioni)
 			self.perId[s.id] = s
 		end
 		table.insert(self.reggimenti, reggimento)
+		self.perReggimento[reggimento.id] = reggimento
 	end
 	-- Compatibilità con chi guardava i reggimenti come "unità".
 	self.unita = self.reggimenti
@@ -257,8 +263,96 @@ function Battaglia:_aura(u)
 	return 1 + migliore
 end
 
+-- Somma dei bonus "campo" (danno, velocita, difesa) delle abilità in corso per il soldato u: chi è della
+-- stessa origine del comandante prende il doppio.
+function Battaglia:_bonus(u, campo)
+	local totale = 0
+	for _, e in ipairs(self.effetti) do
+		if e.squadra == u.squadra and e[campo] and self.tempo < e.fine then
+			totale = totale + e[campo] * (u.def.origine ~= nil and u.def.origine == e.origine and 2 or 1)
+		end
+	end
+	return totale
+end
+
+-- Ordine del giocatore: il reggimento "id" va ad attaccare il reggimento nemico "idBersaglio".
+function Battaglia:ordina(id, idBersaglio)
+	local r, b = self.perReggimento[id], self.perReggimento[idBersaglio]
+	if self.finita or not r or not b or not r.vivo or not b.vivo or r.squadra == b.squadra or r.def.velocita == 0 then
+		return false
+	end
+	r.ordine = b
+	for _, s in ipairs(r.soldati) do
+		s.ripensa = 0
+	end
+	table.insert(self.eventiInAttesa, { tipo = "ordine", reggimento = id, bersaglio = idBersaglio })
+	return true
+end
+
+-- Abilità del comandante "id": una volta per battaglia, mentre è vivo.
+function Battaglia:attivaAbilita(id)
+	local r = self.perReggimento[id]
+	local a = r and r.def.abilita
+	if self.finita or not a or not r.vivo or r.abilitaUsata then
+		return false
+	end
+	r.abilitaUsata = true
+	table.insert(self.effetti, {
+		squadra = r.squadra,
+		origine = r.def.origine,
+		fine = self.tempo + (a.durata or 8),
+		danno = a.danno,
+		velocita = a.velocita,
+		difesa = a.difesa,
+	})
+	for _, s in ipairs(self.soldati) do
+		if s.vivo and s.squadra == r.squadra then
+			local doppio = s.def.origine ~= nil and s.def.origine == r.def.origine
+			if a.cura then
+				s.hp = math.min(s.hpMax, s.hp + s.hpMax * a.cura * (doppio and 2 or 1))
+			end
+			if a.cariche and s.def.carica then
+				s.caricaUsata = false
+			end
+		end
+	end
+	table.insert(self.eventiInAttesa, { tipo = "abilita", reggimento = id, squadra = r.squadra, tipoCarta = r.def.id, durata = a.durata or 8 })
+	return true
+end
+
 -- Sceglie il nemico da attaccare: il più vicino, ma chi ha già tanti addosso conta come più lontano.
+-- Se il reggimento ha un ordine, il più vicino tra i soldati del reggimento indicato.
 function Battaglia:_bersaglio(u, dt)
+	local ordine = u.reggimento.ordine
+	if ordine and not ordine.vivo then
+		u.reggimento.ordine = nil
+		ordine = nil
+	end
+	if ordine then
+		local attuale = u.bersaglio
+		u.ripensa = u.ripensa - dt
+		if attuale and attuale.vivo and attuale.reggimento == ordine and (self:_inGittata(u, attuale) or u.ripensa > 0) then
+			return attuale
+		end
+		u.ripensa = RIPENSA
+		local migliore, dMin = nil, math.huge
+		for _, s in ipairs(ordine.soldati) do
+			if s.vivo then
+				local d = distanza(u, s)
+				if d < dMin then
+					migliore, dMin = s, d
+				end
+			end
+		end
+		if attuale and attuale.assalitori and attuale ~= migliore then
+			attuale.assalitori = attuale.assalitori - 1
+		end
+		if migliore and migliore ~= attuale and not tiratore(u.def) then
+			migliore.assalitori = (migliore.assalitori or 0) + 1
+		end
+		u.bersaglio = migliore
+		return migliore
+	end
 	local attuale = u.bersaglio
 	u.ripensa = u.ripensa - dt
 	if attuale and attuale.vivo and (self:_inGittata(u, attuale) or u.ripensa > 0) then
@@ -455,7 +549,7 @@ end
 function Battaglia:_muovi(u, b, dt, portata)
 	local dx, dy = b.x - u.x, b.y - u.y
 	local d = math.sqrt(dx * dx + dy * dy)
-	local velocita = u.def.velocita * (self:_terrenoSotto(u).velocita or 1)
+	local velocita = u.def.velocita * (self:_terrenoSotto(u).velocita or 1) * (1 + self:_bonus(u, "velocita"))
 	local passo = math.min(velocita * dt, d - portata * 0.92)
 	if passo <= 0 or d < 1e-6 then
 		return
@@ -544,7 +638,7 @@ end
 -- Danno di un colpo, prima dell'armatura del bersaglio.
 function Battaglia:_dannoBase(u, b, lancio)
 	local d = distanza(u, b) - u.raggio - b.raggio
-	local danno = u.danno * Battaglia.moltiplicatore(u.def.classe, b.def.classe) * self:_aura(u)
+	local danno = u.danno * Battaglia.moltiplicatore(u.def.classe, b.def.classe) * self:_aura(u) * (1 + self:_bonus(u, "danno"))
 	if lancio then
 		danno = danno * u.def.lancio.danno
 	end
@@ -570,6 +664,7 @@ function Battaglia:_ferisci(b, danno, eventi, attaccante)
 		return 0
 	end
 	local reale = danno * (1 - (b.def.armatura or 0)) * (self:_terrenoSotto(b).dannoSubito or 1)
+		* (1 - math.min(0.6, self:_bonus(b, "difesa")))
 	b.hp = b.hp - reale
 	if b.hp <= 0 then
 		b.hp = 0
@@ -649,8 +744,10 @@ end
 -- { tipo = "attacco", da, a, colpo = "mischia" | "tiro" | "lancio", ritardo, gesto, carica }
 -- { tipo = "colpo", da, a, danno, area = { { id, danno } } }
 -- { tipo = "morte", id, da, reggimento, reggimentoCaduto }
+-- { tipo = "ordine", reggimento, bersaglio } e { tipo = "abilita", reggimento, squadra, tipoCarta, durata }
 function Battaglia:passo(dt)
-	local eventi = {}
+	local eventi = self.eventiInAttesa
+	self.eventiInAttesa = {}
 	if self.finita then
 		return eventi
 	end

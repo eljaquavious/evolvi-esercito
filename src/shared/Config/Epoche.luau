@@ -51,6 +51,7 @@ Epoche.Truppe = {
 	-- Antichità ---------------------------------------------------------------
 	Legionario = {
 		id = "Legionario",
+		origine = "Rome",
 		nome = "Roman Legionaries",
 		epoca = "Antica",
 		classe = "Fanteria",
@@ -68,6 +69,7 @@ Epoche.Truppe = {
 	},
 	ArciereCretese = {
 		id = "ArciereCretese",
+		origine = "Greece",
 		nome = "Cretan Archers",
 		epoca = "Antica",
 		classe = "Tiratore",
@@ -82,6 +84,7 @@ Epoche.Truppe = {
 	},
 	Compagno = {
 		id = "Compagno",
+		origine = "Greece",
 		nome = "Companion Cavalry",
 		epoca = "Antica",
 		classe = "Cavalleria",
@@ -99,6 +102,7 @@ Epoche.Truppe = {
 	-- Medioevo ----------------------------------------------------------------
 	Spadaccino = {
 		id = "Spadaccino",
+		origine = "England",
 		nome = "Saxon Huscarls",
 		epoca = "Medievale",
 		classe = "Fanteria",
@@ -113,6 +117,7 @@ Epoche.Truppe = {
 	},
 	Arciere = {
 		id = "Arciere",
+		origine = "England",
 		nome = "English Longbowmen",
 		epoca = "Medievale",
 		classe = "Tiratore",
@@ -127,6 +132,7 @@ Epoche.Truppe = {
 	},
 	Cavaliere = {
 		id = "Cavaliere",
+		origine = "France",
 		nome = "Norman Knights",
 		epoca = "Medievale",
 		classe = "Cavalleria",
@@ -144,6 +150,7 @@ Epoche.Truppe = {
 	-- Novecento ---------------------------------------------------------------
 	Fante = {
 		id = "Fante",
+		origine = "France",
 		nome = "French Poilus",
 		epoca = "Novecento",
 		classe = "Fanteria",
@@ -158,6 +165,7 @@ Epoche.Truppe = {
 	},
 	Mitragliere = {
 		id = "Mitragliere",
+		origine = "France",
 		nome = "Machine Gun Crew",
 		epoca = "Novecento",
 		classe = "Tiratore",
@@ -172,6 +180,7 @@ Epoche.Truppe = {
 	},
 	CarroArmato = {
 		id = "CarroArmato",
+		origine = "USA",
 		nome = "Sherman Tank",
 		epoca = "Novecento",
 		classe = "Cavalleria",
@@ -189,6 +198,8 @@ Epoche.Truppe = {
 	-- Comandanti: boss della campagna; battuti la prima volta, diventano carte leggendarie ----------
 	Annibale = {
 		id = "Annibale",
+		origine = "Carthage",
+		abilita = { nome = "Pincer Attack", velocita = 0.3, danno = 0.12, durata = 8 },
 		nome = "Hannibal Barca",
 		epoca = "Antica",
 		classe = "Cavalleria",
@@ -206,6 +217,8 @@ Epoche.Truppe = {
 	},
 	Cesare = {
 		id = "Cesare",
+		origine = "Rome",
+		abilita = { nome = "Veni, Vidi, Vici", danno = 0.2, durata = 8 },
 		nome = "Julius Caesar",
 		epoca = "Antica",
 		classe = "Fanteria",
@@ -222,6 +235,8 @@ Epoche.Truppe = {
 	},
 	Guglielmo = {
 		id = "Guglielmo",
+		origine = "France",
+		abilita = { nome = "Norman Charge", cariche = true, danno = 0.15, durata = 6 },
 		nome = "William the Conqueror",
 		epoca = "Medievale",
 		classe = "Cavalleria",
@@ -239,6 +254,8 @@ Epoche.Truppe = {
 	},
 	Giovanna = {
 		id = "Giovanna",
+		origine = "France",
+		abilita = { nome = "Divine Inspiration", cura = 0.15, difesa = 0.15, durata = 8 },
 		nome = "Joan of Arc",
 		epoca = "Medievale",
 		classe = "Fanteria",
@@ -255,6 +272,8 @@ Epoche.Truppe = {
 	},
 	Foch = {
 		id = "Foch",
+		origine = "France",
+		abilita = { nome = "Grand Offensive", danno = 0.2, velocita = 0.15, durata = 8 },
 		nome = "Ferdinand Foch",
 		epoca = "Novecento",
 		classe = "Fanteria",
@@ -271,6 +290,8 @@ Epoche.Truppe = {
 	},
 	DeGaulle = {
 		id = "DeGaulle",
+		origine = "France",
+		abilita = { nome = "Free France", difesa = 0.2, danno = 0.1, durata = 10 },
 		nome = "Charles de Gaulle",
 		epoca = "Novecento",
 		classe = "Fanteria",
@@ -346,6 +367,30 @@ function Epoche.carte()
 		end
 	end
 	return lista
+end
+
+-- Testo dell'abilità di un comandante, dai suoi numeri: "+20% damage, +30% speed for 8s".
+function Epoche.testoAbilita(def)
+	local a = def and def.abilita
+	if not a then
+		return nil
+	end
+	local parti = {}
+	local function percento(valore, cosa)
+		if valore then
+			table.insert(parti, ("+%d%% %s"):format(math.floor(valore * 100 + 0.5), cosa))
+		end
+	end
+	if a.cura then
+		table.insert(parti, ("heals %d%%"):format(math.floor(a.cura * 100 + 0.5)))
+	end
+	if a.cariche then
+		table.insert(parti, "cavalry charges again")
+	end
+	percento(a.danno, "damage")
+	percento(a.velocita, "speed")
+	percento(a.difesa, "defense")
+	return ("All your regiments: %s for %ds. Double for %s troops."):format(table.concat(parti, ", "), a.durata, def.origine)
 end
 
 function Epoche.indice(id)

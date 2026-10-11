@@ -15,6 +15,7 @@ local Notifiche = require(script.Parent.Notifiche)
 local Prova = require(ReplicatedStorage.Shared.Prova)
 local Epoche = require(ReplicatedStorage.Shared.Config.Epoche)
 local Carte = require(ReplicatedStorage.Shared.Config.Carte)
+local Truppe = require(script.Parent.Parent.Truppe)
 
 local Partita = {}
 
@@ -29,6 +30,11 @@ local usate = {} -- [indice] = true
 local carte = {} -- [indice] = carta nella barra
 local arena
 local evidenziata -- casella sotto il mouse, colorata d'oro solo su questo client
+-- In battaglia: le carte in basso sono i reggimenti sul campo. Si sceglie un reggimento e poi un nemico da attaccare.
+local reggimentoScelto -- id del reggimento in battaglia
+local idPerIndice = {} -- indice del mazzo -> id del reggimento in battaglia
+local bottoniAbilita = {} -- id del comandante -> pulsante ABILITY
+local suggerimento
 local coloriEvidenziata = {}
 
 -- Tabellone in alto: targhe YOU / Round / ENEMY con i pallini dei round vinti.
@@ -171,7 +177,11 @@ local function costruisciMazzo()
 	for _, carta in pairs(carte) do
 		carta:Destroy()
 	end
-	carte = {}
+	carte, idPerIndice, bottoniAbilita = {}, {}, {}
+	reggimentoScelto = nil
+	if suggerimento then
+		suggerimento.Text = "CLICK A CARD, THEN A BLUE TILE"
+	end
 	for indice, tipo in ipairs(info.mazzo) do
 		local carta = Carta.crea(tipo)
 		carta.Size = UDim2.fromOffset(112, 162)
@@ -431,9 +441,146 @@ local function contoAllaRovescia(conto)
 	end
 end
 
+local function aggiornaCarteBattaglia()
+	for indice, carta in pairs(carte) do
+		Carta.seleziona(carta, idPerIndice[indice] ~= nil and idPerIndice[indice] == reggimentoScelto)
+	end
+end
+
+local function spegniAbilita(id, testo)
+	local bottone = bottoniAbilita[id]
+	if bottone then
+		bottone.Active = false
+		bottone.AutoButtonColor = false
+		local etichetta = bottone:FindFirstChild("Testo", true)
+		if etichetta then
+			etichetta.Text = testo
+		end
+		local faccia = bottone:FindFirstChild("Faccia")
+		local sfumatura = faccia and faccia:FindFirstChildOfClass("UIGradient")
+		if sfumatura then
+			sfumatura.Color = ColorSequence.new(Stile.PAL.grigio.t, Stile.PAL.grigio.b)
+		end
+		bottoniAbilita[id] = nil
+	end
+end
+
+-- Barra in basso durante la battaglia: solo le carte schierate. I comandanti hanno il pulsante ABILITY.
+local function costruisciBarraBattaglia(reggimenti)
+	for _, carta in pairs(carte) do
+		carta:Destroy()
+	end
+	carte, idPerIndice, bottoniAbilita = {}, {}, {}
+	reggimentoScelto = nil
+	table.sort(reggimenti, function(a, b)
+		return a.indice < b.indice
+	end)
+	for _, r in ipairs(reggimenti) do
+		local def = Epoche.Truppe[r.tipo]
+		idPerIndice[r.indice] = r.id
+		local carta = Carta.crea(r.tipo)
+		carta.Size = UDim2.fromOffset(112, 162)
+		carta.LayoutOrder = r.indice
+		carta.Parent = carteMazzo
+		carta.Activated:Connect(function()
+			if fase ~= "battaglia" or carta:GetAttribute("Caduto") then
+				return
+			end
+			reggimentoScelto = reggimentoScelto ~= r.id and r.id or nil
+			aggiornaCarteBattaglia()
+			if reggimentoScelto then
+				avviso.Text = ("%s: click an enemy regiment to attack it."):format(def.nome)
+				avviso.TextColor3 = Stile.Colori.Oro
+			end
+		end)
+		if def.abilita then
+			local bottone = Stile.pulsante({
+				Name = "Abilita",
+				AnchorPoint = Vector2.new(0.5, 1),
+				Position = UDim2.new(0.5, 0, 1, 14),
+				Size = UDim2.fromOffset(132, 48),
+				ZIndex = 20,
+				Parent = carta,
+			}, "arancio", { Testo = "ABILITY", TestoSize = 24, Profondita = 5, Raggio = 12, Contorno = 3 })
+			bottone.Activated:Connect(function()
+				if not bottoniAbilita[r.id] then
+					return
+				end
+				local ok, messaggio = remoti.Abilita:InvokeServer(r.id)
+				if ok then
+					spegniAbilita(r.id, "USED")
+				elseif messaggio then
+					Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+				end
+			end)
+			bottoniAbilita[r.id] = bottone
+		end
+		carte[r.indice] = carta
+	end
+	contatore.Text = "ORDERS"
+	suggerimento.Text = "CLICK A CARD, THEN AN ENEMY"
+end
+
+-- Clic sul campo in battaglia: il reggimento scelto va ad attaccare il nemico più vicino al punto cliccato.
+local function clicBattaglia(posizioneSchermo)
+	if not reggimentoScelto then
+		return
+	end
+	local raggio = workspace.CurrentCamera:ScreenPointToRay(posizioneSchermo.X, posizioneSchermo.Y)
+	local parametri = RaycastParams.new()
+	parametri.FilterType = Enum.RaycastFilterType.Exclude
+	parametri.FilterDescendantsInstances = { player.Character }
+	local colpo = workspace:Raycast(raggio.Origin, raggio.Direction * 600, parametri)
+	if not colpo then
+		return
+	end
+	local bersaglio = Truppe.nemicoVicino(colpo.Position, 20)
+	if not bersaglio then
+		Notifiche.mostra("Click on an enemy regiment to attack it.")
+		return
+	end
+	local ok = remoti.Ordine:InvokeServer(reggimentoScelto, bersaglio)
+	if ok then
+		reggimentoScelto = nil
+		aggiornaCarteBattaglia()
+		avviso.Text = "Order sent! Pick another card to give more orders."
+		avviso.TextColor3 = Stile.Colori.Testo
+	end
+end
+
+-- Eventi della battaglia che cambiano la barra: reggimenti caduti e abilità usate (anche dal nemico).
+local function eventoBattaglia(e)
+	if e.tipo == "morte" and e.reggimento then
+		for indice, id in pairs(idPerIndice) do
+			if id == e.reggimento and carte[indice] then
+				carte[indice]:SetAttribute("Caduto", true)
+				Carta.spegni(carte[indice], true, "FALLEN")
+				spegniAbilita(id, "FALLEN")
+				if reggimentoScelto == id then
+					reggimentoScelto = nil
+					aggiornaCarteBattaglia()
+				end
+			end
+		end
+	elseif e.tipo == "abilita" then
+		local def = Epoche.Truppe[e.tipoCarta]
+		if def and def.abilita then
+			if e.squadra == "giocatore" then
+				spegniAbilita(e.reggimento, "USED")
+				avviso.Text = ("%s! %s"):format(string.upper(def.abilita.nome), Epoche.testoAbilita(def))
+				avviso.TextColor3 = Stile.Colori.Oro
+			else
+				avviso.Text = ("ENEMY %s uses %s!"):format(string.upper(def.nome), string.upper(def.abilita.nome))
+				avviso.TextColor3 = Stile.PAL.rosso.t
+			end
+		end
+	end
+end
+
 local function entraBattaglia(dati)
 	fase = "battaglia"
-	barraMazzo.Visible = false
+	costruisciBarraBattaglia(dati.reggimenti or {})
+	barraMazzo.Visible = true
 	bottoneCombatti.Visible = false
 	bottoneLobby.Visible = false
 	esploratori.Visible = false
@@ -452,6 +599,8 @@ end
 -- Fine di un round: grande scritta con il punteggio, poi il server manda il prossimo piazzamento o il risultato.
 local function mostraRound(dati)
 	fase = "round"
+	barraMazzo.Visible = false
+	reggimentoScelto = nil
 	mostraVinci(false)
 	scrittaConto.Visible = false
 	mostraTimer(nil)
@@ -832,7 +981,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 			Parent = barraMazzo,
 		}, "oro", "REGIMENTS 0/0", 24)
 	)
-	local suggerimento = Stile.testo({
+	suggerimento = Stile.testo({
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -28, 0, 20),
 		Size = UDim2.fromOffset(480, 30),
@@ -1197,17 +1346,31 @@ function Partita.inizializza(gui, r, callbackLobby)
 	end)
 
 	UserInputService.InputBegan:Connect(function(input, usatoDaGui)
-		if usatoDaGui or fase ~= "piazzamento" then
+		if usatoDaGui or input.UserInputType ~= Enum.UserInputType.MouseButton1 then
 			return
 		end
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if fase == "piazzamento" then
 			clic(Vector2.new(input.Position.X, input.Position.Y))
+		elseif fase == "battaglia" then
+			clicBattaglia(Vector2.new(input.Position.X, input.Position.Y))
 		end
 	end)
 	-- Sul telefono si trascina per girare la telecamera: si piazza solo con un tocco secco.
 	UserInputService.TouchTap:Connect(function(posizioni, usatoDaGui)
-		if not usatoDaGui and fase == "piazzamento" and posizioni[1] then
+		if usatoDaGui or not posizioni[1] then
+			return
+		end
+		if fase == "piazzamento" then
 			clic(posizioni[1])
+		elseif fase == "battaglia" then
+			clicBattaglia(posizioni[1])
+		end
+	end)
+	remoti.Truppe.OnClientEvent:Connect(function(dati)
+		if dati.tipo == "passo" and fase == "battaglia" then
+			for _, e in ipairs(dati.eventi) do
+				eventoBattaglia(e)
+			end
 		end
 	end)
 	UserInputService.InputChanged:Connect(function(input)

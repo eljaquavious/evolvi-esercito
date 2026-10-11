@@ -14,6 +14,8 @@ return {
 		"AvviaCampagna", -- numero del livello
 		"Casella", -- piazza o rimuove una truppa
 		"Combatti",
+		"Ordine", -- in battaglia: un tuo reggimento attacca un reggimento nemico
+		"Abilita", -- in battaglia: attiva l'abilità di un tuo comandante
 		"VinciRound", -- modalità prova (solo in Studio): il round in corso è vinto subito
 		"TornaLobby",
 		"AcquistaCassa",

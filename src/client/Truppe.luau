@@ -201,8 +201,65 @@ local function schieramento(dati)
 	end
 end
 
+-- Segni sopra i reggimenti nemici attaccati per ordine del giocatore: id del reggimento -> BillboardGui.
+local bersagli = {}
+
+local function togliBersagli()
+	for _, gui in pairs(bersagli) do
+		gui:Destroy()
+	end
+	bersagli = {}
+end
+
+-- Centro dei soldati vivi di un reggimento (nil se non ne restano).
+local function centroReggimento(id)
+	local somma, n = Vector3.zero, 0
+	for idSoldato, s in pairs(soldati) do
+		if s.vivo and idSoldato // 16 == id then
+			somma += s.posizione
+			n += 1
+		end
+	end
+	return n > 0 and somma / n or nil
+end
+
+local function segnaBersaglio(id)
+	if bersagli[id] then
+		return
+	end
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "Bersaglio"
+	gui.Size = UDim2.fromOffset(150, 46)
+	gui.AlwaysOnTop = true
+	gui.LightInfluence = 0
+	gui.MaxDistance = 400
+	local etichetta = Instance.new("TextLabel")
+	etichetta.Size = UDim2.fromScale(1, 1)
+	etichetta.BackgroundTransparency = 1
+	etichetta.Text = "⚔ TARGET"
+	etichetta.TextColor3 = Color3.fromRGB(255, 80, 70)
+	etichetta.TextScaled = true
+	etichetta.Font = Enum.Font.LuckiestGuy
+	etichetta.TextStrokeTransparency = 0
+	etichetta.Parent = gui
+	-- Il segno sta su una parte invisibile che segue il reggimento.
+	local ancora = Instance.new("Part")
+	ancora.Name = "SegnoBersaglio"
+	ancora.Anchored = true
+	ancora.CanCollide = false
+	ancora.CanQuery = false
+	ancora.CanTouch = false
+	ancora.Transparency = 1
+	ancora.Size = Vector3.one * 0.2
+	ancora.Position = (centroReggimento(id) or Vector3.zero) + Vector3.new(0, 9, 0)
+	gui.Parent = ancora
+	ancora.Parent = cartella
+	bersagli[id] = ancora
+end
+
 local function inizio(dati)
 	impostaCampo(dati)
+	togliBersagli()
 	svuotaSchierati()
 	svuotaBattaglia(true)
 	Effetti.pulisci()
@@ -320,7 +377,29 @@ local function evento(e)
 				end
 			end
 		end
+	elseif e.tipo == "ordine" then
+		segnaBersaglio(e.bersaglio)
+		local centro = centroReggimento(e.bersaglio)
+		if centro then
+			Effetti.scritta(centro + Vector3.new(0, 6, 0), "ATTACK!", Color3.fromRGB(255, 90, 80), true)
+		end
+	elseif e.tipo == "abilita" then
+		local centro = centroReggimento(e.reggimento)
+		local def = Epoche.Truppe[e.tipoCarta]
+		if centro and def and def.abilita then
+			Effetti.scritta(centro + Vector3.new(0, 8, 0), string.upper(def.abilita.nome) .. "!", Color3.fromRGB(255, 210, 70), true)
+		end
+		-- Scintille dorate su tutti i soldati della squadra che ricevono il bonus.
+		for _, s in pairs(soldati) do
+			if s.vivo and s.squadra == e.squadra then
+				Effetti.scintille(s.posizione + Vector3.new(0, s.altezzaColpo, 0), Color3.fromRGB(255, 214, 90))
+			end
+		end
 	elseif e.tipo == "morte" then
+		if e.reggimento and bersagli[e.reggimento] then
+			bersagli[e.reggimento]:Destroy()
+			bersagli[e.reggimento] = nil
+		end
 		local s = soldati[e.id]
 		if s and s.vivo then
 			s.vivo = false
@@ -377,12 +456,32 @@ RunService.RenderStepped:Connect(function(dt)
 	for _, s in pairs(soldati) do
 		aggiorna(s, dt, t)
 	end
+	for id, gui in pairs(bersagli) do
+		local centro = centroReggimento(id)
+		if centro then
+			gui.Position = centro + Vector3.new(0, 9, 0)
+		end
+	end
 	for _, gruppo in pairs(schierati) do
 		for _, s in ipairs(gruppo) do
 			aggiorna(s, dt, t)
 		end
 	end
 end)
+
+-- Il reggimento nemico più vicino a un punto del mondo (entro "raggio" studs in orizzontale), o nil.
+function Truppe.nemicoVicino(posizione, raggio)
+	local migliore, dMin = nil, raggio
+	for id, s in pairs(soldati) do
+		if s.vivo and s.squadra == "nemico" then
+			local d = Vector3.new(s.posizione.X - posizione.X, 0, s.posizione.Z - posizione.Z).Magnitude
+			if d < dMin then
+				migliore, dMin = id // 16, d
+			end
+		end
+	end
+	return migliore
+end
 
 function Truppe.inizializza(remoti)
 	remoti.Truppe.OnClientEvent:Connect(function(dati)
@@ -393,6 +492,7 @@ function Truppe.inizializza(remoti)
 		elseif dati.tipo == "passo" then
 			passo(dati)
 		elseif dati.tipo == "fine" then
+			togliBersagli()
 			local numero = numeroBattaglia
 			task.delay(1.2, function()
 				if numero == numeroBattaglia then
@@ -400,6 +500,7 @@ function Truppe.inizializza(remoti)
 				end
 			end)
 		elseif dati.tipo == "pulisci" then
+			togliBersagli()
 			numeroBattaglia += 1
 			svuotaSchierati()
 			svuotaBattaglia(true)
