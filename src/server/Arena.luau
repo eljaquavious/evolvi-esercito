@@ -535,6 +535,23 @@ function Arena.crea(player, livello)
 	scriviTerreno(arena)
 	local piano = Scenari.prepara(livello.nome, ambiente(arena, livello))
 	piano:scava() -- crateri e trincee fanno parte del terreno: prima di misurare le quote
+	-- Trincee sulle caselle: un tratto per ogni fila di caselle "trincea" una accanto all'altra.
+	for riga = 1, Arena.RIGHE do
+		local col = 1
+		while col <= Arena.COLONNE do
+			if arena.terreno[col .. "," .. riga] == "trincea" then
+				local fine = col
+				while arena.terreno[(fine + 1) .. "," .. riga] == "trincea" do
+					fine += 1
+				end
+				local x, z = centroCasella((col + fine) / 2, riga)
+				piano:trinceaCampo(x, z, (fine - col + 1) * Arena.CASELLA, riga <= Campagna.RIGHE_GIOCATORE and 1 or -1)
+				col = fine + 1
+			else
+				col += 1
+			end
+		end
+	end
 	misuraQuote(arena)
 
 	local modello = Instance.new("Model")
@@ -559,8 +576,10 @@ function Arena.crea(player, livello)
 			end
 			local coloreBordo = colore:Lerp(Color3.new(1, 1, 1), 0.5)
 			local tipo = arena.terreno[col .. "," .. riga]
-			if tipo == "ostacolo" then
+			if Campagna.SOLIDI[tipo] then
 				colore = colore:Lerp(Color3.new(0, 0, 0), 0.45)
+			elseif tipo == "trincea" then
+				colore = colore:Lerp(Color3.fromRGB(150, 110, 60), 0.45)
 			elseif tipo == "fiume" then
 				colore = Color3.fromRGB(90, 200, 255)
 			elseif tipo == "guado" then
@@ -578,7 +597,7 @@ function Arena.crea(player, livello)
 				casella:SetAttribute("TerraDiNessuno", true)
 			end
 			-- Il fiume si attraversa ma non ci si schiera dentro.
-			if tipo == "ostacolo" or tipo == "fiume" then
+			if Campagna.BLOCCATI[tipo] then
 				casella:SetAttribute("Ostacolo", true)
 			end
 		end
@@ -589,15 +608,17 @@ function Arena.crea(player, livello)
 	decorazioni.Parent = modello
 	-- Ostacoli sulle caselle bloccate, dettagli tra le caselle, poi tutto lo scenario attorno al campo.
 	for _, t in ipairs(livello.terreno) do
-		if t.tipo == "ostacolo" then
+		if Campagna.SOLIDI[t.tipo] then
 			local x, z = centroCasella(t.col, t.riga)
-			piano:ostacolo(decorazioni, x, z)
+			piano:ostacolo(decorazioni, x, z, t.tipo)
 		end
 	end
+	piano:decoraTrincee(decorazioni)
 	piano:dettagliCampo(decorazioni, function(x, z)
 		local col = math.floor((x + META_CAMPO) / Arena.CASELLA) + 1
 		local riga = math.floor((z + META_CAMPO) / Arena.CASELLA) + 1
-		return arena.terreno[col .. "," .. riga] == "ostacolo"
+		local tipo = arena.terreno[col .. "," .. riga]
+		return Campagna.SOLIDI[tipo] or tipo == "trincea"
 	end)
 	piano:decora(decorazioni)
 	for _, parte in ipairs(decorazioni:GetDescendants()) do

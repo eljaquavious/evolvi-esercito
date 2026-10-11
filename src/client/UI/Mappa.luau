@@ -395,13 +395,17 @@ local function aggiornaPannello()
 	end
 
 	infoLivello.Text = ("%s · %s ERA"):format(livello.anno, string.upper(livello.epoca.nome))
-	local fiume = false
+	local fiume, trincee = false, false
 	for _, t in ipairs(livello.terreno) do
 		fiume = fiume or t.tipo == "fiume"
+		trincee = trincee or t.tipo == "trincea"
 	end
 	local righe = { bioma and bioma.nome or livello.bioma }
 	if fiume then
 		table.insert(righe, "River crossing")
+	end
+	if trincee then
+		table.insert(righe, "Trenches")
 	end
 	table.insert(righe, ("Your regiments: %d"):format(livello.maxReggimenti))
 	dettagli.Text = table.concat(righe, " · ")

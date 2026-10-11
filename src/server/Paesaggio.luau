@@ -1335,15 +1335,36 @@ function P.trincea(g, cf, rng, s, ctx)
 end
 ingombro("trincea", 6)
 
+-- Trincea sulle caselle del campo: bassa (i soldati dentro si vedono ancora), larga quasi una casella,
+-- con il parapetto di sacchetti verso il nemico (+Z locale) e le pareti di tavole.
+function P.trinceaCampo(g, cf, rng, s, ctx)
+	local l = ctx.lunghezza or 16
+	local p = ctx.profondita or 2
+	local mezzo = (ctx.larghezza or 10) / 2
+	for _, lato in ipairs({ -1, 1 }) do
+		parte(g, Vector3.new(l, p + 0.6, 0.4), cf * CFrame.new(0, -p / 2 + 0.2, lato * (mezzo - 0.2)), varia(C(110, 86, 58), rng, 0.04), M.WoodPlanks)
+	end
+	P.sacchetti(g, cf * CFrame.new(0, 0, mezzo + 0.9), rng, 1, { lunghezza = l })
+	for x = -l / 2 + 2, l / 2 - 2, 3 do
+		parte(g, Vector3.new(0.5, p + 1.2, 0.5), cf * CFrame.new(x, -p / 2 + 0.5, mezzo - 0.5), C(92, 70, 46), M.Wood)
+	end
+	-- Passerelle di tavole sul fondo.
+	for x = -l / 2 + 1.5, l / 2 - 1.5, 3 do
+		parte(g, Vector3.new(2.6, 0.3, mezzo * 1.2), cf * CFrame.new(x, -p + 0.15, 0) * CFrame.Angles(0, rng:NextNumber(-0.05, 0.05), 0), varia(C(126, 98, 66), rng, 0.05), M.WoodPlanks)
+	end
+end
+ingombro("trinceaCampo", 8)
+
 -- Scavi nel terreno (crateri e trincee): fanno parte del terreno, quindi si fanno prima degli oggetti.
 function Paesaggio.scavaCratere(posizione, raggio)
 	workspace.Terrain:FillBall(posizione + Vector3.new(0, raggio * 0.45, 0), raggio, Enum.Material.Air)
 	workspace.Terrain:FillBall(posizione - Vector3.new(0, raggio * 0.6, 0), raggio * 0.5, Enum.Material.Mud)
 end
 
-function Paesaggio.scavaTrincea(cf, lunghezza)
-	workspace.Terrain:FillBlock(cf * CFrame.new(0, -2, 0), Vector3.new(lunghezza, 6, 6), Enum.Material.Air)
-	workspace.Terrain:FillBlock(cf * CFrame.new(0, -5.5, 0), Vector3.new(lunghezza, 1, 6), Enum.Material.Mud)
+function Paesaggio.scavaTrincea(cf, lunghezza, profondita, larghezza)
+	profondita, larghezza = profondita or 5, larghezza or 6
+	workspace.Terrain:FillBlock(cf * CFrame.new(0, 1 - (profondita + 1) / 2, 0), Vector3.new(lunghezza, profondita + 1, larghezza), Enum.Material.Air)
+	workspace.Terrain:FillBlock(cf * CFrame.new(0, -profondita - 0.5, 0), Vector3.new(lunghezza, 1, larghezza), Enum.Material.Mud)
 end
 
 return Paesaggio

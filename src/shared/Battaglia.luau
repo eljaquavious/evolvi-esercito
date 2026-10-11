@@ -60,6 +60,7 @@ local VOLO_LANCIO = 2.6
 Battaglia.TERRENO = {
 	fiume = { velocita = 0.45, dannoSubito = 1.2 },
 	collina = { dannoSubito = 0.8, gittataTiratori = 0.7 },
+	trincea = { dannoSubito = 0.6 },
 }
 
 -- Strade attorno agli ostacoli: una griglia fine di punti in cui un soldato ci sta.
@@ -119,7 +120,7 @@ local function distanza(a, b)
 end
 
 -- reggimenti: lista di { id = numero (1-4000), squadra = "giocatore" | "nemico", def, x, y, forza = moltiplicatore opzionale }
--- opzioni: { colonne, righe, ostacoli = { { x, y } }, terreno = { ["col,riga"] = "fiume" | "collina" } }
+-- opzioni: { colonne, righe, ostacoli = { { x, y } }, terreno = { ["col,riga"] = "fiume" | "collina" | "trincea" } }
 -- Ogni soldato ha id = id del reggimento * 16 + numero (1-15).
 function Battaglia.nuova(reggimenti, opzioni)
 	opzioni = opzioni or {}

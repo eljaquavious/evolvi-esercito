@@ -1194,11 +1194,70 @@ function Scenari:dettagliCampo(g, caselle)
 	end
 end
 
+-- Trincea sulle caselle del campo (z della riga, x del centro del tratto). La scava subito, perché fa parte
+-- del terreno; tavole e sacchetti arrivano con decoraTrincee. versoNemico: +1 se il nemico è verso +z.
+function Scenari:trinceaCampo(x, z, lunghezza, versoNemico)
+	local base = self.ambiente.terra(x, z) + Vector3.new(0, 0.3, 0)
+	local cf = CFrame.new(base) * CFrame.Angles(0, versoNemico > 0 and 0 or math.pi, 0)
+	Paesaggio.scavaTrincea(cf, lunghezza, 2, 10)
+	self.trinceeCampo = self.trinceeCampo or {}
+	table.insert(self.trinceeCampo, { cf = cf, lunghezza = lunghezza })
+end
+
+function Scenari:decoraTrincee(g)
+	for _, t in ipairs(self.trinceeCampo or {}) do
+		local ok, errore = pcall(P.trinceaCampo, g, t.cf, self.rng, 1, contesto(self, { lunghezza = t.lunghezza, profondita = 2, larghezza = 10 }))
+		if not ok then
+			warn("Scenari: trincea del campo - " .. tostring(errore))
+		end
+	end
+end
+
+-- Casupole e rottami della guerra sulle caselle, per epoca (uno scenario può dare le sue liste: case, rottami).
+local CASE = {
+	Antica = { "capanna", "tendaRomana" },
+	Medievale = { "casa", "capanna" },
+	Novecento = { "casaDiroccata" },
+}
+local ROTTAMI = {
+	Antica = { "carro", "carroFalcato", "anfore", "palizzata" },
+	Medievale = { "carro", "botti", "pavesi", "staccionata" },
+	Novecento = { "relitto", "barricata", "casse", "riccio", "cannone" },
+}
+-- Pezzi piccoli sparsi attorno a quello grande, per epoca.
+local CONTORNO = {
+	Antica = { "anfore", "sassi", "resti" },
+	Medievale = { "botti", "resti", "sassi" },
+	Novecento = { "casse", "sacchetti", "resti" },
+}
+
 -- Ostacolo su una casella bloccata: un pezzo grande al centro e due piccoli attorno, dentro la casella.
-function Scenari:ostacolo(g, x, z)
+-- tipo: "ostacolo" (naturale, dallo scenario o dal bioma), "casa" o "rottami".
+function Scenari:ostacolo(g, x, z, tipo)
 	local sc = self.scenario
-	local lista = sc.ostacolo or OSTACOLI[self.ambiente.bioma] or OSTACOLI.Pianeggiante
+	local epoca = self.ambiente.epoca
+	local lista
+	if tipo == "casa" then
+		lista = sc.case or CASE[epoca] or CASE.Antica
+	elseif tipo == "rottami" then
+		lista = sc.rottami or ROTTAMI[epoca] or ROTTAMI.Antica
+	else
+		lista = sc.ostacolo or OSTACOLI[self.ambiente.bioma] or OSTACOLI.Pianeggiante
+	end
 	local extra = sc.contestoOstacolo or { lunghezza = 12 }
+	if tipo ~= "ostacolo" then
+		local principale = lista[self.rng:NextInteger(1, #lista)]
+		local raggio = Paesaggio.ingombro[principale] or 3
+		local s = math.clamp(6.5 / raggio, 0.55, 1.2)
+		self:metti(g, principale, x, z, s, self.rng:NextInteger(0, 3) * 90 + self.rng:NextNumber(-12, 12), { lunghezza = 12 })
+		local piccoli = CONTORNO[epoca] or CONTORNO.Antica
+		for _ = 1, 2 do
+			local a = self.rng:NextNumber(0, 2 * math.pi)
+			local nome = piccoli[self.rng:NextInteger(1, #piccoli)]
+			self:metti(g, nome, x + math.cos(a) * 6, z + math.sin(a) * 6, self.rng:NextNumber(0.6, 0.85), nil, { lunghezza = 4 })
+		end
+		return
+	end
 	local principale = lista[self.rng:NextInteger(1, #lista)]
 	local raggio = Paesaggio.ingombro[principale] or 3
 	local s = math.clamp(6 / raggio, 0.6, 1.3)

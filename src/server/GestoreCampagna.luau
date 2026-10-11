@@ -281,9 +281,9 @@ local function combattiRound(player, sessione)
 
 	local ostacoli, terreno = {}, {}
 	for _, t in ipairs(livello.terreno) do
-		if t.tipo == "ostacolo" then
+		if Campagna.SOLIDI[t.tipo] then
 			table.insert(ostacoli, { x = t.col, y = t.riga })
-		elseif t.tipo == "fiume" or t.tipo == "collina" then
+		elseif t.tipo == "fiume" or t.tipo == "collina" or t.tipo == "trincea" then
 			terreno[t.col .. "," .. t.riga] = t.tipo
 		end
 	end

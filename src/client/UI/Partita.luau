@@ -244,7 +244,11 @@ local function clic(posizioneSchermo)
 		return
 	end
 	if casella:GetAttribute("Ostacolo") then
-		Notifiche.mostra(casella:GetAttribute("Terreno") == "fiume" and "You can't deploy in the river." or "That tile is blocked.")
+		local terreno = casella:GetAttribute("Terreno")
+		Notifiche.mostra(terreno == "fiume" and "You can't deploy in the river."
+			or terreno == "casa" and "There's a building there: pick another tile."
+			or terreno == "rottami" and "Wreckage blocks that tile."
+			or "That tile is blocked.")
 		return
 	end
 	local ok, messaggio, lista = remoti.Casella:InvokeServer(selezionata, casella:GetAttribute("Col"), casella:GetAttribute("Riga"))

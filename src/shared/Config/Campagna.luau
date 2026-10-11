@@ -20,7 +20,7 @@ Campagna.ROUND_PER_VINCERE = 3
 Campagna.STELLE_MASSIME = 3
 
 -- Battaglie, in ordine. lat/lon servono a metterle sulla mappa (spostate di poco nell'entroterra se cadono sul mare); fiume = un fiume attraversa il campo.
--- comandante = il boss del livello (deve stare nei comandanti dell'epoca).
+-- comandante = il boss del livello (deve stare nei comandanti dell'epoca). trincee = tratti di trincea sulle prime linee.
 -- L'ordine segue un sentiero sulla mappa, senza salti avanti e indietro: per questo non è sempre cronologico.
 Campagna.Battaglie = {
 	-- Antichità: dalla Mesopotamia alla Grecia, poi Italia, Africa e Gallia.
@@ -38,9 +38,9 @@ Campagna.Battaglie = {
 	{ nome = "Tours", anno = "732", lat = 47.0, lon = 0.6, bioma = "Pianeggiante", fiume = true },
 	{ nome = "Orleans", anno = "1429", lat = 47.9, lon = 1.9, bioma = "Pianeggiante", fiume = true, comandante = "Giovanna" },
 	-- Novecento: la Grande Guerra da Gallipoli ad Amiens, poi la Seconda da Stalingrado a Parigi.
-	{ nome = "Gallipoli", anno = "1915", lat = 40.13, lon = 26.78, bioma = "Collinoso" },
-	{ nome = "Verdun", anno = "1916", lat = 49.16, lon = 5.38, bioma = "Collinoso", fiume = true },
-	{ nome = "Amiens", anno = "1918", lat = 49.9, lon = 2.3, bioma = "Pianeggiante", comandante = "Foch" },
+	{ nome = "Gallipoli", trincee = true, anno = "1915", lat = 40.13, lon = 26.78, bioma = "Collinoso" },
+	{ nome = "Verdun", trincee = true, anno = "1916", lat = 49.16, lon = 5.38, bioma = "Collinoso", fiume = true },
+	{ nome = "Amiens", trincee = true, anno = "1918", lat = 49.9, lon = 2.3, bioma = "Pianeggiante", comandante = "Foch" },
 	{ nome = "Stalingrad", anno = "1942", lat = 48.7, lon = 44.5, bioma = "Innevato", fiume = true },
 	{ nome = "Normandy", anno = "1944", lat = 49.34, lon = -0.6, bioma = "Pianeggiante" },
 	{ nome = "Paris", anno = "1944", lat = 48.86, lon = 2.35, bioma = "Pianeggiante", fiume = true, comandante = "DeGaulle" },
@@ -71,8 +71,14 @@ local function cercaCasella(rng, occupate, rigaMin, rigaMax)
 	return nil
 end
 
--- Terreno del campo: { { col, riga, tipo } } con tipo "ostacolo" (non si attraversa), "fiume" (rallenta
--- ed espone), "guado" (punto basso del fiume, normale) o "collina" (protegge e allunga il tiro).
+-- Tipi di casella che non si attraversano (ostacoli naturali, case, rottami della guerra) e quelli dove non
+-- ci si schiera (gli stessi più il fiume). La trincea invece si occupa: chi ci sta dentro è più riparato.
+Campagna.SOLIDI = { ostacolo = true, casa = true, rottami = true }
+Campagna.BLOCCATI = { ostacolo = true, casa = true, rottami = true, fiume = true }
+
+-- Terreno del campo: { { col, riga, tipo } } con tipo "ostacolo" (naturale: alberi, rocce), "casa" (casupola,
+-- tenda, casa diroccata), "rottami" (carri rotti, relitti, barricate), "fiume" (rallenta ed espone), "guado"
+-- (punto basso del fiume, normale), "collina" (protegge e allunga il tiro) o "trincea" (ripara chi c'è dentro).
 local function generaTerreno(numero, locale, battaglia)
 	local rng = Random.new(numero * 7919)
 	local terreno, occupate = {}, {}
@@ -80,9 +86,29 @@ local function generaTerreno(numero, locale, battaglia)
 		occupate[chiave(col, riga)] = true
 		table.insert(terreno, { col = col, riga = riga, tipo = tipo })
 	end
+	local function casellaLibera(rigaMin, rigaMax)
+		for _ = 1, 30 do
+			local col, riga = rng:NextInteger(1, Campagna.COLONNE), rng:NextInteger(rigaMin, rigaMax)
+			if not occupate[chiave(col, riga)] then
+				return col, riga
+			end
+		end
+		return nil
+	end
 	if locale == 1 then
 		return terreno
 	end
+	-- Trincee (Grande Guerra): un tratto di 3-4 caselle sulla prima linea di ognuno.
+	if battaglia.trincee then
+		for _, riga in ipairs({ Campagna.RIGHE_GIOCATORE, Campagna.PRIMA_RIGA_NEMICA }) do
+			local lunghezza = rng:NextInteger(3, 4)
+			local inizio = rng:NextInteger(1, Campagna.COLONNE - lunghezza + 1)
+			for col = inizio, inizio + lunghezza - 1 do
+				aggiungi(col, riga, "trincea")
+			end
+		end
+	end
+	-- Terra di nessuno: il fiume, se c'è, e qualche ostacolo naturale o rottame.
 	local rigaFiume
 	if battaglia.fiume then
 		rigaFiume = rng:NextInteger(Campagna.RIGHE_GIOCATORE + 1, Campagna.PRIMA_RIGA_NEMICA - 1)
@@ -94,17 +120,25 @@ local function generaTerreno(numero, locale, battaglia)
 			aggiungi(col, rigaFiume, guadi[col] and "guado" or "fiume")
 		end
 	end
-	local numeroOstacoli = rigaFiume and rng:NextInteger(0, 1) or rng:NextInteger(1, 3)
+	local numeroOstacoli = rigaFiume and rng:NextInteger(1, 2) or rng:NextInteger(2, 3)
 	for _ = 1, numeroOstacoli do
-		local col = rng:NextInteger(1, Campagna.COLONNE)
-		local riga = rng:NextInteger(Campagna.RIGHE_GIOCATORE + 1, Campagna.PRIMA_RIGA_NEMICA - 1)
-		if not occupate[chiave(col, riga)] then
-			aggiungi(col, riga, "ostacolo")
+		local col, riga = casellaLibera(Campagna.RIGHE_GIOCATORE + 1, Campagna.PRIMA_RIGA_NEMICA - 1)
+		if col then
+			aggiungi(col, riga, rng:NextNumber() < 0.6 and "ostacolo" or "rottami")
+		end
+	end
+	-- Su ogni metà del campo una o due casupole o rottami dove non ci si può schierare.
+	for _, righe in ipairs({ { 1, Campagna.RIGHE_GIOCATORE }, { Campagna.PRIMA_RIGA_NEMICA, Campagna.RIGHE } }) do
+		for _ = 1, locale <= 2 and 1 or rng:NextInteger(1, 2) do
+			local col, riga = casellaLibera(righe[1], righe[2])
+			if col then
+				aggiungi(col, riga, rng:NextNumber() < 0.5 and "casa" or "rottami")
+			end
 		end
 	end
 	for _ = 1, rng:NextInteger(0, 2) do
-		local col, riga = rng:NextInteger(1, Campagna.COLONNE), rng:NextInteger(1, Campagna.RIGHE)
-		if not occupate[chiave(col, riga)] then
+		local col, riga = casellaLibera(1, Campagna.RIGHE)
+		if col then
 			aggiungi(col, riga, "collina")
 		end
 	end
@@ -115,7 +149,7 @@ end
 function Campagna.bloccata(livello, col, riga)
 	for _, t in ipairs(livello.terreno) do
 		if t.col == col and t.riga == riga then
-			return t.tipo == "ostacolo" or t.tipo == "fiume"
+			return Campagna.BLOCCATI[t.tipo] == true
 		end
 	end
 	return false
@@ -164,7 +198,7 @@ function Campagna.armata(livello, round, assedio)
 		end
 	end
 	for _, t in ipairs(livello.terreno) do
-		if t.tipo == "ostacolo" or t.tipo == "fiume" then
+		if Campagna.BLOCCATI[t.tipo] then
 			occupate[chiave(t.col, t.riga)] = true
 		end
 	end
