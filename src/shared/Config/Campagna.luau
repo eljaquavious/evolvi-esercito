@@ -95,9 +95,6 @@ local function generaTerreno(numero, locale, battaglia)
 		end
 		return nil
 	end
-	if locale == 1 then
-		return terreno
-	end
 	-- Trincee (Grande Guerra): un tratto di 3-4 caselle sulla prima linea di ognuno.
 	if battaglia.trincee then
 		for _, riga in ipairs({ Campagna.RIGHE_GIOCATORE, Campagna.PRIMA_RIGA_NEMICA }) do
@@ -107,6 +104,10 @@ local function generaTerreno(numero, locale, battaglia)
 				aggiungi(col, riga, "trincea")
 			end
 		end
+	end
+	-- Il primo livello di ogni epoca è un campo aperto: niente ostacoli (le trincee, se ci sono, restano).
+	if locale == 1 then
+		return terreno
 	end
 	-- Terra di nessuno: il fiume, se c'è, e qualche ostacolo naturale o rottame.
 	local rigaFiume
