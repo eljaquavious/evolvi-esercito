@@ -218,7 +218,7 @@ local function pannelloCampagna(tela)
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -12, 0, 6),
 			Size = UDim2.fromOffset(80, 34),
-			Text = "0/30",
+			Text = "0/" .. Campagna.LIVELLI_PER_EPOCA * Campagna.STELLE_MASSIME,
 			TextSize = 28,
 			TextXAlignment = Enum.TextXAlignment.Right,
 			ZIndex = 4,

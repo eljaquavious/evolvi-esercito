@@ -349,10 +349,10 @@ local function tipiNemici(livello)
 	return tipi
 end
 
--- Difficoltà da 1 a 5 scudi: cresce col posto del livello nella sua epoca (1-2 → 1 scudo, 9-10 → 5),
+-- Difficoltà da 1 a 5 scudi: cresce col posto del livello nella sua epoca (il primo → 1 scudo, l'ultimo → 5),
 -- che è anche quello che fa crescere numero e forza dei nemici.
 local function difficolta(livello)
-	return math.clamp(math.ceil(livello.locale / 2), 1, 5)
+	return math.clamp(math.ceil(livello.grado / 2), 1, 5)
 end
 
 local function svuota(contenitore)

@@ -84,6 +84,8 @@ function Dati.carica(player)
 			warn("[Dati] Caricamento fallito per " .. player.Name .. ": " .. tostring(salvati))
 		end
 	end
+	-- I livelli della campagna sono stati ridotti: chi era più avanti riparte dall'ultimo che esiste.
+	dati.livello = math.clamp(dati.livello, 1, Campagna.TOTALE)
 	if Prova then
 		-- Modalità prova (solo in Studio): tutti i livelli aperti e tutte le carte, per collaudare qualsiasi cosa.
 		dati.livello = Campagna.TOTALE

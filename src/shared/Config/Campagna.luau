@@ -1,13 +1,13 @@
 -- Livelli della campagna: battaglie storiche sulla mappa d'Europa, generate in modo fisso
 -- (lo stesso livello ha sempre lo stesso terreno; ogni round ha la sua armata nemica).
--- Ogni epoca ha LIVELLI_PER_EPOCA livelli; al 5° e al 10° c'è un comandante da battere.
+-- Ogni epoca ha LIVELLI_PER_EPOCA livelli; a metà e all'ultimo c'è un comandante da battere.
 -- Un livello si vince al meglio di 5 round: quando ti manca una vittoria il nemico si chiude in una fortezza.
 
 local Epoche = require(script.Parent.Epoche)
 
 local Campagna = {}
 
-Campagna.LIVELLI_PER_EPOCA = 10
+Campagna.LIVELLI_PER_EPOCA = 6
 Campagna.TOTALE = Campagna.LIVELLI_PER_EPOCA * #Epoche.Lista
 Campagna.COLONNE = 6
 Campagna.RIGHE = 6
@@ -26,37 +26,28 @@ Campagna.Battaglie = {
 	-- Antichità: dalla Mesopotamia alla Grecia, poi Italia, Africa e Gallia.
 	{ nome = "Gaugamela", anno = "331 BC", lat = 36.36, lon = 43.25, bioma = "Desertico" },
 	{ nome = "Thermopylae", anno = "480 BC", lat = 38.8, lon = 22.53, bioma = "Montagnoso" },
-	{ nome = "Marathon", anno = "490 BC", lat = 38.15, lon = 23.96, bioma = "Pianeggiante" },
-	{ nome = "Heraclea", anno = "280 BC", lat = 40.39, lon = 16.44, bioma = "Collinoso", fiume = true },
 	{ nome = "Cannae", anno = "216 BC", lat = 41.14, lon = 15.89, bioma = "Pianeggiante", fiume = true, comandante = "Annibale" },
 	{ nome = "Zama", anno = "202 BC", lat = 36.3, lon = 9.4, bioma = "Desertico" },
-	{ nome = "Carthage", anno = "146 BC", lat = 36.68, lon = 10.09, bioma = "Desertico" },
-	{ nome = "Aquae Sextiae", anno = "102 BC", lat = 43.53, lon = 5.45, bioma = "Collinoso", fiume = true },
 	{ nome = "Gergovia", anno = "52 BC", lat = 45.71, lon = 3.13, bioma = "Collinoso" },
 	{ nome = "Alesia", anno = "52 BC", lat = 47.54, lon = 4.5, bioma = "Collinoso", comandante = "Cesare" },
 	-- Medioevo: dalla Terrasanta al Baltico, poi Inghilterra e Francia.
 	{ nome = "Hattin", anno = "1187", lat = 32.8, lon = 35.45, bioma = "Desertico" },
-	{ nome = "Manzikert", anno = "1071", lat = 39.14, lon = 42.54, bioma = "Montagnoso" },
 	{ nome = "Lake Peipus", anno = "1242", lat = 58.7, lon = 27.5, bioma = "Innevato" },
-	{ nome = "Lechfeld", anno = "955", lat = 48.3, lon = 10.9, bioma = "Pianeggiante", fiume = true },
 	{ nome = "Hastings", anno = "1066", lat = 50.91, lon = 0.49, bioma = "Collinoso", comandante = "Guglielmo" },
-	{ nome = "Stamford Bridge", anno = "1066", lat = 53.99, lon = -0.91, bioma = "Collinoso", fiume = true },
 	{ nome = "Crecy", anno = "1346", lat = 50.25, lon = 1.9, bioma = "Pianeggiante" },
-	{ nome = "Roncevaux Pass", anno = "778", lat = 43.0, lon = -1.32, bioma = "Montagnoso" },
 	{ nome = "Tours", anno = "732", lat = 47.0, lon = 0.6, bioma = "Pianeggiante", fiume = true },
 	{ nome = "Orleans", anno = "1429", lat = 47.9, lon = 1.9, bioma = "Pianeggiante", fiume = true, comandante = "Giovanna" },
-	-- Novecento: la Grande Guerra da Gallipoli alla Somme, poi la Seconda da El Alamein a Parigi.
+	-- Novecento: la Grande Guerra da Gallipoli ad Amiens, poi la Seconda da Stalingrado a Parigi.
 	{ nome = "Gallipoli", anno = "1915", lat = 40.13, lon = 26.78, bioma = "Collinoso" },
-	{ nome = "Tannenberg", anno = "1914", lat = 53.5, lon = 20.1, bioma = "Collinoso" },
 	{ nome = "Verdun", anno = "1916", lat = 49.16, lon = 5.38, bioma = "Collinoso", fiume = true },
-	{ nome = "The Marne", anno = "1914", lat = 49.0, lon = 3.4, bioma = "Pianeggiante", fiume = true },
 	{ nome = "Amiens", anno = "1918", lat = 49.9, lon = 2.3, bioma = "Pianeggiante", comandante = "Foch" },
-	{ nome = "El Alamein", anno = "1942", lat = 30.83, lon = 28.95, bioma = "Desertico" },
 	{ nome = "Stalingrad", anno = "1942", lat = 48.7, lon = 44.5, bioma = "Innevato", fiume = true },
-	{ nome = "Monte Cassino", anno = "1944", lat = 41.49, lon = 13.81, bioma = "Montagnoso" },
 	{ nome = "Normandy", anno = "1944", lat = 49.34, lon = -0.6, bioma = "Pianeggiante" },
 	{ nome = "Paris", anno = "1944", lat = 48.86, lon = 2.35, bioma = "Pianeggiante", fiume = true, comandante = "DeGaulle" },
 }
+-- Battaglie tolte quando i livelli sono scesi da 10 a 6 per epoca (i loro scenari restano in Scenari.luau,
+-- pronti per tornare): Marathon, Heraclea, Carthage, Aquae Sextiae, Manzikert, Lechfeld, Stamford Bridge,
+-- Roncevaux Pass, Tannenberg, The Marne, El Alamein, Monte Cassino.
 
 local function chiave(col, riga)
 	return col .. "," .. riga
@@ -136,11 +127,14 @@ function Campagna.livello(numero)
 	local epoca = Epoche.Lista[indiceEpoca]
 	local locale = (numero - 1) % Campagna.LIVELLI_PER_EPOCA + 1
 	local battaglia = Campagna.Battaglie[numero]
-	local numeroNemici = math.min(1 + math.floor(locale * 0.35), Campagna.MAX_REGGIMENTI - 1)
+	-- Grado da 1 a 10: quanto si è avanti nell'epoca, qualunque sia il numero dei suoi livelli.
+	local grado = 1 + (locale - 1) * 9 / math.max(1, Campagna.LIVELLI_PER_EPOCA - 1)
+	local numeroNemici = math.min(1 + math.floor(grado * 0.35), Campagna.MAX_REGGIMENTI - 1)
 
 	return {
 		numero = numero,
 		locale = locale,
+		grado = grado,
 		indiceEpoca = indiceEpoca,
 		epoca = epoca,
 		nome = battaglia.nome,
@@ -150,8 +144,8 @@ function Campagna.livello(numero)
 		terreno = generaTerreno(numero, locale, battaglia),
 		numeroNemici = numeroNemici,
 		maxReggimenti = math.min(numeroNemici + 1, Campagna.MAX_REGGIMENTI),
-		forzaNemici = 1 + 0.025 * (locale - 1),
-		ricompensa = 40 + 10 * locale + 60 * (indiceEpoca - 1),
+		forzaNemici = 1 + 0.025 * (grado - 1),
+		ricompensa = math.floor(40 + 15 * grado + 60 * (indiceEpoca - 1)),
 		-- Prima vittoria: il comandante del livello, oppure una carta dell'epoca a rotazione.
 		cartaPremio = battaglia.comandante or epoca.truppe[(locale - 1) % #epoca.truppe + 1],
 		ultimoDellEpoca = locale == Campagna.LIVELLI_PER_EPOCA,
