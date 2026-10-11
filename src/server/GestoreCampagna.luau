@@ -8,6 +8,7 @@ local Battaglia = require(Shared.Battaglia)
 local Campagna = require(Shared.Config.Campagna)
 local Epoche = require(Shared.Config.Epoche)
 local Progressi = require(Shared.Config.Progressi)
+local Prova = require(Shared.Prova)
 local Arena = require(script.Parent.Arena)
 local Dati = require(script.Parent.Dati)
 local Lobby = require(script.Parent.Lobby)
@@ -253,6 +254,11 @@ end
 
 -- Combatte un round; restituisce true se l'ha vinto il giocatore (nil se la sessione è stata chiusa).
 local function combattiRound(player, sessione)
+	if sessione.vinciSubito then
+		-- Modalità prova, WIN ROUND premuto durante lo schieramento: round vinto senza combattere.
+		sessione.vinciSubito = nil
+		return true
+	end
 	local livello = sessione.livello
 	local arena = sessione.arena
 	local reggimenti = {}
@@ -302,7 +308,7 @@ local function combattiRound(player, sessione)
 		return nil
 	end
 
-	while sessione.attiva and not battaglia.finita do
+	while sessione.attiva and not battaglia.finita and not sessione.vinciSubito do
 		local eventi = battaglia:passo(TICK * VELOCITA_BATTAGLIA)
 		remoti.Truppe:FireClient(player, { tipo = "passo", posizioni = posizioni(battaglia), eventi = eventiPerClient(eventi) })
 		task.wait(TICK)
@@ -310,6 +316,9 @@ local function combattiRound(player, sessione)
 	if not sessione.attiva then
 		return nil
 	end
+	-- Modalità prova, WIN ROUND premuto in battaglia: si interrompe qui e il round è del giocatore.
+	local vintoSubito = sessione.vinciSubito
+	sessione.vinciSubito = nil
 
 	for _, r in ipairs(battaglia.reggimenti) do
 		if not r.vivo then
@@ -323,7 +332,7 @@ local function combattiRound(player, sessione)
 	-- Il campo si svuota: i reggimenti tornano al loro posto all'inizio del prossimo round.
 	task.wait(1)
 	remoti.Truppe:FireClient(player, { tipo = "fine" })
-	return battaglia.vincitore == "giocatore"
+	return vintoSubito or battaglia.vincitore == "giocatore"
 end
 
 -- Fine del livello: stelle, monete, esperienza, carta premio, avanzamento.
@@ -404,6 +413,7 @@ end
 -- Un round: battaglia, punteggio, poi il round successivo (che parte quando il giocatore preme FIGHT!) o la fine.
 local function round(player, sessione)
 	local vinto = combattiRound(player, sessione)
+	sessione.vinciSubito = nil -- un WIN ROUND arrivato a battaglia già finita non vale per il round dopo
 	if vinto == nil then
 		return
 	end
@@ -447,6 +457,27 @@ function GestoreCampagna.combatti(player)
 	return true
 end
 
+-- Modalità prova (solo in Studio): vince subito il round, in battaglia o durante lo schieramento,
+-- per arrivare in fretta alla fortezza del match point o alla fine del livello.
+function GestoreCampagna.vinciRound(player)
+	if not Prova then
+		return false
+	end
+	local sessione = sessioni[player]
+	if not sessione or (sessione.fase ~= "piazzamento" and sessione.fase ~= "battaglia") then
+		return false, "No round to win right now."
+	end
+	if sessione.vinciSubito then
+		return true
+	end
+	sessione.vinciSubito = true
+	if sessione.fase == "piazzamento" then
+		sessione.fase = "battaglia"
+		task.spawn(round, player, sessione)
+	end
+	return true
+end
+
 -- Apre la mappa della campagna: il giocatore aspetta vicino al plastico (per lo streaming) e il client mostra i livelli.
 function GestoreCampagna.apriMappa(player)
 	local dati = Dati.ottieni(player)
@@ -487,6 +518,7 @@ function GestoreCampagna.inizializza(r)
 	remoti.ApriMappa.OnServerInvoke = GestoreCampagna.apriMappa
 	remoti.Casella.OnServerInvoke = GestoreCampagna.casella
 	remoti.Combatti.OnServerInvoke = GestoreCampagna.combatti
+	remoti.VinciRound.OnServerInvoke = GestoreCampagna.vinciRound
 	remoti.TornaLobby.OnServerInvoke = GestoreCampagna.tornaLobby
 end
 

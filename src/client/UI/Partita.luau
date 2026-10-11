@@ -2,6 +2,7 @@
 -- conto alla rovescia, battaglia, punteggio dei round (al meglio di 5) e risultato con le stelle.
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
@@ -9,6 +10,7 @@ local TweenService = game:GetService("TweenService")
 local Stile = require(script.Parent.Stile)
 local Carta = require(script.Parent.Carta)
 local Notifiche = require(script.Parent.Notifiche)
+local Prova = require(ReplicatedStorage.Shared.Prova)
 
 local Partita = {}
 
@@ -29,6 +31,7 @@ local intestazione, titoloLivello, contatore, avviso, bottoneLobby, punteggio
 local barraMazzo, bottoneCombatti, scrittaConto, esploratori, carteEsploratori, bannerRound
 local risultato, titoloRisultato, stelleRisultato, dettaglioRisultato, spazioPremio, bottoneContinua
 local prossimoLivello
+local bottoneVinci -- modalità prova (solo in Studio): vince subito il round
 
 local atmosferaOriginale
 
@@ -232,6 +235,13 @@ local function mostraPiazzamento(visibile)
 	esploratori.Visible = visibile
 end
 
+-- Il pulsante WIN ROUND c'è solo in modalità prova, mentre si schiera o si combatte.
+local function mostraVinci(visibile)
+	if bottoneVinci then
+		bottoneVinci.Visible = visibile
+	end
+end
+
 local function testoPunteggio(dati)
 	return ("ROUND %d   ·   YOU %d - %d ENEMY   ·   FIRST TO %d"):format(dati.round, dati.vinti, dati.persi, dati.perVincere)
 end
@@ -293,6 +303,7 @@ local function entraPiazzamento(dati)
 		avviso.TextColor3 = Stile.Colori.Testo
 	end
 	mostraPiazzamento(true)
+	mostraVinci(true)
 end
 
 local function contoAllaRovescia(conto)
@@ -330,6 +341,7 @@ end
 -- Fine di un round: grande scritta con il punteggio, poi il server manda il prossimo piazzamento o il risultato.
 local function mostraRound(dati)
 	fase = "round"
+	mostraVinci(false)
 	scrittaConto.Visible = false
 	bannerRound.Visible = true
 	local titolo = bannerRound:FindFirstChild("Titolo")
@@ -350,6 +362,7 @@ end
 local function mostraRisultato(dati)
 	fase = "risultato"
 	mostraPiazzamento(false)
+	mostraVinci(false)
 	scrittaConto.Visible = false
 	bannerRound.Visible = false
 	risultato.Visible = true
@@ -412,6 +425,7 @@ local function esci(ripristinaVista)
 	info = nil
 	arena = nil
 	mostraPiazzamento(false)
+	mostraVinci(false)
 	risultato.Visible = false
 	scrittaConto.Visible = false
 	bannerRound.Visible = false
@@ -534,6 +548,24 @@ function Partita.inizializza(gui, r, callbackLobby)
 			Notifiche.mostra(messaggio, Stile.Colori.Rosso)
 		end
 	end)
+
+	if Prova then
+		bottoneVinci = Stile.bottone({
+			Name = "VinciRound",
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -18, 0, 10),
+			Size = UDim2.fromOffset(190, 46),
+			Text = "WIN ROUND",
+			Visible = false,
+			Parent = gui,
+		}, Color3.fromRGB(60, 190, 80))
+		bottoneVinci.Activated:Connect(function()
+			local ok, messaggio = remoti.VinciRound:InvokeServer()
+			if not ok and messaggio then
+				Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+			end
+		end)
+	end
 
 	esploratori = Stile.pannello({
 		AnchorPoint = Vector2.new(0, 0.5),

@@ -14,6 +14,7 @@ return {
 		"AvviaCampagna", -- numero del livello
 		"Casella", -- piazza o rimuove una truppa
 		"Combatti",
+		"VinciRound", -- modalità prova (solo in Studio): il round in corso è vinto subito
 		"TornaLobby",
 		"AcquistaCassa",
 		"Ranked",

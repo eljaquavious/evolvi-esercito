@@ -6,8 +6,12 @@ local DataStoreService = game:GetService("DataStoreService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Epoche = require(ReplicatedStorage.Shared.Config.Epoche)
+local Campagna = require(ReplicatedStorage.Shared.Config.Campagna)
+local Prova = require(ReplicatedStorage.Shared.Prova)
 
 local Dati = {}
+
+local COPIE_IN_PROVA = 3 -- copie di ogni reggimento in modalità prova (i comandanti sono unici)
 
 local function predefiniti()
 	local iniziale = Epoche.Lista[1].mazzoIniziale
@@ -80,9 +84,18 @@ function Dati.carica(player)
 			warn("[Dati] Caricamento fallito per " .. player.Name .. ": " .. tostring(salvati))
 		end
 	end
+	if Prova then
+		-- Modalità prova (solo in Studio): tutti i livelli aperti e tutte le carte, per collaudare qualsiasi cosa.
+		dati.livello = Campagna.TOTALE
+		for _, tipo in ipairs(Epoche.carte()) do
+			local copie = Epoche.Truppe[tipo].comandante and 1 or COPIE_IN_PROVA
+			dati.collezione[tipo] = math.max(dati.collezione[tipo] or 0, copie)
+		end
+	end
 	cache[player] = dati
 	-- Se il caricamento è fallito non salviamo, per non sovrascrivere i dati veri con quelli predefiniti.
-	caricatoBene[player] = ok
+	-- Nemmeno in modalità prova: livelli e carte regalati non devono finire nei progressi veri.
+	caricatoBene[player] = ok and not Prova
 	cambiato:Fire(player, dati)
 	return dati
 end
