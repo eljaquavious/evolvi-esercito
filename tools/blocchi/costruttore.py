@@ -110,6 +110,7 @@ class Modello:
         self.indice_ossa = {}
         self.scatole = []  # da impacchettare e dipingere alla fine
         self.vertici_extra = None  # geometria già pronta (es. il cavallo), aggiunta così com'è
+        self.altezza_utile = lato  # righe dell'atlante per le scatole (sotto può starci altro, es. il cavallo)
 
     def osso(self, nome, padre, posizione):
         self.indice_ossa[nome] = len(self.ossa)
@@ -164,7 +165,7 @@ class Modello:
             pw, ph = r[2] + 2, r[3] + 2
             if x + pw > self.lato:
                 x, y, riga = 0, y + riga, 0
-            if y + ph > self.lato or pw > self.lato:
+            if y + ph > self.altezza_utile or pw > self.lato:
                 return None
             posti.append((r, x + 1, y + 1))
             x += pw

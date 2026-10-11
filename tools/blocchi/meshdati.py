@@ -26,8 +26,8 @@ def _decomprimi(b64):
     return zstandard.ZstdDecompressor().decompress(base64.b64decode(b64))
 
 
-def leggi(nome):
-    cartella = os.path.join(CARTELLA, nome)
+def leggi(nome, radice=CARTELLA):
+    cartella = os.path.join(radice, nome)
     init = open(os.path.join(cartella, "init.luau")).read()
     numeri = lambda chiave: [float(x) for x in re.search(chiave + r" = \{ ([^}]*) \}", init).group(1).split(",")]
     minimo, massimo = np.array(numeri("minimo")), np.array(numeri("massimo"))
