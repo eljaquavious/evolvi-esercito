@@ -74,6 +74,7 @@ end)
 
 local function aggiornaStato(stato)
 	Hud.aggiorna(stato)
+	Shop.aggiorna(stato)
 	Inventario.aggiorna(stato)
 	Profilo.aggiorna(stato)
 	Mappa.aggiorna(stato)
