@@ -235,6 +235,10 @@ local function clic(posizioneSchermo)
 	if not casella then
 		return
 	end
+	if casella:GetAttribute("TerraDiNessuno") then
+		Notifiche.mostra("That's no man's land: deploy on the blue tiles.")
+		return
+	end
 	if casella:GetAttribute("Riga") > info.righeGiocatore then
 		Notifiche.mostra("You can only deploy on the blue tiles.")
 		return

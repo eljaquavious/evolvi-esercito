@@ -11,7 +11,10 @@ Campagna.LIVELLI_PER_EPOCA = 10
 Campagna.TOTALE = Campagna.LIVELLI_PER_EPOCA * #Epoche.Lista
 Campagna.COLONNE = 6
 Campagna.RIGHE = 6
-Campagna.RIGHE_GIOCATORE = 3
+Campagna.RIGHE_GIOCATORE = 2
+-- Terra di nessuno: righe in mezzo al campo dove nessuno si schiera, così le armate non si scontrano subito.
+Campagna.TERRA_DI_NESSUNO = 2
+Campagna.PRIMA_RIGA_NEMICA = Campagna.RIGHE_GIOCATORE + Campagna.TERRA_DI_NESSUNO + 1
 Campagna.MAX_REGGIMENTI = 6
 Campagna.ROUND_PER_VINCERE = 3
 Campagna.STELLE_MASSIME = 3
@@ -67,7 +70,7 @@ local function cercaCasella(rng, occupate, rigaMin, rigaMax)
 			return col, riga
 		end
 	end
-	for riga = Campagna.RIGHE, Campagna.RIGHE_GIOCATORE + 1, -1 do
+	for riga = Campagna.RIGHE, Campagna.PRIMA_RIGA_NEMICA, -1 do
 		for col = 1, Campagna.COLONNE do
 			if not occupate[chiave(col, riga)] then
 				return col, riga
@@ -91,7 +94,7 @@ local function generaTerreno(numero, locale, battaglia)
 	end
 	local rigaFiume
 	if battaglia.fiume then
-		rigaFiume = rng:NextInteger(Campagna.RIGHE_GIOCATORE, Campagna.RIGHE_GIOCATORE + 1)
+		rigaFiume = rng:NextInteger(Campagna.RIGHE_GIOCATORE + 1, Campagna.PRIMA_RIGA_NEMICA - 1)
 		local guadi = {}
 		for _ = 1, rng:NextInteger(1, 2) do
 			guadi[rng:NextInteger(1, Campagna.COLONNE)] = true
@@ -103,7 +106,7 @@ local function generaTerreno(numero, locale, battaglia)
 	local numeroOstacoli = rigaFiume and rng:NextInteger(0, 1) or rng:NextInteger(1, 3)
 	for _ = 1, numeroOstacoli do
 		local col = rng:NextInteger(1, Campagna.COLONNE)
-		local riga = rng:NextInteger(Campagna.RIGHE_GIOCATORE, Campagna.RIGHE_GIOCATORE + 1)
+		local riga = rng:NextInteger(Campagna.RIGHE_GIOCATORE + 1, Campagna.PRIMA_RIGA_NEMICA - 1)
 		if not occupate[chiave(col, riga)] then
 			aggiungi(col, riga, "ostacolo")
 		end
@@ -161,7 +164,7 @@ function Campagna.armata(livello, round, assedio)
 	local rng = Random.new(livello.numero * 7919 + round * 104729)
 	local epoca = livello.epoca
 	local occupate = {}
-	for riga = 1, Campagna.RIGHE_GIOCATORE do
+	for riga = 1, Campagna.PRIMA_RIGA_NEMICA - 1 do
 		for col = 1, Campagna.COLONNE do
 			occupate[chiave(col, riga)] = true
 		end
@@ -184,7 +187,7 @@ function Campagna.armata(livello, round, assedio)
 		if Epoche.Truppe[tipo].gittata > 2 then
 			piazza(tipo, Campagna.RIGHE, Campagna.RIGHE)
 		else
-			piazza(tipo, Campagna.RIGHE_GIOCATORE + 1, Campagna.RIGHE - 1)
+			piazza(tipo, Campagna.PRIMA_RIGA_NEMICA, Campagna.RIGHE - 1)
 		end
 	end
 

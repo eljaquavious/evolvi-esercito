@@ -1,5 +1,5 @@
 -- Campi di battaglia: un grande terreno naturale del bioma (rilievi, fiume, vegetazione) con dentro la
--- griglia 6x6 dove si schierano i reggimenti. Le caselle si vedono solo durante lo schieramento.
+-- griglia 6x6 dove si schierano i reggimenti (2 righe a testa, in mezzo 2 righe di terra di nessuno). Le caselle si vedono solo durante lo schieramento.
 -- Ogni giocatore in battaglia ha il suo campo, lontano dalla lobby, e ci cammina dentro.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -550,7 +550,10 @@ function Arena.crea(player, livello)
 	for col = 1, Arena.COLONNE do
 		for riga = 1, Arena.RIGHE do
 			local delGiocatore = riga <= Campagna.RIGHE_GIOCATORE
-			local colore = delGiocatore and Color3.fromRGB(40, 110, 255) or Color3.fromRGB(220, 30, 30)
+			local terraDiNessuno = not delGiocatore and riga < Campagna.PRIMA_RIGA_NEMICA
+			local colore = delGiocatore and Color3.fromRGB(40, 110, 255)
+				or terraDiNessuno and Color3.fromRGB(150, 140, 120)
+				or Color3.fromRGB(220, 30, 30)
 			if (col + riga) % 2 == 0 then
 				colore = colore:Lerp(Color3.new(1, 1, 1), 0.08)
 			end
@@ -570,6 +573,9 @@ function Arena.crea(player, livello)
 			casella:SetAttribute("Riga", riga)
 			if tipo then
 				casella:SetAttribute("Terreno", tipo)
+			end
+			if terraDiNessuno then
+				casella:SetAttribute("TerraDiNessuno", true)
 			end
 			-- Il fiume si attraversa ma non ci si schiera dentro.
 			if tipo == "ostacolo" or tipo == "fiume" then
