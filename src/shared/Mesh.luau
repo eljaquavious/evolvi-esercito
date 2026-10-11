@@ -12,6 +12,15 @@ local Mesh = {}
 local cartellaDati = script.Parent:WaitForChild("MeshDati")
 local modelli = {} -- chiave -> { parte = MeshPart, ossa = { nome -> CFrame relativo al padre }, ... }
 local inCostruzione = {}
+local avvisati = {}
+
+-- Roblox dà a ogni client un tetto di memoria per le mesh e le immagini create a runtime (80 MB nel
+-- collaudo in Studio): una mesh modificabile ne occupa 10, quindi ce ne stanno 7 insieme, e distruggerla
+-- fa sparire le sue copie. Per questo appena costruita la si "fissa" (vedi fissa): non conta più nel tetto.
+-- Se non si può fissare, resta modificabile e si liberano i modelli senza più copie vive quando serve posto.
+local SENZA_MEMORIA = "memoria per le mesh esaurita"
+local MODELLI_PRIMA_DI_LIBERARE = 5
+local riempi, fissa
 
 local function decomprimi(base64, lunghezza)
 	local compressi = EncodingService:Base64Decode(buffer.fromstring(base64))
@@ -34,6 +43,33 @@ local function costruisci(nome, scala)
 	local centro = (minimo + massimo) / 2
 
 	local em = AssetService:CreateEditableMesh()
+	if not em then
+		error(SENZA_MEMORIA, 0)
+	end
+	local ok, risultato = pcall(riempi, em, nome, dati, geometria, minimo, estensione, centro, scala)
+	if not ok then
+		-- Niente mesh a metà: occuperebbe memoria senza essere usata.
+		em:Destroy()
+		error(risultato, 0)
+	end
+	if not risultato.mesh then
+		em:Destroy() -- fissata: la mesh modificabile non serve più e libera la sua memoria
+	end
+	return risultato
+end
+
+-- Trasforma una mesh o un'immagine modificabile in un contenuto fisso, che non conta nel tetto di memoria
+-- e resta valido anche dopo aver distrutto l'originale. Dove Roblox non lo permette restituisce nil.
+function fissa(oggetto)
+	local ok, esito, contenuto = pcall(AssetService.CreateDataModelContentAsync, AssetService, Content.fromObject(oggetto))
+	if ok and esito == Enum.CreateContentResult.Success and typeof(contenuto) == "Content" then
+		return contenuto
+	end
+	return nil
+end
+
+-- Riempie la mesh vuota (ossa, vertici, triangoli) e ne fa la MeshPart con texture e ossa.
+function riempi(em, nome, dati, geometria, minimo, estensione, centro, scala)
 	local ossaId, ossa = {}, {}
 	for _, osso in ipairs(dati.ossa) do
 		local posizione = Vector3.new(table.unpack(osso.posizione))
@@ -86,7 +122,8 @@ local function costruisci(nome, scala)
 		em:SetFaceUVs(faccia, { uv[a], uv[b], uv[c] })
 	end
 
-	local parte = AssetService:CreateMeshPartAsync(Content.fromObject(em))
+	local meshFissa = fissa(em)
+	local parte = AssetService:CreateMeshPartAsync(meshFissa or Content.fromObject(em))
 	parte.Name = nome
 	parte.Anchored = false
 	parte.CanCollide = false
@@ -106,8 +143,17 @@ local function costruisci(nome, scala)
 		buffer.writeu8(rgba, i * 4 + 3, 255)
 	end
 	local immagine = AssetService:CreateEditableImage({ Size = Vector2.new(lato, lato) })
+	if not immagine then
+		parte:Destroy()
+		error(SENZA_MEMORIA, 0)
+	end
 	immagine:WritePixelsBuffer(Vector2.zero, Vector2.new(lato, lato), rgba)
-	parte.TextureContent = Content.fromObject(immagine)
+	local textureFissa = fissa(immagine)
+	parte.TextureContent = textureFissa or Content.fromObject(immagine)
+	if textureFissa then
+		immagine:Destroy()
+		immagine = nil
+	end
 
 	-- Le ossa come istanze (CreateMeshPartAsync non le crea): stessi nomi e stessa gerarchia.
 	local istanze = {}
@@ -121,12 +167,33 @@ local function costruisci(nome, scala)
 
 	return {
 		parte = parte,
-		mesh = em,
+		-- Restano solo se non si sono potute fissare: allora occupano il tetto di memoria finché il modello vive.
+		mesh = not meshFissa and em or nil,
 		immagine = immagine,
 		centro = centro * scala,
 		altezza = estensione.Y * scala,
 		basso = (minimo.Y - centro.Y) * scala,
+		copie = 0, -- copie ancora vive: a zero il modello si può liberare
 	}
+end
+
+-- Libera i modelli di cui non resta nessuna copia (soldati caduti, carte chiuse). Restituisce quanti.
+local function liberaInutilizzati()
+	local liberati = 0
+	for chiave, modello in pairs(modelli) do
+		if modello.copie <= 0 and (modello.mesh or modello.immagine) then
+			modelli[chiave] = nil
+			modello.parte:Destroy()
+			if modello.mesh then
+				modello.mesh:Destroy()
+			end
+			if modello.immagine then
+				modello.immagine:Destroy()
+			end
+			liberati += 1
+		end
+	end
+	return liberati
 end
 
 -- Copia della MeshPart del modello "nome" alla scala data (studs per metro).
@@ -140,16 +207,39 @@ function Mesh.copia(nome, scala)
 	local modello = modelli[chiave]
 	if not modello then
 		inCostruzione[chiave] = true
+		-- Vicino al tetto si fa posto prima di costruire, così il motore non scrive il suo avviso nell'Output.
+		local inMemoria = 0
+		for _, altro in pairs(modelli) do
+			if altro.mesh then
+				inMemoria += 1
+			end
+		end
+		if inMemoria >= MODELLI_PRIMA_DI_LIBERARE then
+			liberaInutilizzati()
+		end
 		local ok, risultato = pcall(costruisci, nome, scala)
+		if not ok and risultato == SENZA_MEMORIA and liberaInutilizzati() > 0 then
+			-- Il tetto di memoria era pieno di modelli non più in uso: liberati quelli, si riprova.
+			ok, risultato = pcall(costruisci, nome, scala)
+		end
 		inCostruzione[chiave] = nil
 		if not ok then
-			warn("[Mesh] " .. nome .. ": " .. tostring(risultato))
+			-- Chi chiama ripiega sulla figura a parti. L'avviso una volta sola per modello.
+			if not avvisati[chiave] then
+				avvisati[chiave] = true
+				warn("[Mesh] " .. nome .. ": " .. tostring(risultato))
+			end
 			return nil
 		end
 		modello = risultato
 		modelli[chiave] = modello
 	end
-	return modello.parte:Clone(), modello.centro, modello.basso
+	local copia = modello.parte:Clone()
+	modello.copie += 1
+	copia.Destroying:Once(function()
+		modello.copie -= 1
+	end)
+	return copia, modello.centro, modello.basso
 end
 
 return Mesh

@@ -163,6 +163,12 @@ local function altezza(arena, x, z)
 		local mosso = c + math.noise(lungo / 50, s, 4.2) * (v.mosso or 16)
 		h += v.altezza * liscio(v.inizio, v.inizio + (v.largo or 70), mosso) * (0.85 + 0.3 * math.noise(x / 45, z / 45, s + 9))
 	end
+	for _, sp in ipairs(arena.spianate) do
+		local d = math.sqrt((x - sp.x) ^ 2 + (z - sp.z) ^ 2)
+		if d < sp.r * 1.6 then
+			h += (sp.h - h) * (1 - liscio(sp.r, sp.r * 1.6, d))
+		end
+	end
 	if sc.mare then
 		local c, costa = versoMare(arena, x, z)
 		local largo = liscio(costa - 6, costa + 40, c)
@@ -403,8 +409,28 @@ end
 
 -- Quello che serve agli scenari per mettere gli oggetti sul terreno di questo campo.
 local function ambiente(arena, livello)
+	-- L'acqua del fiume arriva fin dove la sponda scende sotto il pelo dell'acqua, ben oltre il letto.
 	local function acqua(x, z)
+		if nelFiume(arena, x, z, 6) then
+			-- Il Terrain liscia i voxel e l'acqua sale un po' sulla sponda: si tiene un margine in altezza.
+			return altezza(arena, x, z) < ACQUA + 1
+		end
 		return altezza(arena, x, z) < ACQUA + 0.3 and regioneAcqua(arena, x, z)
+	end
+	-- Fuori dal quadrato delle quote misurate il terreno vero si discosta da quello calcolato (di più sui
+	-- pendii ripidi): lì la quota si misura al momento, così gli oggetti non restano sospesi o interrati.
+	local parametri = RaycastParams.new()
+	parametri.FilterType = Enum.RaycastFilterType.Include
+	parametri.FilterDescendantsInstances = { terrain }
+	parametri.IgnoreWater = true
+	local function quotaVera(x, z)
+		if arena.quote and math.max(math.abs(x), math.abs(z)) >= MEZZO_QUOTE then
+			local colpo = workspace:Raycast(arena.origine + Vector3.new(x, Y_MAX + 10, z), Vector3.new(0, Y_MIN - Y_MAX - 20, 0), parametri)
+			if colpo then
+				return colpo.Position.Y - arena.origine.Y
+			end
+		end
+		return quota(arena, x, z)
 	end
 	-- Acqua vera entro "margine" dal punto (con margine negativo: tutto il cerchio è acqua).
 	local function liquida(x, z, margine)
@@ -412,7 +438,7 @@ local function ambiente(arena, livello)
 			return true
 		end
 		local sc = arena.scenario
-		if not sc.mare and not sc.laghi then
+		if not sc.mare and not sc.laghi and not arena.rigaFiume then
 			return false
 		end
 		local r = math.abs(margine)
@@ -436,7 +462,7 @@ local function ambiente(arena, livello)
 	end
 	return {
 		terra = function(x, z)
-			return arena.origine + Vector3.new(x, quota(arena, x, z) - 0.3, z)
+			return arena.origine + Vector3.new(x, quotaVera(x, z) - 0.3, z)
 		end,
 		acquaY = arena.origine.Y + ACQUA,
 		fiumeZ = arena.rigaFiume and function(x)
@@ -481,6 +507,7 @@ function Arena.crea(player, livello)
 		terreno = {}, -- "col,riga" -> tipo (ostacolo, fiume, guado, collina)
 		colline = {},
 		guadi = {},
+		spianate = {}, -- { x, z, r, h }: terreno piatto sotto gli edifici grandi dello scenario
 	}
 	for _, t in ipairs(livello.terreno) do
 		arena.terreno[t.col .. "," .. t.riga] = t.tipo
@@ -498,6 +525,12 @@ function Arena.crea(player, livello)
 	for k, v in pairs(arena.scenario.terreno or {}) do
 		arena.rilievo[k] = v
 	end
+	-- Le quote delle spianate si prendono tutte dal terreno ancora intatto, poi valgono insieme.
+	local spianate = {}
+	for _, v in ipairs(Scenari.spianate(livello.nome)) do
+		table.insert(spianate, { x = v[1], z = v[2], r = v[3], h = altezza(arena, v[1], v[2]) })
+	end
+	arena.spianate = spianate
 
 	scriviTerreno(arena)
 	local piano = Scenari.prepara(livello.nome, ambiente(arena, livello))

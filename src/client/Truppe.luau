@@ -32,6 +32,7 @@ local schierati = {} -- chiave casella -> { soldati }
 local soldati = {} -- id -> soldato in battaglia
 local velocitaBattaglia = 0.75
 local numeroBattaglia = 0 -- per non svuotare una battaglia nuova con il ritardo della vecchia
+local versioneSchieramento = 0 -- l'ultimo schieramento ricevuto: costruire i modelli può sospendere chi li riceve
 local quote = {} -- cache delle quote del terreno per cella di 2 studs
 
 local parametriTerreno = RaycastParams.new()
@@ -160,6 +161,8 @@ end
 -- Reggimenti del giocatore sulle caselle durante lo schieramento.
 local function schieramento(dati)
 	impostaCampo(dati)
+	versioneSchieramento += 1
+	local versione = versioneSchieramento
 	local visti = {}
 	for _, r in ipairs(dati.reggimenti) do
 		local chiave = r.col .. "," .. r.riga .. ":" .. r.tipo
@@ -167,14 +170,25 @@ local function schieramento(dati)
 		if not schierati[chiave] then
 			local def = Epoche.Truppe[r.tipo]
 			local gruppo = {}
+			-- Segnato subito: costruire un modello per la prima volta sospende questa funzione, e nel
+			-- frattempo può arrivare un altro schieramento (che non deve rifare lo stesso gruppo) o l'inizio
+			-- della battaglia (che lo toglie).
+			schierati[chiave] = gruppo
 			for _, offset in ipairs(Battaglia.formazione(def.soldati, def)) do
 				-- Sopra le piastrelle (la cima è 0,45 sul terreno): così non coprono i piedi.
 				local sopra = punto(r.col + offset[1], r.riga + offset[2]) + Vector3.new(0, 0.46, 0)
 				local s = nuovoSoldato(r.tipo, "giocatore", sopra, 0)
+				if schierati[chiave] ~= gruppo then
+					togli(s, true)
+					break
+				end
 				table.insert(gruppo, s)
 			end
-			schierati[chiave] = gruppo
 		end
+	end
+	-- Se intanto è arrivato uno schieramento più recente, è lui a dire quali gruppi restano.
+	if versione ~= versioneSchieramento then
+		return
 	end
 	for chiave, gruppo in pairs(schierati) do
 		if not visti[chiave] then
@@ -192,10 +206,16 @@ local function inizio(dati)
 	svuotaBattaglia(true)
 	Effetti.pulisci()
 	numeroBattaglia += 1
+	local numero = numeroBattaglia
 	velocitaBattaglia = dati.velocita or 0.75
 	for _, d in ipairs(dati.soldati) do
 		local angolo = d.squadra == "giocatore" and 0 or math.pi
 		local s = nuovoSoldato(d.tipo, d.squadra, punto(d.x, d.y), angolo)
+		if numero ~= numeroBattaglia then
+			-- Mentre si costruiva il modello il campo è stato svuotato o è partita un'altra battaglia.
+			togli(s, true)
+			return
+		end
 		s.id = d.id
 		s.hpMax = d.hp
 		s.hp = d.hp
@@ -371,6 +391,7 @@ function Truppe.inizializza(remoti)
 				end
 			end)
 		elseif dati.tipo == "pulisci" then
+			numeroBattaglia += 1
 			svuotaSchierati()
 			svuotaBattaglia(true)
 			Effetti.pulisci()

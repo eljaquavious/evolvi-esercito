@@ -22,6 +22,16 @@ local DENSITA = 2.2 -- moltiplica la vegetazione delle tabelle (alberi, rocce)
 local DENSITA_PICCOLI = 3.5 -- e quella bassa (erba, sassi, fiori, arbusti)
 -- Tende e padiglioni stanno in file (gli accampamenti erano ordinati), il resto è sparso.
 local TENDE = { padiglione = true, tendaRomana = true }
+local APPOGGIO_MINIMO = 5 -- ingombro (studs) da cui un oggetto si appoggia al punto più basso della sua pianta
+-- Oggetti messi in fila uno attaccato all'altro (il passo è la loro lunghezza): true = seguono il pendio,
+-- "piano" = restano orizzontali. Gli altri oggetti delle linee (lampioni, pali, cartelli) sono solo distanziati.
+local PEZZI_LUNGHI = {
+	palizzata = true, muretto = true, muroScudi = true, siepe = true, filoSpinato = true, paliArcieri = true,
+	pavesi = true, staccionata = true, sacchetti = true, mura = "piano", palazzo = "piano",
+}
+local NATURALI = { quercia = true, tronco = true } -- larghi ma con il piede stretto: stanno dove sono
+-- Oggetti che non vogliono il terreno spianato sotto: seguono il terreno, sono lunghi o galleggiano.
+local SENZA_SPIANATA = { mura = true, nave = true, campo = true, tumulo = true }
 
 -- Vegetazione di base per bioma: { oggetto, quanti, scala minima, scala massima }.
 local FLORA = {
@@ -746,6 +756,19 @@ function Scenari.dati(nome)
 	return S[nome] or {}
 end
 
+-- Dove il terreno va spianato prima di costruire: sotto gli edifici grandi messi in un punto preciso
+-- (forte, abbazia, chiesa, torre Eiffel), che su un pendio resterebbero mezzi per aria. { { x, z, raggio } }
+function Scenari.spianate(nome)
+	local lista = {}
+	for _, v in ipairs((S[nome] or {}).pezzi or {}) do
+		local raggio = (Paesaggio.ingombro[v[1]] or 0) * (v[5] or 1)
+		if raggio >= 8 and not SENZA_SPIANATA[v[1]] then
+			table.insert(lista, { v[2], v[3], raggio })
+		end
+	end
+	return lista
+end
+
 -- Piano di un campo -----------------------------------------------------------------------------------
 
 -- ambiente = {
@@ -858,6 +881,18 @@ function Scenari:metti(g, nome, x, z, s, verso, extra, opzioni)
 	local base = self.ambiente.terra(x, z)
 	if opzioni and opzioni.galleggia then
 		base = Vector3.new(base.X, self.ambiente.acquaY - 0.4, base.Z)
+	else
+		-- Tende, case e palazzi hanno la base piatta: su un pendio si appoggiano al punto più basso della
+		-- loro pianta (affondano un po' a monte) invece di restare a sbalzo sul lato a valle.
+		local raggio = (Paesaggio.ingombro[nome] or 0) * s
+		if raggio >= APPOGGIO_MINIMO and not NATURALI[nome] then
+			local y = base.Y
+			for i = 0, 7 do
+				local a = i * math.pi / 4
+				y = math.min(y, self.ambiente.terra(x + math.cos(a) * raggio * 0.7, z + math.sin(a) * raggio * 0.7).Y)
+			end
+			base = Vector3.new(base.X, y, base.Z)
+		end
 	end
 	local cf
 	if verso == "campo" then
@@ -888,7 +923,9 @@ function Scenari:spargi(g, nome, n, zona, smin, smax, extra, verso, opzioni)
 		local s = self.rng:NextNumber(smin, smax)
 		local ok = self:libero(x, z, raggio * s, opzioni)
 		if ok and opzioni and opzioni.riva then
+			-- Sulla riva bassa vicino all'acqua, non sulle pareti della gola dove il fiume taglia le colline.
 			ok = self.ambiente.inAcqua(x, z, raggio * s + 12) and not self.ambiente.inAcqua(x, z, 0)
+				and self.ambiente.terra(x, z).Y < self.ambiente.acquaY + 3
 		end
 		if ok then
 			self:occupa(x, z, raggio * s * (opzioni and opzioni.sovrapponi and 0.3 or 1))
@@ -972,9 +1009,26 @@ function Scenari:linea(g, voce)
 	for k = 0, n - 1 do
 		local f = (k + 0.5) / n
 		local x, z = da[1] + d.X * f, da[2] + d.Z * f
-		if not protetto(x, z, 2) and not fuoriValle(x, z, 0) and not self.ambiente.inAcqua(x, z, 3) then
+		-- Un pezzo lungo quanto il passo non deve finire in acqua nemmeno con un'estremità.
+		local lungo = PEZZI_LUNGHI[nome]
+		if not protetto(x, z, 2) and not fuoriValle(x, z, 0) and not self.ambiente.inAcqua(x, z, lungo and math.max(3, passo * 0.4) or 3) then
 			local base = self.ambiente.terra(x, z)
 			local cf = CFrame.fromMatrix(base, dir, Vector3.yAxis)
+			if lungo then
+				-- Sul pendio un pezzo lungo e dritto resterebbe a sbalzo da un lato: siepi, palizzate e reticolati
+				-- si inclinano come il terreno; mura e palazzi restano in piano e si appoggiano al lato più basso.
+				local meta = passo / 2
+				local prima = self.ambiente.terra(x - dir.X * meta, z - dir.Z * meta).Y
+				local dopo = self.ambiente.terra(x + dir.X * meta, z + dir.Z * meta).Y
+				if lungo == "piano" then
+					cf = CFrame.fromMatrix(Vector3.new(base.X, math.min(base.Y, prima, dopo), base.Z), dir, Vector3.yAxis)
+				else
+					local pendenza = math.clamp((dopo - prima) / passo, -0.3, 0.3)
+					local asse = (dir + Vector3.yAxis * pendenza).Unit
+					local su = (Vector3.yAxis - asse * asse.Y).Unit
+					cf = CFrame.fromMatrix(Vector3.new(base.X, math.min(base.Y, (prima + dopo) / 2), base.Z), asse, su)
+				end
+			end
 			local ok, errore = pcall(fn, g, cf, self.rng, 1, contesto(self, voce.ctx))
 			if not ok then
 				warn("Scenari: " .. nome .. " - " .. tostring(errore))

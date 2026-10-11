@@ -1010,19 +1010,30 @@ function P.palazzoDiroccato(g, cf, rng, s, ctx)
 	-- Facciate: pilastri tra le finestre (altezze spezzate) e le fasce dei solai.
 	for _, z in ipairs({ -p / 2, p / 2 }) do
 		local colonne = 7
+		local alti = {}
 		for c = 0, colonne do
 			local x = -l / 2 + c * l / colonne
 			local alto = h * (math.abs(x - squarcio) < 5 * s and rng:NextNumber(0.15, 0.45) or rng:NextNumber(0.7, 1))
+			alti[c] = alto
 			parte(g, Vector3.new(1.6 * s, alto, 0.9 * s), cf * CFrame.new(x, alto / 2 - 1, z), varia(colore, rng, 0.03), M.Brick)
 		end
 		for k = 1, piani do
 			local y = k * piano - 1
-			-- La fascia del solaio è interrotta dove il muro è caduto.
-			local da, a = -l / 2, squarcio - 4 * s
-			for _, tratto in ipairs({ { da, a }, { squarcio + 4 * s, l / 2 } }) do
-				local lungo = tratto[2] - tratto[1]
-				if lungo > 1 and (k < piani or rng:NextNumber() < 0.5) then
-					parte(g, Vector3.new(lungo, 1.1 * s, 1 * s), cf * CFrame.new((tratto[1] + tratto[2]) / 2, y - 0.5 * s, z), varia(colore, rng, 0.03), M.Brick)
+			if k < piani or rng:NextNumber() < 0.5 then
+				-- La fascia del solaio corre solo tra pilastri che arrivano fin lì: dove il muro è caduto si
+				-- interrompe, invece di restare sospesa per aria.
+				local inizio = nil
+				for c = 0, colonne + 1 do
+					local regge = c <= colonne and alti[c] - 1 >= y - s
+					if regge and not inizio then
+						inizio = c
+					elseif not regge and inizio then
+						if c - 1 > inizio then
+							local x0, x1 = -l / 2 + inizio * l / colonne, -l / 2 + (c - 1) * l / colonne
+							parte(g, Vector3.new(x1 - x0, 1.1 * s, 1 * s), cf * CFrame.new((x0 + x1) / 2, y - 0.5 * s, z), varia(colore, rng, 0.03), M.Brick)
+						end
+						inizio = nil
+					end
 				end
 			end
 		end
