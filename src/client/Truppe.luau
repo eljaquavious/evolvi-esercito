@@ -31,6 +31,7 @@ local campo = nil -- { origine, colonne, righe }
 local schierati = {} -- chiave casella -> { soldati }
 local soldati = {} -- id -> soldato in battaglia
 local velocitaBattaglia = 0.75
+local SOLDATI_PER_FRAME = 16
 local numeroBattaglia = 0 -- per non svuotare una battaglia nuova con il ritardo della vecchia
 local versioneSchieramento = 0 -- l'ultimo schieramento ricevuto: costruire i modelli può sospendere chi li riceve
 local quote = {} -- cache delle quote del terreno per cella di 2 studs
@@ -208,7 +209,7 @@ local function inizio(dati)
 	numeroBattaglia += 1
 	local numero = numeroBattaglia
 	velocitaBattaglia = dati.velocita or 0.75
-	for _, d in ipairs(dati.soldati) do
+	for i, d in ipairs(dati.soldati) do
 		local angolo = d.squadra == "giocatore" and 0 or math.pi
 		local s = nuovoSoldato(d.tipo, d.squadra, punto(d.x, d.y), angolo)
 		if numero ~= numeroBattaglia then
@@ -221,6 +222,14 @@ local function inizio(dati)
 		s.hp = d.hp
 		barraVita(s)
 		soldati[d.id] = s
+		-- Nelle epoche antiche i reggimenti hanno fino a 8 uomini: crearli tutti nello stesso frame blocca il
+		-- client per un attimo. Si creano a blocchi durante il conto alla rovescia, che dura più di tre secondi.
+		if i % SOLDATI_PER_FRAME == 0 then
+			task.wait()
+			if numero ~= numeroBattaglia then
+				return
+			end
+		end
 	end
 end
 
