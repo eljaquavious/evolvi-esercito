@@ -4,6 +4,10 @@
 --   s = scala, ctx = { neve = bool }.
 -- Misure in studs: un uomo è alto circa 4 studs (1 m = 2,34 studs).
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Caso = require(ReplicatedStorage.Shared.Caso)
+
 local Paesaggio = {}
 
 local C = Color3.fromRGB
@@ -1365,6 +1369,195 @@ function Paesaggio.scavaTrincea(cf, lunghezza, profondita, larghezza)
 	profondita, larghezza = profondita or 5, larghezza or 6
 	workspace.Terrain:FillBlock(cf * CFrame.new(0, 1 - (profondita + 1) / 2, 0), Vector3.new(lunghezza, profondita + 1, larghezza), Enum.Material.Air)
 	workspace.Terrain:FillBlock(cf * CFrame.new(0, -profondita - 0.5, 0), Vector3.new(lunghezza, 1, larghezza), Enum.Material.Mud)
+end
+
+-- Modelli 3D veri ----------------------------------------------------------------------------------
+-- Gli oggetti hanno un modello 3D (Shared/MeshDati): smussato, con le texture dei materiali e le ombre cotte.
+-- Il server mette comunque le vecchie parti (servono per gli urti e come riserva) dentro un Model con gli
+-- attributi Mesh (quale modello), Scala e Posa; ogni client ci mette la mesh e nasconde le parti
+-- (Client/Paesaggio). I modelli sono in studs alla scala 1 dell'oggetto, con l'origine nel punto cf.
+--   Natura* (tools/paesaggio/natura.py): alberi, cespugli, erba, rocce, scelti per bioma.
+--   Ogg_* (tools/paesaggio/oggetti.py): tutti gli altri oggetti, fatti dalle loro stesse parti. Il nome dice
+--   l'oggetto, il contesto che ne cambia l'aspetto (lunghezza, colori...) e la variante; le parti della
+--   variante k si costruiscono con Caso.new(seme k), uguali a quelle da cui è nato il modello.
+
+local function una(...)
+	local nomi = { ... }
+	return function(rng)
+		return nomi[rng:NextInteger(1, #nomi)]
+	end
+end
+
+local NATURA = {
+	quercia = una("NaturaQuercia1", "NaturaQuercia2", "NaturaQuercia3"),
+	betulla = una("NaturaBetulla1", "NaturaBetulla2"),
+	cipresso = una("NaturaCipresso1"),
+	ulivo = una("NaturaUlivo1", "NaturaUlivo2"),
+	palma = una("NaturaPalma1", "NaturaPalma2"),
+	tamerice = una("NaturaTamerice1"),
+	pino = function(rng, ctx)
+		return (ctx.neve and "NaturaPinoNeve" or "NaturaPino") .. rng:NextInteger(1, 2)
+	end,
+	cespuglio = function(rng, ctx)
+		return ctx.neve and "NaturaCespuglioNeve1" or "NaturaCespuglio" .. rng:NextInteger(1, 2)
+	end,
+	arbusto = una("NaturaArbusto1"),
+	ciuffo = function(_, ctx)
+		return ctx.secco and "NaturaCiuffoSecco1" or (ctx.neve and "NaturaCiuffoNeve1" or "NaturaCiuffo1")
+	end,
+	tronco = una("NaturaTronco1"),
+	ceppo = una("NaturaCeppo1"),
+	alberoSpezzato = una("NaturaSpezzato1", "NaturaSpezzato2"),
+	roccia = function(rng, ctx)
+		return ctx.sabbia and "NaturaRocciaSabbia1" or (ctx.neve and "NaturaRocciaNeve1" or "NaturaRoccia" .. rng:NextInteger(1, 2))
+	end,
+	masso = function(_, ctx)
+		return ctx.sabbia and "NaturaMassoSabbia1" or (ctx.neve and "NaturaMassoNeve1" or "NaturaMasso1")
+	end,
+	sassi = function(_, ctx)
+		return ctx.sabbia and "NaturaSassiSabbia1" or "NaturaSassi1"
+	end,
+}
+
+-- Campi del contesto che cambiano l'aspetto di ogni oggetto (gli altri non contano per il modello).
+local CHIAVI = {
+	barca = { "colore" }, campo = { "colori" }, cannone = { "colore" }, casaBianca = { "colore" },
+	casaDiroccata = { "pietra", "neve" }, filoSpinato = { "lunghezza" }, insegna = { "drappo" },
+	mura = { "lunghezza", "pietra", "neve" }, muretto = { "lunghezza" }, muroScudi = { "colori", "lunghezza" },
+	nave = { "colore", "vela" }, padiglione = { "colori" }, palazzo = { "tenda", "neve" },
+	palazzoDiroccato = { "pietra", "neve" }, paliArcieri = { "lunghezza" }, palizzata = { "lunghezza" },
+	pavesi = { "colori" }, ponte = { "lunghezza" }, pontePietra = { "lunghezza", "pietra" }, relitto = { "colore" },
+	resti = { "epoca" }, sacchetti = { "lunghezza" }, siepe = { "lunghezza" }, staccionata = { "lunghezza" },
+	trincea = { "lunghezza" }, trinceaCampo = { "lunghezza", "larghezza", "profondita", "neve", "sabbia", "secco" },
+	bordoCratere = { "neve" }, capanna = { "neve" }, casa = { "neve" }, chiesa = { "neve" }, fabbrica = { "neve" },
+	forte = { "neve" }, pagliaio = { "neve" }, tumulo = { "secco" },
+}
+-- Oggetti lasciati a parti: hanno fuoco o fumo, o sono già fatti di pezzi semplici e sottili.
+local SOLO_PARTI = {}
+local VARIANTI = 2
+Paesaggio.VARIANTI = VARIANTI
+
+function Paesaggio.seme(base, k)
+	return k * 7919 + #base * 131
+end
+
+local function testo(v)
+	local t = typeof(v)
+	if t == "Color3" then
+		return string.format("%02x%02x%02x", math.floor(v.R * 255 + 0.5), math.floor(v.G * 255 + 0.5), math.floor(v.B * 255 + 0.5))
+	elseif t == "table" then
+		local parti = {}
+		for _, x in ipairs(v) do
+			table.insert(parti, testo(x))
+		end
+		return table.concat(parti, ",")
+	elseif t == "number" then
+		return string.format("%.1f", v)
+	end
+	return tostring(v)
+end
+
+-- Nome del modello 3D di un oggetto con quel contesto (senza la variante).
+function Paesaggio.nomeMesh(nome, ctx)
+	local chiave = {}
+	for _, campo in ipairs(CHIAVI[nome] or {}) do
+		if ctx[campo] ~= nil then
+			table.insert(chiave, campo .. "=" .. testo(ctx[campo]))
+		end
+	end
+	if #chiave == 0 then
+		return "Ogg_" .. nome
+	end
+	-- Un'impronta corta della chiave (djb2), così i nomi restano leggibili.
+	local h = 5381
+	for _, c in ipairs({ string.byte(table.concat(chiave, ";"), 1, -1) }) do
+		h = (h * 33 + c) % 4294967296
+	end
+	return string.format("Ogg_%s_%06x", nome, h % 16777216)
+end
+
+-- Con Lune (test/campi.luau, REGISTRA) qui si annotano gli oggetti usati: { nome senza variante -> { nome, ctx } }.
+Paesaggio.registro = nil
+Paesaggio.originali = {}
+
+local cartellaMesh = typeof(ReplicatedStorage.Shared) == "Instance" and ReplicatedStorage.Shared:FindFirstChild("MeshDati") or nil
+local function esiste(nomeMesh)
+	if Paesaggio.registro then
+		return true
+	end
+	return cartellaMesh ~= nil and cartellaMesh:FindFirstChild(nomeMesh) ~= nil
+end
+
+local dentro = false -- un oggetto dentro un altro (i sacchetti della trincea) fa parte del suo modello
+
+-- Le parti di un oggetto e basta, senza modello 3D (per test/campi.luau).
+function Paesaggio.soloParti(nome, g, cf, rng, s, ctx)
+	dentro = true
+	local ok, errore = pcall(Paesaggio.originali[nome], g, cf, rng, s, ctx)
+	dentro = false
+	if not ok then
+		error(errore, 0)
+	end
+end
+
+local function avvolgi(modello, g, nomeMesh, cf, s)
+	for _, p in ipairs(modello:GetDescendants()) do
+		-- Fuoco, vetri e parti trasparenti restano parti vere (il modello 3D non li contiene).
+		if p:IsA("BasePart") and (p.Transparency > 0 or p.Material == Enum.Material.Neon or p.Material == Enum.Material.Glass) then
+			p:SetAttribute("Resta", true)
+		end
+	end
+	modello:SetAttribute("Mesh", nomeMesh)
+	modello:SetAttribute("Scala", s)
+	modello:SetAttribute("Posa", cf)
+	modello.Parent = g
+end
+
+for nome, aParti in pairs(P) do
+	Paesaggio.originali[nome] = aParti
+	local scegli = NATURA[nome]
+	if scegli then
+		P[nome] = function(g, cf, rng, s, ctx)
+			ctx = ctx or {}
+			if dentro then
+				return aParti(g, cf, rng, s, ctx)
+			end
+			local modello = Instance.new("Model")
+			modello.Name = nome
+			aParti(modello, cf, rng, s, ctx)
+			avvolgi(modello, g, scegli(rng, ctx), cf, s)
+		end
+	elseif not SOLO_PARTI[nome] then
+		P[nome] = function(g, cf, rng, s, ctx)
+			ctx = ctx or {}
+			if dentro then
+				return aParti(g, cf, rng, s, ctx)
+			end
+			local base = Paesaggio.nomeMesh(nome, ctx)
+			-- Le cose grandi hanno una variante sola: se la k non c'è si usa la prima.
+			local k = rng:NextInteger(1, VARIANTI)
+			if not esiste(base .. "_" .. k) then
+				k = 1
+			end
+			local nomeMesh = base .. "_" .. k
+			if not esiste(nomeMesh) then
+				return aParti(g, cf, rng, s, ctx)
+			end
+			local seme = Paesaggio.seme(base, k)
+			if Paesaggio.registro then
+				Paesaggio.registro[base] = { nome = nome, ctx = ctx }
+			end
+			local modello = Instance.new("Model")
+			modello.Name = nome
+			dentro = true
+			local ok, errore = pcall(aParti, modello, cf, Caso.new(seme), s, ctx)
+			dentro = false
+			if not ok then
+				error(errore, 0)
+			end
+			avvolgi(modello, g, nomeMesh, cf, s)
+		end
+	end
 end
 
 return Paesaggio

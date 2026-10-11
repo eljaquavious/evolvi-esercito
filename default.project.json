@@ -2,6 +2,11 @@
   "name": "evolvi-esercito",
   "tree": {
     "$className": "DataModel",
+    "Lighting": {
+      "$properties": {
+        "Technology": "Future"
+      }
+    },
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"

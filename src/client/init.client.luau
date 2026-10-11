@@ -11,6 +11,7 @@ local Profilo = require(script.UI.Profilo)
 local Partita = require(script.UI.Partita)
 local Mappa = require(script.UI.Mappa)
 local Truppe = require(script.Truppe)
+local Paesaggio = require(script.Paesaggio)
 
 local player = Players.LocalPlayer
 local cartellaRemoti = ReplicatedStorage:WaitForChild("Remoti")
@@ -29,6 +30,7 @@ local gui = Stile.crea("ScreenGui", {
 
 Notifiche.inizializza(gui)
 Truppe.inizializza(remoti)
+task.spawn(Paesaggio.inizializza)
 Shop.inizializza(gui, remoti)
 Inventario.inizializza(gui, remoti)
 Profilo.inizializza(gui)

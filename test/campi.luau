@@ -27,7 +27,8 @@ local CFrame = setmetatable({
 -- Generatore deterministico al posto di Random.
 local Random = {
 	new = function(seme)
-		local stato = math.floor(seme or 1) % 2147483647
+		-- SPOSTA=<n> cambia tutti i semi: altri campi possibili (per registrare più oggetti).
+		local stato = math.floor((seme or 1) + tonumber(process.env.SPOSTA or "0")) % 2147483647
 		if stato <= 0 then
 			stato += 2147483646
 		end
@@ -195,9 +196,43 @@ end
 
 local Campagna = carica("src/shared/Config/Campagna.luau", alberi.shared.Config)
 local Arena = carica("src/server/Arena.luau", alberi.server)
+-- REGISTRA=<file.json>: annota gli oggetti con il loro contesto e scrive le loro parti (per tools/paesaggio/oggetti.py).
+local registra = process.env.REGISTRA
+local Paesaggio = carica("src/server/Paesaggio.luau", alberi.server)
+local Caso = carica("src/shared/Caso.luau", alberi.shared)
+if registra then
+	Paesaggio.registro = {}
+end
 
 local function tondo(v)
 	return math.floor(v * 100 + 0.5) / 100
+end
+
+local function descriviParti(radice, conTrasparenti)
+	local parti = {}
+	for _, p in ipairs(radice:GetDescendants()) do
+		if p:IsA("BasePart") and (conTrasparenti or p.Transparency < 1) and not p:FindFirstAncestor("Tabellone") then
+			local c = { p.CFrame:GetComponents() }
+			for i, v in ipairs(c) do
+				c[i] = math.floor(v * 10000 + 0.5) / 10000
+			end
+			local forma = p.ClassName == "WedgePart" and "Wedge" or p.Shape.Name
+			local mesh = p:FindFirstChildOfClass("SpecialMesh")
+			if mesh then
+				forma = "Sphere"
+			end
+			table.insert(parti, {
+				f = forma,
+				s = { p.Size.X, p.Size.Y, p.Size.Z },
+				c = c,
+				k = { math.floor(p.Color.R * 255 + 0.5), math.floor(p.Color.G * 255 + 0.5), math.floor(p.Color.B * 255 + 0.5) },
+				m = p.Material.Name,
+				t = tondo(p.Transparency),
+				r = p:GetAttribute("Resta") or (p.Transparency > 0 or p.Material.Name == "Neon" or p.Material.Name == "Glass") or nil,
+			})
+		end
+	end
+	return parti
 end
 
 local riepilogo = {}
@@ -270,4 +305,34 @@ for numero = 1, Campagna.TOTALE do
 	end
 	Arena.distruggi(arena)
 	table.insert(riepilogo, conteggio)
+end
+
+if registra then
+	local uscitaReg = {}
+	local n = 0
+	-- Le trincee sulle caselle sono lunghe quante caselle in fila: tutte le lunghezze possibili.
+	for _, voce in pairs(table.clone(Paesaggio.registro)) do
+		if voce.nome == "trinceaCampo" then
+			for caselle = 1, Campagna.COLONNE do
+				local ctx = table.clone(voce.ctx)
+				ctx.lunghezza = caselle * 16
+				Paesaggio.registro[Paesaggio.nomeMesh("trinceaCampo", ctx)] = { nome = "trinceaCampo", ctx = ctx }
+			end
+		end
+	end
+	for base, voce in pairs(Paesaggio.registro) do
+		for k = 1, Paesaggio.VARIANTI do
+			local nomeMesh = base .. "_" .. k
+			local cartellaParti = roblox.Instance.new("Folder")
+			local ok, errore = pcall(Paesaggio.soloParti, voce.nome, cartellaParti, CFrame.new(), Caso.new(Paesaggio.seme(base, k)), 1, voce.ctx)
+			if ok then
+				uscitaReg[nomeMesh] = { nome = voce.nome, parti = descriviParti(cartellaParti, true) }
+				n += 1
+			else
+				print("ERRORE " .. nomeMesh .. " " .. tostring(errore))
+			end
+		end
+	end
+	fs.writeFile(registra, serde.encode("json", uscitaReg))
+	print(("registrati %d modelli di oggetti in %s"):format(n, registra))
 end

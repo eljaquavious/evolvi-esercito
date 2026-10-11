@@ -129,6 +129,7 @@ function riempi(em, nome, dati, geometria, minimo, estensione, centro, scala)
 		nomiOssa[i - 1] = osso.nome
 	end
 
+	local conOssa = #dati.ossa > 0
 	local nv = buffer.readu32(geometria, 0)
 	local nt = buffer.readu32(geometria, 4)
 	local vertici, normali, uv = table.create(nv), table.create(nv), table.create(nv)
@@ -141,16 +142,19 @@ function riempi(em, nome, dati, geometria, minimo, estensione, centro, scala)
 		uv[i] = em:AddUV(Vector2.new(buffer.readu16(geometria, o + 6) / 65535, buffer.readu16(geometria, o + 8) / 65535))
 		local n = Vector3.new(buffer.readi8(geometria, o + 10), buffer.readi8(geometria, o + 11), buffer.readi8(geometria, o + 12))
 		normali[i] = em:AddNormal(n.Magnitude > 0 and n.Unit or Vector3.yAxis)
-		local idOssa, pesi = {}, {}
-		for k = 0, 3 do
-			local peso = buffer.readu8(geometria, o + 17 + k)
-			if peso > 0 then
-				table.insert(idOssa, ossaId[nomiOssa[buffer.readu8(geometria, o + 13 + k)]])
-				table.insert(pesi, peso / 255)
+		-- I modelli del paesaggio non hanno ossa: restano mesh fisse, più leggere da disegnare.
+		if conOssa then
+			local idOssa, pesi = {}, {}
+			for k = 0, 3 do
+				local peso = buffer.readu8(geometria, o + 17 + k)
+				if peso > 0 then
+					table.insert(idOssa, ossaId[nomiOssa[buffer.readu8(geometria, o + 13 + k)]])
+					table.insert(pesi, peso / 255)
+				end
 			end
+			em:SetVertexBones(v, idOssa)
+			em:SetVertexBoneWeights(v, pesi)
 		end
-		em:SetVertexBones(v, idOssa)
-		em:SetVertexBoneWeights(v, pesi)
 		o += 21
 	end
 	for _ = 1, nt do
