@@ -451,7 +451,7 @@ local function mostraRound(dati)
 	local titolo = bannerRound:FindFirstChild("Titolo")
 	titolo.Text = dati.vittoria and "ROUND WON!" or "ROUND LOST"
 	titolo.TextColor3 = dati.vittoria and Stile.PAL.oro.t or Stile.PAL.rosso.t
-	bannerRound:FindFirstChild("Punteggio").Text = ("YOU %d - %d ENEMY"):format(dati.vinti, dati.persi)
+	bannerRound:FindFirstChild("Punteggio").Text = ("YOU  %d - %d  ENEMY"):format(dati.vinti, dati.persi)
 	aggiornaPunteggio(dati)
 	sottotitolo.Text = dati.vittoria and "ROUND WON!" or "ROUND LOST"
 	sottotitolo.TextColor3 = dati.vittoria and Stile.Colori.Oro or Stile.PAL.rosso.t
@@ -518,7 +518,7 @@ local function mostraRisultato(dati)
 	testoEsperienza.Text = ("+%s XP"):format(Stile.numero(dati.esperienza or 0))
 
 	local righe = {
-		("Rounds %d - %d  ·  Enemy regiments defeated: %d  ·  Regiments lost: %d"):format(
+		("Rounds %d - %d\nEnemy regiments defeated: %d  ·  Lost: %d"):format(
 			dati.vinti,
 			dati.persi,
 			dati.sconfitti or 0,
@@ -828,7 +828,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -28, 0, 20),
 		Size = UDim2.fromOffset(480, 30),
-		Text = "CLICK A CARD, THEN A GOLD TILE",
+		Text = "CLICK A CARD, THEN A BLUE TILE",
 		TextColor3 = Stile.Colori.Oro,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		Parent = barraMazzo,
@@ -983,7 +983,9 @@ function Partita.inizializza(gui, r, callbackLobby)
 	-- Schermata del risultato: velo scuro, raggi che girano, stelle, targa, premi e pulsanti.
 	risultato = Stile.crea("Frame", {
 		Name = "Risultato",
-		Size = UDim2.fromScale(1, 1),
+		-- Il velo sale oltre il bordo alto, per coprire anche la fascia della barra di Roblox.
+		Position = UDim2.fromOffset(0, -200),
+		Size = UDim2.new(1, 0, 1, 200),
 		BackgroundColor3 = Stile.CONTORNO,
 		BackgroundTransparency = 0.35,
 		BorderSizePixel = 0,
@@ -1004,7 +1006,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		raggi = Stile.crea("ImageLabel", {
 			Name = "Raggi",
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.45),
+			Position = UDim2.new(0.5, 0, 0.45, 100),
 			Size = UDim2.fromOffset(2200, 2200),
 			Image = immagineRaggi,
 			ImageTransparency = 0.55,
@@ -1015,7 +1017,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 	scheda = Stile.crea("Frame", {
 		Name = "Scheda",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 100),
 		Size = UDim2.fromOffset(1100, 1040),
 		BackgroundTransparency = 1,
 		ZIndex = 2,
@@ -1159,7 +1161,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Size = UDim2.fromOffset(330, 116),
 		ZIndex = 5,
 		Parent = scheda,
-	}, "verde", { Testo = "NEXT BATTLE", TestoSize = 44, Icona = "fight", IconaSize = 74, Profondita = 10, Raggio = 26 })
+	}, "verde", { Testo = "NEXT BATTLE", TestoSize = 44, Icona = "fight", IconaSize = 62, Profondita = 10, Raggio = 26 })
 	bottoneContinua.Activated:Connect(function()
 		Partita.avvia(prossimoLivello)
 	end)

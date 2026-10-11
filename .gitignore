@@ -8,4 +8,4 @@ __pycache__/
 *.pyc
 
 # Chiave API di Roblox: mai su GitHub
-chiave-roblox.txt
+chiave-roblox*
