@@ -297,7 +297,9 @@ def cuoci():
     ossa = np.array(O)
     atlante = xatlas.Atlas()
     atlante.add_mesh(pos.astype(np.float32), tri.astype(np.uint32), nor.astype(np.float32))
-    tpu = 260.0
+    print("parti", len(parti), "vertici", len(pos), "triangoli", len(tri), flush=True)
+    area = trimesh.Trimesh(pos, tri, process=False).area
+    tpu = np.sqrt(0.62 * LATO * LATO / area)  # stima: le isole riempiono circa il 60% dell'atlante
     while True:
         opz = xatlas.PackOptions()
         opz.padding = 3
@@ -305,15 +307,18 @@ def cuoci():
         opz.texels_per_unit = tpu
         opz.resolution = 0
         atlante.generate(xatlas.ChartOptions(), opz)
+        print("atlante", atlante.width, atlante.height, round(tpu, 1), flush=True)
         if atlante.width <= LATO and atlante.height <= LATO:
             break
-        tpu *= 0.94
+        tpu *= 0.9 * min(LATO / atlante.width, LATO / atlante.height) ** 0.5
     vmap, tri_n, uv_n = atlante[0]  # i triangoli restano nello stesso ordine
     pos, nor, ossa = pos[vmap], nor[vmap], ossa[vmap]
     tri = tri_n.astype(np.int64)
     uv_px = uv_n * np.array([atlante.width, atlante.height])
 
+    print("occlusione...", flush=True)
     luce = cavalli._occlusione(pos, nor, tri, raggi=40)
+    print("cottura...", flush=True)
     alto = np.clip((pos[:, 1] - pos[:, 1].min()) / np.ptp(pos[:, 1]), 0, 1)
     ombra = np.clip(np.clip(luce, 0, 1) ** 0.85 * (0.82 + 0.18 * alto) * (0.92 + 0.1 * nor[:, 1]), 0.35, 1.08)
     rng = np.random.default_rng(5)
