@@ -147,6 +147,29 @@ local function nascondi(stato, radice)
 	end
 end
 
+-- Toglie (solo qui) alberi, tende e rocce dalle zone dove passano i reparti o la telecamera.
+-- zone: { x0, z0, x1, z1 } dal centro della scena. I pezzi molto grandi (terreno, cornice) restano.
+local function sgombra(stato, radice, zone)
+	if not radice or not zone then
+		return
+	end
+	for _, pezzo in ipairs(radice:GetDescendants()) do
+		if pezzo:IsA("BasePart") and pezzo.LocalTransparencyModifier < 1 then
+			local dimensione = pezzo.Size
+			if math.max(dimensione.X, dimensione.Z) < 40 then
+				local p = pezzo.Position - stato.centro
+				for _, z in ipairs(zone) do
+					if p.X >= z[1] and p.X <= z[3] and p.Z >= z[2] and p.Z <= z[4] then
+						table.insert(stato.nascosti, pezzo)
+						pezzo.LocalTransparencyModifier = 1
+						break
+					end
+				end
+			end
+		end
+	end
+end
+
 local function controlli(attivi)
 	local ok, modulo = pcall(function()
 		return require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule", 5)):GetControls()
@@ -473,13 +496,16 @@ local function aggiornaSoldati(stato, t, dt, quota)
 end
 
 -- Punto di un'inquadratura: relativo al centro del campo, o al reparto che si segue.
+-- L'altezza è sopra il terreno sotto quel punto (non sopra il centro del campo): rive e colline non
+-- finiscono davanti all'obiettivo.
 local function puntoCamera(stato, v, segui, t)
 	local base = stato.centro
 	if segui then
 		local x, z = statoReparto(stato.reparti[segui], t)
 		base += Vector3.new(x, 0, z)
 	end
-	return base + vettore(v)
+	local p = base + Vector3.new(v[1], 0, v[3])
+	return Vector3.new(p.X, stato.quota(p.X, p.Z) + v[2], p.Z)
 end
 
 local function aggiornaCamera(stato, t)
@@ -543,7 +569,7 @@ local function aggiornaScritte(stato, t)
 	end
 end
 
-local function finisci(stato)
+local function finisci(stato, subito)
 	if stato.finita then
 		return
 	end
@@ -582,9 +608,16 @@ local function finisci(stato)
 	camera.FieldOfView = 70
 	camera.CameraType = Enum.CameraType.Custom
 	controlli(true)
+	inCorso = nil
+	local gui = stato.gui
+	if subito then
+		-- Il giocatore è uscito: niente dissolvenza, la mappa o la lobby si vedono subito.
+		gui:Destroy()
+		task.spawn(stato.fine)
+		return
+	end
 	-- Dissolvenza in uscita: il nero resta un attimo mentre il gioco rimette la sua telecamera.
 	dissolvi(stato.nero, "BackgroundTransparency", 0, 0.15)
-	local gui = stato.gui
 	task.delay(0.25, function()
 		for _, figlio in ipairs(gui:GetChildren()) do
 			if figlio:IsA("GuiObject") and figlio ~= stato.nero then
@@ -596,14 +629,13 @@ local function finisci(stato)
 			gui:Destroy()
 		end)
 	end)
-	inCorso = nil
 	task.spawn(stato.fine)
 end
 
 -- Interrompe la cinematica in corso (il giocatore esce dalla partita); fine() viene chiamata comunque.
 function Cinematica.ferma()
 	if inCorso then
-		finisci(inCorso)
+		finisci(inCorso, true)
 	end
 end
 
@@ -632,7 +664,8 @@ function Cinematica.riproduci(nome, centro, arena, fine)
 
 	local stato = {
 		dati = dati,
-		centro = centro,
+		-- La scena può svolgersi lontano dal centro del campo (per esempio fuori dal fiume).
+		centro = centro + Vector3.new(sceneggiatura.origine and sceneggiatura.origine[1] or 0, 0, sceneggiatura.origine and sceneggiatura.origine[2] or 0),
 		fine = fine,
 		soldati = {},
 		reparti = {},
@@ -666,6 +699,7 @@ function Cinematica.riproduci(nome, centro, arena, fine)
 		end
 	end
 	nascondi(stato, player.Character)
+	sgombra(stato, arena, dati.sgombra)
 
 	-- Colori da film: un po' più di contrasto, toni caldi, profondità di campo per i primi piani.
 	local colore = Instance.new("ColorCorrectionEffect")
@@ -685,7 +719,8 @@ function Cinematica.riproduci(nome, centro, arena, fine)
 	table.insert(stato.effetti, profondita)
 	stato.profondita = profondita
 
-	local quota = nuovaQuota(centro)
+	local quota = nuovaQuota(stato.centro)
+	stato.quota = quota
 	-- Il terreno attorno al campo può non essere ancora arrivato: si aspetta un attimo, a schermo nero.
 	local ok = pcall(function()
 		player:RequestStreamAroundAsync(centro, 3)

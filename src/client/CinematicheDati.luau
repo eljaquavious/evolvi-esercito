@@ -3,7 +3,10 @@
 -- il nemico (+z), 180 verso il giocatore, 90 verso +x.
 --
 -- reparti: soldati in formazione ("file" per riga, "righe" dietro la prima) che seguono le tappe.
+-- origine: dove si svolge la scena rispetto al centro del campo (x, z), per esempio per stare fuori dal fiume.
+-- sgombra: zone { x0, z0, x1, z1 } dove si nascondono alberi, tende e rocce (passano soldati o telecamera).
 -- inquadrature: dalla posizione/punto guardato "da" a quelli "a"; con "segui" si muovono col reparto.
+-- L'altezza di posizione e punto guardato è sopra il terreno sotto di loro.
 -- lanci: la prima riga di un reparto lancia pilum (o tira frecce) verso un altro reparto.
 -- mischie: tra "da" e "a" chi ha un nemico vicino combatte. cadute: quota di un reparto che cade.
 -- Le scritte sono in inglese, come tutto il gioco. Niente dialoghi.
@@ -14,7 +17,11 @@ local Dati = {}
 -- chiudono ai lati e la cavalleria punica, messa in fuga quella romana, chiude alle spalle.
 Dati["Cannae"] = {
 	durata = 31.5,
-	musica = { id = nil, volume = 0.7 },
+	-- "Bravest Of The Braves" (Kosinus, APM), dalla libreria musicale di Roblox: si può usare in ogni gioco.
+	musica = { id = "rbxassetid://1839315075", volume = 0.7 },
+	-- Il fiume (l'Ofanto) attraversa il campo a z = 0: la battaglia si svolge sulla riva sud.
+	origine = { 0, -42 },
+	sgombra = { { -100, -125, 100, 35 }, { -165, -160, -90, -100 } },
 	tinta = Color3.fromRGB(255, 240, 220),
 	reparti = {
 		-- Roma
@@ -27,11 +34,11 @@ Dati["Cannae"] = {
 		{ id = "legioneD", tipo = "Legionario", squadra = "giocatore", file = 6, righe = 4, tappe = {
 			{ t = 0, x = 19, z = -95, a = 0 }, { t = 13, z = -9 }, { t = 15, z = -1.5 }, { t = 23, z = 9 }, { t = 31, z = 10 },
 		} },
-		{ id = "equitiS", tipo = "Compagno", squadra = "giocatore", file = 3, righe = 2, tappe = {
-			{ t = 0, x = -50, z = -103, a = 0 }, { t = 11.5, z = -28 }, { t = 13, x = -52, z = -32 }, { t = 18, x = -125, z = -170 },
+		{ id = "equitiS", tipo = "Compagno", squadra = "giocatore", file = 3, righe = 2, passo = 5, tappe = {
+			{ t = 0, x = -50, z = -103, a = 0 }, { t = 11.5, z = -28 }, { t = 13, x = -52, z = -32 }, { t = 18, x = -95, z = -120 },
 		} },
-		{ id = "equitiD", tipo = "Compagno", squadra = "giocatore", file = 3, righe = 2, tappe = {
-			{ t = 0, x = 50, z = -103, a = 0 }, { t = 11.5, z = -28 }, { t = 13, x = 52, z = -32 }, { t = 18, x = 125, z = -170 },
+		{ id = "equitiD", tipo = "Compagno", squadra = "giocatore", file = 3, righe = 2, passo = 5, tappe = {
+			{ t = 0, x = 50, z = -103, a = 0 }, { t = 11.5, z = -28 }, { t = 13, x = 52, z = -32 }, { t = 18, x = 95, z = -120 },
 		} },
 		-- Cartagine: al centro Galli e Iberi, ai lati i fanti africani (con armi romane prese in battaglia).
 		{ id = "galliS", tipo = "Spadaccino", squadra = "nemico", file = 6, righe = 3, tappe = {
@@ -46,13 +53,13 @@ Dati["Cannae"] = {
 		{ id = "africaniD", tipo = "Legionario", squadra = "nemico", file = 4, righe = 4, tappe = {
 			{ t = 0, x = 37, z = 18, a = 180 }, { t = 15.5 }, { t = 22.5, x = 31, z = 4, a = -90, liscio = true }, { t = 31, x = 30.5, z = 5 },
 		} },
-		{ id = "cavalleriaS", tipo = "Compagno", squadra = "nemico", file = 3, righe = 2, tappe = {
+		{ id = "cavalleriaS", tipo = "Compagno", squadra = "nemico", file = 3, righe = 2, passo = 5, tappe = {
 			{ t = 0, x = -62, z = 18, a = 180 }, { t = 8.5 }, { t = 12, x = -50, z = -24 }, { t = 15.5, x = -72, z = -66 },
-			{ t = 19.5, x = -32, z = -26, a = 45 }, { t = 23, x = -10, z = -5, a = 0 }, { t = 31, z = -4 },
+			{ t = 19.5, x = -32, z = -26, a = 45 }, { t = 23, x = -11, z = -8, a = 0 }, { t = 31, z = -7 },
 		} },
-		{ id = "cavalleriaD", tipo = "Compagno", squadra = "nemico", file = 3, righe = 2, tappe = {
+		{ id = "cavalleriaD", tipo = "Compagno", squadra = "nemico", file = 3, righe = 2, passo = 5, tappe = {
 			{ t = 0, x = 62, z = 18, a = 180 }, { t = 8.5 }, { t = 12, x = 50, z = -24 }, { t = 15.5, x = 72, z = -66 },
-			{ t = 19.5, x = 32, z = -26, a = -45 }, { t = 23, x = 10, z = -5, a = 0 }, { t = 31, z = -4 },
+			{ t = 19.5, x = 32, z = -26, a = -45 }, { t = 23, x = 11, z = -8, a = 0 }, { t = 31, z = -7 },
 		} },
 		{ id = "annibale", tipo = "Annibale", squadra = "nemico", tappe = {
 			{ t = 0, x = 0, z = 30, a = 180 }, { t = 16 }, { t = 20, z = 25 },
