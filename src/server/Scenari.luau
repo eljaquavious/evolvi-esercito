@@ -29,6 +29,9 @@ local PEZZI_LUNGHI = {
 	palizzata = true, muretto = true, muroScudi = true, siepe = true, filoSpinato = true, paliArcieri = true,
 	pavesi = true, staccionata = true, sacchetti = true, mura = "piano", palazzo = "piano",
 }
+-- Erba e fiori in ciuffi singoli: anche fotografati da vicino restano fili sottili e da lontano sembrano
+-- macchie finte (Mattia non li vuole). L'erba la fa il terreno; ne resta solo una parte, i fiori spariscono.
+local QUOTA = { ciuffo = 0.3, fiori = 0 }
 local NATURALI = { quercia = true, tronco = true } -- larghi ma con il piede stretto: stanno dove sono
 -- Oggetti che non vogliono il terreno spianato sotto: seguono il terreno, sono lunghi o galleggiano.
 local SENZA_SPIANATA = { mura = true, nave = true, campo = true, tumulo = true }
@@ -876,6 +879,11 @@ function Scenari:metti(g, nome, x, z, s, verso, extra, opzioni)
 	local fn = P[nome]
 	if not fn then
 		warn("Scenari: oggetto sconosciuto " .. tostring(nome))
+		return
+	end
+	-- Scelta legata al punto (non a self.rng), così il resto del campo resta com'era.
+	local quota = QUOTA[nome]
+	if quota and Random.new(math.floor(x * 7.3) * 7919 + math.floor(z * 5.1)):NextNumber() >= quota then
 		return
 	end
 	local base = self.ambiente.terra(x, z)
