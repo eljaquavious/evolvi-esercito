@@ -10,6 +10,7 @@ local Inventario = require(script.UI.Inventario)
 local Profilo = require(script.UI.Profilo)
 local Partita = require(script.UI.Partita)
 local Mappa = require(script.UI.Mappa)
+local Armadio = require(script.UI.Armadio)
 local Truppe = require(script.Truppe)
 local Paesaggio = require(script.Paesaggio)
 
@@ -35,9 +36,15 @@ Shop.inizializza(gui, remoti)
 Inventario.inizializza(gui, remoti)
 Profilo.inizializza(gui)
 Mappa.inizializza(gui, remoti)
+Armadio.inizializza(gui, remoti, {
+	-- Gli sblocchi si festeggiano in lobby, non in mezzo a una battaglia o sulla mappa.
+	puoMostrare = function()
+		return not Partita.inCorso() and not Mappa.aperta()
+	end,
+})
 
 -- Una sola finestra aperta alla volta.
-local finestre = { Shop, Inventario, Profilo }
+local finestre = { Shop, Inventario, Profilo, Armadio }
 local function chiudiFinestre(tranne)
 	for _, finestra in ipairs(finestre) do
 		if finestra ~= tranne then
@@ -69,7 +76,16 @@ Hud.inizializza(gui, {
 	ranked = function()
 		remoti.Ranked:InvokeServer()
 	end,
+	armadio = function()
+		chiudiFinestre(Armadio)
+		Armadio.alterna("COSMETICS")
+	end,
+	codici = function()
+		chiudiFinestre(Armadio)
+		Armadio.alterna("CODES")
+	end,
 })
+Armadio.collegaNovita(Hud.mostraNovita)
 Partita.inizializza(gui, remoti, function()
 	Hud.mostraLobby(true)
 end)
@@ -79,6 +95,7 @@ local function aggiornaStato(stato)
 	Shop.aggiorna(stato)
 	Inventario.aggiorna(stato)
 	Profilo.aggiorna(stato)
+	Armadio.aggiorna(stato)
 	Mappa.aggiorna(stato)
 end
 

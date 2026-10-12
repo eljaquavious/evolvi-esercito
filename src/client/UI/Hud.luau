@@ -1,5 +1,5 @@
 -- Interfaccia della lobby: in alto a sinistra il giocatore (avatar, livello, esperienza), in alto al centro
--- monete e stelle, a sinistra i quattro riquadri (shop, esercito, profilo, ranked), a destra l'avanzamento
+-- monete e stelle, a sinistra sei riquadri (shop, esercito, profilo, ranked, locker, codici), a destra l'avanzamento
 -- della campagna per epoca, in basso il mazzo e il grande pulsante PLAY.
 
 local Players = game:GetService("Players")
@@ -21,6 +21,7 @@ local elementi = {} -- tutto quello che si nasconde fuori dalla lobby
 local numeroMonete, numeroStelle, barraXp, numeroLivello, sottotitoloPlay
 local mazzoCarte, mediaOvr, epocheUi, prossima, chipStelle
 local mazzoMostrato -- per non ricostruire le carte se il mazzo non cambia
+local avvisoLocker
 
 local COLORI_EPOCA = { "oro", "blu", "verde" }
 
@@ -261,7 +262,7 @@ local function pannelloCampagna(tela)
 	})
 end
 
--- azioni: { play, esercito, shop, profilo, ranked } (funzioni)
+-- azioni: { play, esercito, shop, profilo, ranked, armadio, codici } (funzioni)
 function Hud.inizializza(gui, a)
 	azioni = a
 	local tela = Stile.radice(gui)
@@ -290,11 +291,11 @@ function Hud.inizializza(gui, a)
 	}, "star", "0/" .. Campagna.TOTALE * Campagna.STELLE_MASSIME)
 	numeroStelle = stelle
 
-	-- Quattro riquadri a sinistra.
+	-- Sei riquadri a sinistra.
 	local menu = nascondibile(Stile.crea("Frame", {
 		Name = "Menu",
 		Position = UDim2.fromOffset(30, 168),
-		Size = UDim2.fromOffset(380, 390),
+		Size = UDim2.fromOffset(380, 596),
 		BackgroundTransparency = 1,
 		Parent = tela,
 	}))
@@ -318,6 +319,10 @@ function Hud.inizializza(gui, a)
 		ZIndex = 8,
 		Parent = ranked,
 	}, "rosa", "SOON", 24)
+	local locker = riquadro(0, 412, "acqua", "locker", "Locker", azioni.armadio)
+	avvisoLocker = Stile.avviso(locker)
+	avvisoLocker.Visible = false
+	riquadro(200, 412, "rosa", "codes", "Codes", azioni.codici)
 
 	pannelloCampagna(tela)
 
@@ -497,6 +502,13 @@ function Hud.aggiorna(stato)
 	numeroLivello.Text = tostring(livello)
 	barraXp:imposta(math.max(xp / serve, 0.04), ("%s / %s XP"):format(Stile.numero(xp), Stile.numero(serve)))
 	mostraMazzo(stato.mazzo or {})
+end
+
+-- Il "!" sul riquadro Locker: ci sono titoli o cosmetici nuovi da vedere.
+function Hud.mostraNovita(visibile)
+	if avvisoLocker then
+		avvisoLocker.Visible = visibile
+	end
 end
 
 -- In lobby si vede tutto; in mappa e in partita c'è la loro interfaccia al posto di questa.

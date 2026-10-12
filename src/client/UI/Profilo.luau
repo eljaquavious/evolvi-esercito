@@ -7,12 +7,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Epoche = require(ReplicatedStorage.Shared.Config.Epoche)
 local Campagna = require(ReplicatedStorage.Shared.Config.Campagna)
 local Progressi = require(ReplicatedStorage.Shared.Config.Progressi)
+local Ricompense = require(ReplicatedStorage.Shared.Config.Ricompense)
 local Stile = require(script.Parent.Stile)
 
 local Profilo = {}
 
 local player = Players.LocalPlayer
 local finestra, griglia
+local testoTitolo
 local numeroLivello, chipEpoca, testoLivello, testoXp, barraXp, testoCampagna, barraCampagna
 local stato
 
@@ -198,6 +200,9 @@ local function disegna()
 	testoXp.Text = ("%s / %s XP"):format(Stile.numero(resto), Stile.numero(necessario))
 	barraXp:imposta(resto / necessario)
 	chipEpoca.Text = string.upper(tostring(stato.epoca or "")) .. " ERA"
+	local titolo = Ricompense.titolo(stato.titolo or Ricompense.TITOLO_INIZIALE) or Ricompense.titolo(Ricompense.TITOLO_INIZIALE)
+	testoTitolo.Text = "« " .. string.upper(titolo.nome) .. " »"
+	testoTitolo.TextColor3 = Color3.fromHex(Ricompense.Rarita[titolo.rarita].colore)
 	local totale = stato.totale or Campagna.TOTALE
 	local fatta = campagnaFatta(stato, stato.statistiche)
 	testoCampagna.Text = ("%d / %d"):format(fatta, totale)
@@ -313,14 +318,15 @@ function Profilo.inizializza(gui)
 	})
 	nome.TextScaled = true
 	Stile.crea("UITextSizeConstraint", { MaxTextSize = 62, Parent = nome })
-	Stile.testo({
+	-- Il titolo scelto nel Locker, nel colore della sua rarità.
+	testoTitolo = Stile.scritta({
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 392),
-		Size = UDim2.new(1, -60, 0, 32),
-		Text = "@" .. player.Name,
-		TextSize = 28,
-		TextScaled = false,
-		TextColor3 = Color3.fromHex("#B9B4E8"),
+		Size = UDim2.new(1, -60, 0, 36),
+		Text = "",
+		TextSize = 30,
+		Contorno = 3,
+		FontFace = Stile.FontEtichetta,
 		Parent = scheda,
 	})
 	local _, testoEpoca = Stile.chip({

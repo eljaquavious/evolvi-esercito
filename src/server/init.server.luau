@@ -14,6 +14,8 @@ local GestoreCampagna = require(script.GestoreCampagna)
 local Collezione = require(script.Collezione)
 local Shop = require(script.Shop)
 local MappaCampagna = require(script.MappaCampagna)
+local Ricompense = require(script.Ricompense)
+local Aspetto = require(script.Aspetto)
 
 -- Crea gli eventi tra server e client.
 local cartellaRemoti = Instance.new("Folder")
@@ -48,10 +50,22 @@ local function stato(dati)
 		stelle = dati.stelle,
 		esperienza = dati.esperienza,
 		livelloGiocatore = Progressi.livello(dati.esperienza),
+		titoli = dati.titoli,
+		titolo = dati.titolo,
+		cosmetici = dati.cosmetici,
+		indossati = dati.indossati,
 	}
 end
 
-Dati.Cambiato:Connect(function(player, dati)
+Dati.Cambiato:Connect(function(player)
+	-- Il BindableEvent passa una copia della tabella: si lavora sui dati veri.
+	local dati = Dati.ottieni(player)
+	if not dati then
+		return
+	end
+	-- Prima i titoli e i cosmetici guadagnati con questo cambiamento, così lo stato mandato li comprende.
+	Ricompense.controlla(player, dati)
+	Aspetto.aggiorna(player, dati)
 	remoti.Stato:FireClient(player, stato(dati))
 end)
 
@@ -72,6 +86,8 @@ Ambiente.imposta()
 GestoreCampagna.inizializza(remoti)
 Collezione.inizializza(remoti)
 Shop.inizializza(remoti)
+Ricompense.inizializza(remoti)
+Aspetto.inizializza(Dati.ottieni)
 
 Lobby.costruisci({
 	campagna = function(player)
@@ -104,6 +120,7 @@ task.spawn(MappaCampagna.costruisci)
 
 Players.PlayerRemoving:Connect(function(player)
 	GestoreCampagna.giocatoreUscito(player)
+	Ricompense.giocatoreUscito(player)
 	Dati.rilascia(player)
 end)
 

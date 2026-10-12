@@ -7,6 +7,7 @@ return {
 		"ApriShop", -- server -> client
 		"Fase", -- server -> client: lobby, mappa, piazzamento, battaglia, round, risultato
 		"Truppe", -- server -> client: soldati da disegnare (schieramento, inizio, passo, fine, pulisci)
+		"Sblocco", -- server -> client: titoli e cosmetici appena ottenuti { { tipo, id } }
 	},
 	Funzioni = {
 		"ChiediStato",
@@ -21,5 +22,8 @@ return {
 		"AcquistaCassa",
 		"Ranked",
 		"SalvaMazzo",
+		"Equipaggia", -- tipo ("titolo"/"cosmetico"), id (nil = togli), slot
+		"AcquistaOggetto", -- tipo, id: titolo o cosmetico con monete o Robux
+		"RiscattaCodice", -- testo del codice
 	},
 }

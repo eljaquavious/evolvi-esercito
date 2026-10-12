@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Epoche = require(ReplicatedStorage.Shared.Config.Epoche)
 local Campagna = require(ReplicatedStorage.Shared.Config.Campagna)
 local Prova = require(ReplicatedStorage.Shared.Prova)
+local Ricompense = require(ReplicatedStorage.Shared.Config.Ricompense)
 
 local Dati = {}
 
@@ -27,6 +28,11 @@ local function predefiniti()
 		mazzo = table.clone(iniziale), -- lista di tipi, una voce per carta
 		stelle = {}, -- tostring(numero livello) -> stelle migliori (1-3)
 		esperienza = 0,
+		titoli = {}, -- id -> true (titoli sbloccati o comprati)
+		titolo = Ricompense.TITOLO_INIZIALE, -- titolo mostrato sopra la testa
+		cosmetici = {}, -- id -> true
+		indossati = {}, -- slot (Testa, Corpo, Schiena) -> id del cosmetico
+		codiciUsati = {}, -- CODICE -> true
 		statistiche = {
 			battaglie = 0,
 			vittorie = 0,
@@ -35,6 +41,7 @@ local function predefiniti()
 			reggimentiPersi = 0,
 			moneteGuadagnate = 0,
 			livelloMassimo = 1,
+			vittorieRanked = 0,
 		},
 	}
 end
@@ -93,6 +100,16 @@ function Dati.carica(player)
 			local copie = Epoche.Truppe[tipo].comandante and 1 or COPIE_IN_PROVA
 			dati.collezione[tipo] = math.max(dati.collezione[tipo] or 0, copie)
 		end
+		-- Anche tutti i titoli e i cosmetici che si guadagnano giocando; quelli in vendita restano da comprare,
+		-- con abbastanza monete per provare gli acquisti.
+		for _, lista in ipairs({ { Ricompense.Titoli, dati.titoli }, { Ricompense.Cosmetici, dati.cosmetici } }) do
+			for _, oggetto in ipairs(lista[1]) do
+				if oggetto.condizione or oggetto.iniziale then
+					lista[2][oggetto.id] = true
+				end
+			end
+		end
+		dati.monete = math.max(dati.monete, 20000)
 	end
 	cache[player] = dati
 	-- Se il caricamento è fallito non salviamo, per non sovrascrivere i dati veri con quelli predefiniti.
