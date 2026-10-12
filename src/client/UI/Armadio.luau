@@ -9,7 +9,6 @@ local TweenService = game:GetService("TweenService")
 local Config = require(ReplicatedStorage.Shared.Config.Ricompense)
 local Cosmetici3D = require(ReplicatedStorage.Shared.Cosmetici3D)
 local Stile = require(script.Parent.Stile)
-local Icone = require(script.Parent.Icone)
 local Notifiche = require(script.Parent.Notifiche)
 
 local Armadio = {}
@@ -286,7 +285,7 @@ local function cartaCosmetico(oggetto, ordine)
 	-- Vetrina colorata col modello 3D.
 	local vetrina = Stile.crea("Frame", {
 		Position = UDim2.fromOffset(10, 10),
-		Size = UDim2.new(1, -20, 0, 196),
+		Size = UDim2.new(1, -20, 0, 156),
 		BackgroundColor3 = Stile.BIANCO,
 		ClipsDescendants = true,
 		Parent = faccia,
@@ -294,7 +293,7 @@ local function cartaCosmetico(oggetto, ordine)
 	Stile.crea("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.55),
-		Size = UDim2.fromOffset(190, 190),
+		Size = UDim2.fromOffset(150, 150),
 		BackgroundColor3 = Stile.BIANCO,
 		BackgroundTransparency = 0.75,
 		Parent = vetrina,
@@ -333,7 +332,7 @@ local function cartaCosmetico(oggetto, ordine)
 		Parent = vetrina,
 	})
 	local nome = Stile.scritta({
-		Position = UDim2.fromOffset(14, 212),
+		Position = UDim2.fromOffset(14, 170),
 		Size = UDim2.new(1, -28, 0, 38),
 		Text = oggetto.nome,
 		TextSize = 32,
@@ -343,10 +342,10 @@ local function cartaCosmetico(oggetto, ordine)
 	nome.TextScaled = true
 	Stile.crea("UITextSizeConstraint", { MaxTextSize = 32, Parent = nome })
 	Stile.testo({
-		Position = UDim2.fromOffset(14, 250),
-		Size = UDim2.new(1, -28, 0, 44),
+		Position = UDim2.fromOffset(14, 208),
+		Size = UDim2.new(1, -28, 0, 50),
 		Text = Config.comeSbloccare(oggetto),
-		TextSize = 19,
+		TextSize = 22,
 		TextScaled = false,
 		TextWrapped = true,
 		TextColor3 = Stile.Colori.TestoSecondario,
@@ -356,7 +355,7 @@ local function cartaCosmetico(oggetto, ordine)
 	pulsanteOggetto("cosmetico", oggetto, {
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -12),
-		Size = UDim2.new(1, -28, 0, 64),
+		Size = UDim2.new(1, -28, 0, 60),
 		Parent = faccia,
 	}, 30)
 	nastroNuovo(cella, oggetto)
@@ -508,7 +507,7 @@ local function paginaCosmetici(pagina)
 		Parent = destra,
 	}, {
 		Stile.crea("UIGridLayout", {
-			CellSize = UDim2.fromOffset(282, 386),
+			CellSize = UDim2.fromOffset(282, 340),
 			CellPadding = UDim2.fromOffset(16, 18),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
@@ -694,7 +693,7 @@ local function riscatta()
 	local testo = casellaCodice.Text
 	local ok, messaggio = remoti.RiscattaCodice:InvokeServer(testo)
 	esitoCodice.Text = messaggio or ""
-	esitoCodice.TextColor3 = ok and Stile.PAL.verde.b or Stile.PAL.rosso.b
+	esitoCodice.TextColor3 = ok and Stile.PAL.verde.t or Stile.BIANCO
 	if ok then
 		casellaCodice.Text = ""
 		Notifiche.mostra(messaggio, Stile.Colori.Verde)
@@ -711,18 +710,16 @@ local function paginaCodici(pagina)
 	})
 	local _, faccia = tessera(riquadro, Stile.PAL.rosa, { Size = UDim2.fromScale(1, 1) })
 	faccia:FindFirstChildOfClass("UIGradient").Color = ColorSequence.new(Stile.PAL.rosa.t, Stile.PAL.viola.b)
-	-- Raggi di luce dietro l'icona.
-	local raggi = Icone.immagine("rays")
-	if raggi then
-		Stile.crea("ImageLabel", {
+	-- Alone chiaro dietro l'icona.
+	for i, lato in ipairs({ 260, 200 }) do
+		Stile.crea("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(0.5, 0, 0, 150),
-			Size = UDim2.fromOffset(420, 420),
-			BackgroundTransparency = 1,
-			Image = raggi,
-			ImageTransparency = 0.55,
+			Position = UDim2.new(0.5, 0, 0, 140),
+			Size = UDim2.fromOffset(lato, lato),
+			BackgroundColor3 = Stile.BIANCO,
+			BackgroundTransparency = 0.82 - i * 0.08,
 			Parent = faccia,
-		})
+		}, { Stile.tondo() })
 	end
 	Stile.icona("codes", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -915,7 +912,10 @@ function Armadio.inizializza(g, r, opzioni)
 			nuovi[s.id] = true
 			table.insert(inCoda, s)
 		end
-		aggiornaNovita()
+		-- Se il Locker è già aperto le novità si vedono subito: niente "!" sul riquadro.
+		if not finestra.Visible then
+			aggiornaNovita()
+		end
 		if finestra.Visible then
 			disegna()
 		end
@@ -1003,27 +1003,31 @@ function Armadio.festeggia()
 		Name = "Sblocco",
 		Text = "",
 		AutoButtonColor = false,
-		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromOffset(0, -200),
+		Size = UDim2.new(1, 0, 1, 400),
 		BackgroundColor3 = Stile.CONTORNO,
 		BackgroundTransparency = 0.35,
 		ZIndex = 60,
 		Parent = tela,
 	})
-	local raggi = Icone.immagine("rays")
-	local immagineRaggi
-	if raggi then
-		immagineRaggi = Stile.crea("ImageLabel", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.45),
-			Size = UDim2.fromOffset(900, 900),
-			BackgroundTransparency = 1,
-			Image = raggi,
-			ImageColor3 = pal.t,
-			ImageTransparency = 0.35,
-			ZIndex = 61,
-			Parent = velo,
-		})
-	end
+	local alone = Stile.crea("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(860, 860),
+		BackgroundColor3 = pal.t,
+		BackgroundTransparency = 0.8,
+		ZIndex = 61,
+		Parent = velo,
+	}, { Stile.tondo() })
+	Stile.crea("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.75, 0.75),
+		BackgroundColor3 = pal.t,
+		BackgroundTransparency = 0.6,
+		ZIndex = 61,
+		Parent = alone,
+	}, { Stile.tondo() })
 	local riquadro = Stile.crea("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -1110,16 +1114,14 @@ function Armadio.festeggia()
 
 	local scala = Stile.crea("UIScale", { Scale = 0.6, Parent = riquadro })
 	TweenService:Create(scala, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	local giro
-	if immagineRaggi then
-		giro = RunService.RenderStepped:Connect(function(dt)
-			immagineRaggi.Rotation += dt * 20
-		end)
-	end
+	local tempo = 0
+	local giro = RunService.RenderStepped:Connect(function(dt)
+		tempo += dt
+		local s = 1 + math.sin(tempo * 3) * 0.05
+		alone.Size = UDim2.fromOffset(860 * s, 860 * s)
+	end)
 	local function chiudi()
-		if giro then
-			giro:Disconnect()
-		end
+		giro:Disconnect()
 		velo:Destroy()
 		Armadio.festeggiando = false
 	end

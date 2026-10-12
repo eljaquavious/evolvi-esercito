@@ -7,7 +7,7 @@
 local Cosmetici3D = {}
 
 local RIFERIMENTO = { Testa = "Testa", Corpo = "Busto", Schiena = "Busto" }
-local MISURA = { Testa = 1.2, Busto = 2 } -- larghezza della parte standard
+local MISURA = { Testa = 1.2 } -- larghezza della testa standard (il busto standard è 2 x 1.6 x 1)
 
 local function hex(h)
 	return Color3.fromHex(h)
@@ -43,7 +43,11 @@ local function parte(modello, forma, misura, cf, colore, materiale)
 	else
 		p = Instance.new("Part")
 		if forma == "palla" then
-			p.Shape = Enum.PartType.Ball
+			-- Una Part a sfera resta una sfera perfetta: per gli ellissoidi serve una mesh a sfera,
+			-- che riempie la scatola della parte qualunque siano le tre misure.
+			local mesh = Instance.new("SpecialMesh")
+			mesh.MeshType = Enum.MeshType.Sphere
+			mesh.Parent = p
 		elseif forma == "cilindro" then
 			p.Shape = Enum.PartType.Cylinder
 		end
@@ -69,6 +73,14 @@ local function verticale(x, y, z)
 	return C(x, y, z) * CFrame.Angles(0, 0, rad(90))
 end
 
+-- Cilindro da un punto a un altro (un po' più lungo, così i tratti si toccano).
+local function tubo(modello, a, b, diametro, colore, materiale)
+	local centro = (a + b) / 2
+	local lunghezza = (b - a).Magnitude + diametro * 0.5
+	local cf = CFrame.lookAt(centro, b) * CFrame.Angles(0, rad(90), 0)
+	return parte(modello, "cilindro", Vector3.new(lunghezza, diametro, diametro), cf, colore, materiale)
+end
+
 -- Anello di blocchi attorno all'asse Y (fasce, corone, ghirlande).
 local function anello(modello, n, raggio, y, misura, colore, materiale, inclina, salta)
 	for i = 0, n - 1 do
@@ -92,13 +104,11 @@ function Costruttori.Galea(m)
 	parte(m, "blocco", Vector3.new(1.3, 0.1, 0.16), C(0, 0.3, -0.72), OTTONE) -- rinforzo sulla fronte
 	parte(m, "blocco", Vector3.new(1.36, 0.08, 0.62), C(0, -0.06, 0.62) * CFrame.Angles(rad(-18), 0, 0), FERRO_SCURO) -- paranuca
 	for _, s in ipairs({ -1, 1 }) do
-		parte(m, "blocco", Vector3.new(0.08, 0.6, 0.42), C(s * 0.7, -0.15, -0.22) * CFrame.Angles(0, 0, rad(s * 4)), FERRO_SCURO)
+		parte(m, "blocco", Vector3.new(0.08, 0.6, 0.42), C(s * 0.7, -0.15, -0.22) * CFrame.Angles(0, 0, rad(s * 4)), FERRO)
 		parte(m, "palla", Vector3.new(0.12, 0.12, 0.12), C(s * 0.74, -0.05, -0.22), OTTONE)
 	end
-	parte(m, "blocco", Vector3.new(0.12, 0.12, 0.3), C(0, 0.88, 0), OTTONE) -- supporto
-	parte(m, "blocco", Vector3.new(0.18, 0.34, 1.3), C(0, 1.07, 0.05), ROSSO, STOFFA) -- cresta
-	parte(m, "palla", Vector3.new(0.18, 0.34, 0.34), C(0, 1.07, -0.6), ROSSO, STOFFA)
-	parte(m, "palla", Vector3.new(0.18, 0.34, 0.34), C(0, 1.07, 0.7), ROSSO, STOFFA)
+	parte(m, "blocco", Vector3.new(0.12, 0.08, 1.0), C(0, 0.84, 0.02), OTTONE) -- supporto
+	parte(m, "palla", Vector3.new(0.2, 0.5, 1.4), C(0, 0.98, 0.04), ROSSO, STOFFA) -- cresta
 end
 
 -- Elmo a secchio del cavaliere: cilindro d'acciaio con la fessura per gli occhi e la croce d'ottone.
@@ -117,13 +127,11 @@ end
 -- Elmo Adrian francese della Grande Guerra: calotta blu orizzonte, tesa, cresta e granata d'ottone.
 function Costruttori.Adrian(m)
 	local blu = hex("#6F8296")
-	parte(m, "palla", Vector3.new(1.4, 0.92, 1.46), C(0, 0.42, 0.02), blu)
-	parte(m, "palla", Vector3.new(1.62, 0.07, 1.86), C(0, 0.18, 0), blu) -- tesa
-	parte(m, "blocco", Vector3.new(0.12, 0.16, 1.12), C(0, 0.88, 0.02), blu) -- cresta
-	parte(m, "blocco", Vector3.new(0.2, 0.22, 0.05), C(0, 0.48, -0.72) * CFrame.Angles(rad(-12), 0, 0), OTTONE)
-	parte(m, "palla", Vector3.new(0.14, 0.14, 0.06), C(0, 0.55, -0.74), OTTONE)
-	parte(m, "blocco", Vector3.new(0.05, 0.62, 0.05), C(0.62, -0.12, -0.08), CUOIO) -- sottogola
-	parte(m, "blocco", Vector3.new(0.05, 0.62, 0.05), C(-0.62, -0.12, -0.08), CUOIO)
+	parte(m, "palla", Vector3.new(1.4, 0.92, 1.46), C(0, 0.56, 0.02), blu)
+	parte(m, "palla", Vector3.new(1.62, 0.07, 1.86), C(0, 0.32, 0), blu) -- tesa
+	parte(m, "blocco", Vector3.new(0.12, 0.16, 1.12), C(0, 1.02, 0.02), blu) -- cresta
+	parte(m, "blocco", Vector3.new(0.2, 0.22, 0.05), C(0, 0.62, -0.7) * CFrame.Angles(rad(-14), 0, 0), OTTONE)
+	parte(m, "palla", Vector3.new(0.14, 0.14, 0.06), C(0, 0.69, -0.72), OTTONE)
 end
 
 -- Corona d'alloro: foglie verdi attorno alla testa, aperta davanti.
@@ -155,14 +163,22 @@ function Costruttori.Vichingo(m)
 	parte(m, "palla", Vector3.new(1.42, 1.02, 1.46), C(0, 0.36, 0.02), FERRO)
 	parte(m, "cilindro", Vector3.new(0.16, 1.47, 1.5), verticale(0, 0.2, 0.02), OTTONE)
 	parte(m, "blocco", Vector3.new(0.14, 0.86, 0.08), C(0, 0.4, -0.72), OTTONE)
-	parte(m, "blocco", Vector3.new(0.12, 0.42, 0.1), C(0, -0.0, -0.74), FERRO_SCURO) -- nasale
+	parte(m, "blocco", Vector3.new(0.12, 0.26, 0.1), C(0, 0.08, -0.74), FERRO_SCURO) -- nasale
 	local avorio = hex("#E6DCC2")
 	for _, s in ipairs({ -1, 1 }) do
-		local base = C(s * 0.72, 0.42, 0)
-		parte(m, "cilindro", Vector3.new(0.4, 0.26, 0.26), base * CFrame.Angles(0, 0, rad(s * -20)), avorio)
-		parte(m, "cilindro", Vector3.new(0.34, 0.19, 0.19), C(s * 1.0, 0.6, 0) * CFrame.Angles(0, 0, rad(s * -55)), avorio)
-		parte(m, "cilindro", Vector3.new(0.26, 0.13, 0.13), C(s * 1.12, 0.86, 0) * CFrame.Angles(0, 0, rad(s * -80)), avorio)
-		parte(m, "palla", Vector3.new(0.12, 0.12, 0.12), C(s * 1.13, 1.0, 0), avorio)
+		-- Corno curvo: tratti che si sovrappongono, sempre più sottili, fino alla punta.
+		local punti = {
+			Vector3.new(s * 0.6, 0.4, 0),
+			Vector3.new(s * 0.86, 0.48, -0.04),
+			Vector3.new(s * 1.04, 0.66, -0.08),
+			Vector3.new(s * 1.12, 0.88, -0.1),
+			Vector3.new(s * 1.1, 1.06, -0.1),
+		}
+		local diametri = { 0.3, 0.24, 0.18, 0.12 }
+		for i = 1, #punti - 1 do
+			tubo(m, punti[i], punti[i + 1], diametri[i], avorio)
+			parte(m, "palla", Vector3.one * diametri[i], CFrame.new(punti[i + 1]), avorio)
+		end
 	end
 end
 
@@ -327,19 +343,36 @@ function Costruttori.Arco(m)
 end
 
 function Costruttori.Mantello(m)
-	-- Mantello reale cremisi con bordo d'oro e collo d'ermellino.
-	local cf = C(0, -1.0, 0.64) * CFrame.Angles(rad(8), 0, 0)
-	parte(m, "blocco", Vector3.new(2.1, 3.0, 0.1), cf, CREMISI, STOFFA)
-	parte(m, "blocco", Vector3.new(2.12, 0.12, 0.12), cf * C(0, -1.46, 0), ORO, STOFFA)
-	for _, s in ipairs({ -1, 1 }) do
-		parte(m, "blocco", Vector3.new(0.1, 3.0, 0.12), cf * C(s * 1.03, 0, 0), ORO, STOFFA)
+	-- Mantello reale cremisi che scende dalle spalle e si allarga, bordo d'oro, rotolo d'ermellino sul collo.
+	local fasce = { -- { y del centro, altezza, larghezza, inclinazione }
+		{ 0.35, 0.9, 2.0, 4 },
+		{ -0.5, 0.9, 2.2, 9 },
+		{ -1.35, 0.9, 2.4, 14 },
+	}
+	local z = 0.6
+	local yPrima = 0.8
+	for i, f in ipairs(fasce) do
+		local alto = f[2]
+		local cf = C(0, yPrima - alto / 2, z) * CFrame.Angles(rad(f[4]), 0, 0)
+		parte(m, "blocco", Vector3.new(f[3], alto + 0.06, 0.1), cf, CREMISI, STOFFA)
+		for _, s in ipairs({ -1, 1 }) do -- i lati piegati in avanti danno la curva
+			parte(m, "blocco", Vector3.new(0.3, alto + 0.06, 0.1), cf * C(s * (f[3] / 2 + 0.1), 0, -0.1) * CFrame.Angles(0, rad(s * -40), 0), CREMISI, STOFFA)
+			parte(m, "blocco", Vector3.new(0.06, alto + 0.06, 0.12), cf * C(s * (f[3] / 2 + 0.2), 0, -0.2) * CFrame.Angles(0, rad(s * -40), 0), ORO, STOFFA)
+		end
+		if i == #fasce then
+			parte(m, "blocco", Vector3.new(f[3] + 0.4, 0.1, 0.12), cf * C(0, -alto / 2, 0), ORO, STOFFA)
+		end
+		yPrima -= alto * math.cos(rad(f[4]))
+		z += alto * math.sin(rad(f[4]))
 	end
-	parte(m, "blocco", Vector3.new(2.3, 0.3, 1.24), C(0, 0.84, 0.02), BIANCO, STOFFA) -- ermellino
-	for i = -3, 3 do
-		parte(m, "blocco", Vector3.new(0.06, 0.12, 0.02), C(i * 0.3, 0.84, -0.63), NERO, STOFFA)
-		parte(m, "blocco", Vector3.new(0.06, 0.12, 0.02), C(i * 0.3 + 0.15, 0.84, 0.65), NERO, STOFFA)
+	-- Ermellino: un rotolo morbido attorno al collo, con le codine nere.
+	for i = -2, 2 do
+		local a = rad(i * 22)
+		local pos = Vector3.new(math.sin(a) * 0.75, 0.86, math.cos(a) * 0.45 + 0.05)
+		parte(m, "palla", Vector3.new(0.55, 0.32, 0.4), CFrame.new(pos) * CFrame.Angles(0, a, 0), BIANCO, STOFFA)
+		parte(m, "blocco", Vector3.new(0.05, 0.12, 0.03), CFrame.new(pos) * CFrame.Angles(0, a, 0) * C(0.1, 0, 0.2), NERO, STOFFA)
 	end
-	parte(m, "palla", Vector3.new(0.22, 0.22, 0.12), C(0, 0.74, -0.66), ORO) -- fermaglio
+	parte(m, "palla", Vector3.new(0.22, 0.22, 0.12), C(0, 0.74, -0.62), ORO) -- fermaglio
 end
 
 function Costruttori.Fucile(m)
@@ -355,23 +388,24 @@ function Costruttori.Fucile(m)
 end
 
 function Costruttori.Stendardo(m)
-	-- Asta con bandiera cremisi e stemma d'oro, come i portabandiera.
-	parte(m, "cilindro", Vector3.new(4.2, 0.12, 0.12), verticale(0.5, 1.0, 0.72), LEGNO, LEGNAME)
-	parte(m, "cilindro", Vector3.new(1.4, 0.08, 0.08), C(0.0, 2.85, 0.72), LEGNO, LEGNAME)
-	local bandiera = C(-0.05, 2.25, 0.72)
+	-- Asta di fianco alla testa, bandiera cremisi in alto sopra la testa, stemma d'oro.
+	local x, z = 0.95, 0.78
+	parte(m, "cilindro", Vector3.new(4.7, 0.12, 0.12), verticale(x, 1.55, z), LEGNO, LEGNAME)
+	parte(m, "cilindro", Vector3.new(1.5, 0.08, 0.08), C(x - 0.6, 3.62, z), LEGNO, LEGNAME)
+	local bandiera = C(x - 0.62, 3.05, z)
 	parte(m, "blocco", Vector3.new(1.3, 1.1, 0.04), bandiera, CREMISI, STOFFA)
-	parte(m, "cuneo", Vector3.new(0.04, 0.4, 0.65), bandiera * C(0.325, -0.75, 0) * CFrame.Angles(0, rad(90), rad(180)), CREMISI, STOFFA)
-	parte(m, "cuneo", Vector3.new(0.04, 0.4, 0.65), bandiera * C(-0.325, -0.75, 0) * CFrame.Angles(0, rad(-90), rad(180)), CREMISI, STOFFA)
+	parte(m, "cuneo", Vector3.new(0.04, 0.35, 0.65), bandiera * C(0.325, -0.72, 0) * CFrame.Angles(0, rad(90), rad(180)), CREMISI, STOFFA)
+	parte(m, "cuneo", Vector3.new(0.04, 0.35, 0.65), bandiera * C(-0.325, -0.72, 0) * CFrame.Angles(0, rad(-90), rad(180)), CREMISI, STOFFA)
 	parte(m, "blocco", Vector3.new(0.42, 0.42, 0.06), bandiera * CFrame.Angles(0, 0, rad(45)), ORO, STOFFA)
 	parte(m, "blocco", Vector3.new(0.22, 0.22, 0.08), bandiera * CFrame.Angles(0, 0, rad(45)), CREMISI, STOFFA)
-	parte(m, "palla", Vector3.new(0.26, 0.26, 0.26), C(0.5, 3.15, 0.72), ORO)
+	parte(m, "palla", Vector3.new(0.26, 0.26, 0.26), C(x, 3.95, z), ORO)
 	parte(m, "blocco", Vector3.new(0.12, 2.0, 0.06), C(0, 0.1, 0.58) * CFrame.Angles(0, 0, rad(-40)), CUOIO) -- cinghia
 end
 
 function Costruttori.Aquila(m)
 	-- Aquila imperiale d'oro su asta, con la corona d'alloro e la targa SPQR.
-	parte(m, "cilindro", Vector3.new(4.0, 0.12, 0.12), verticale(0.45, 0.9, 0.72), ORO_SCURO)
-	local base = C(0.45, 3.0, 0.72)
+	parte(m, "cilindro", Vector3.new(4.0, 0.12, 0.12), verticale(0.95, 1.0, 0.78), ORO_SCURO)
+	local base = C(0.95, 2.95, 0.78)
 	parte(m, "blocco", Vector3.new(0.6, 0.08, 0.12), base, ORO_SCURO)
 	parte(m, "palla", Vector3.new(0.32, 0.46, 0.3), base * C(0, 0.3, 0), ORO) -- corpo
 	parte(m, "palla", Vector3.new(0.2, 0.2, 0.2), base * C(0, 0.6, -0.06), ORO) -- testa
@@ -425,7 +459,8 @@ function Cosmetici3D.costruisci(id, slot)
 	return modello, RIFERIMENTO[slot] or "Busto"
 end
 
--- Testa e busto del personaggio (R15 o R6) e la loro larghezza visibile.
+-- Testa e busto del personaggio (R15 o R6) e quanto sono grandi rispetto alla parte standard,
+-- asse per asse: la testa cresce uguale in tutte le direzioni, il busto segue larghezza, altezza e spessore veri.
 local function parteDelCorpo(personaggio, riferimento)
 	if riferimento == "Testa" then
 		local testa = personaggio:FindFirstChild("Head")
@@ -438,13 +473,34 @@ local function parteDelCorpo(personaggio, riferimento)
 		if mesh and mesh.MeshType == Enum.MeshType.Head then
 			larghezza = 1.2 * mesh.Scale.X / 1.25
 		end
-		return testa, math.clamp(larghezza, 0.6, 2.4)
+		local k = math.clamp(larghezza / MISURA.Testa, 0.5, 2)
+		return testa, Vector3.new(k, k, k)
 	end
 	local busto = personaggio:FindFirstChild("UpperTorso") or personaggio:FindFirstChild("Torso")
 	if not busto then
 		return nil
 	end
-	return busto, math.clamp(busto.Size.X, 1, 4)
+	local misura = busto.Size
+	return busto,
+		Vector3.new(
+			math.clamp(misura.X / 2, 0.5, 2),
+			math.clamp(misura.Y / 1.6, 0.5, 2),
+			math.clamp(misura.Z / 1, 0.5, 2)
+		)
+end
+
+-- Ridimensiona il modello (costruito attorno all'origine) di k asse per asse.
+local function scala(modello, k)
+	for _, p in ipairs(modello:GetDescendants()) do
+		if p:IsA("BasePart") then
+			local cf = p.CFrame
+			local function fattore(asse)
+				return (asse * k).Magnitude
+			end
+			p.Size = p.Size * Vector3.new(fattore(cf.XVector), fattore(cf.YVector), fattore(cf.ZVector))
+			p.CFrame = cf.Rotation + cf.Position * k
+		end
+	end
 end
 
 -- Mette il cosmetico addosso al personaggio, saldato alla testa o al busto. Restituisce il Model.
@@ -453,15 +509,16 @@ function Cosmetici3D.indossa(personaggio, id, slot)
 	if not modello then
 		return nil
 	end
-	local corpo, larghezza = parteDelCorpo(personaggio, riferimento)
+	local corpo, k = parteDelCorpo(personaggio, riferimento)
 	if not corpo then
 		modello:Destroy()
 		return nil
 	end
-	local scala = larghezza / MISURA[riferimento]
-	if math.abs(scala - 1) > 0.01 then
-		modello:ScaleTo(scala)
+	if slot == "Corpo" then
+		-- Il busto vero non è una scatola: il petto sporge. L'armatura sta un po' più larga e profonda.
+		k *= Vector3.new(1.04, 1.02, 1.2)
 	end
+	scala(modello, k)
 	modello:PivotTo(corpo.CFrame)
 	for _, p in ipairs(modello:GetDescendants()) do
 		if p:IsA("BasePart") then

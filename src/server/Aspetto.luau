@@ -30,8 +30,13 @@ local function nascondiAccessori(personaggio, slotOccupati)
 			local maniglia = accessorio:FindFirstChild("Handle")
 			if maniglia and maniglia:IsA("BasePart") then
 				local coperto = false
-				for slot in pairs(slotOccupati) do
-					coperto = coperto or (COPERTI[slot] and COPERTI[slot][accessorio.AccessoryType]) or false
+				for slot, oggetto in pairs(slotOccupati) do
+					local tipi = COPERTI[slot]
+					if tipi and tipi[accessorio.AccessoryType] then
+						-- Sotto una corona o una ghirlanda i capelli si vedono: si nasconde solo il cappello.
+						local soloCappello = oggetto.scoperto and accessorio.AccessoryType == Enum.AccessoryType.Hair
+						coperto = coperto or not soloCappello
+					end
 				end
 				local nascosto = accessorio:GetAttribute(ATTRIBUTO)
 				if coperto and nascosto == nil then
@@ -78,7 +83,7 @@ local function targhetta(player, personaggio, idTitolo)
 		gui = Instance.new("BillboardGui")
 		gui.Name = "Targhetta"
 		gui.Size = UDim2.fromScale(7, 1.7)
-		gui.StudsOffsetWorldSpace = Vector3.new(0, 2.9, 0)
+		gui.StudsOffsetWorldSpace = Vector3.new(0, 3.4, 0) -- sopra elmi e stendardi
 		gui.MaxDistance = 80
 		gui.LightInfluence = 0
 		gui.ResetOnSpawn = false
@@ -126,7 +131,7 @@ function Aspetto.aggiorna(player, dati, forza)
 			local modello = Cosmetici3D.indossa(personaggio, id, slot.id)
 			if modello then
 				modello.Parent = cartella
-				occupati[slot.id] = true
+				occupati[slot.id] = Config.cosmetico(id)
 			end
 		end
 	end
