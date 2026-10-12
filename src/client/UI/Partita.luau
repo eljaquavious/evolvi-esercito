@@ -16,6 +16,7 @@ local Prova = require(ReplicatedStorage.Shared.Prova)
 local Epoche = require(ReplicatedStorage.Shared.Config.Epoche)
 local Carte = require(ReplicatedStorage.Shared.Config.Carte)
 local Truppe = require(script.Parent.Parent.Truppe)
+local Cinematica = require(script.Parent.Parent.Cinematica)
 
 local Partita = {}
 
@@ -1382,8 +1383,25 @@ function Partita.inizializza(gui, r, callbackLobby)
 	end)
 
 	remoti.Fase.OnClientEvent:Connect(function(dati)
+		if dati.fase ~= "piazzamento" and fase == "cinematica" then
+			Cinematica.ferma()
+		end
 		if dati.fase == "piazzamento" then
-			entraPiazzamento(dati)
+			-- All'inizio di un livello, prima del piazzamento, la cinematica della battaglia.
+			local inizioLivello = dati.round == 1 and dati.vinti == 0 and dati.persi == 0
+			if inizioLivello and fase ~= "cinematica" and Cinematica.daMostrare(dati.nome, dati.livello) then
+				fase = "cinematica"
+				info = nil
+				impostaAtmosfera(dati.atmosfera)
+				local campo = workspace:WaitForChild("Arene"):WaitForChild(dati.arena, 10)
+				Cinematica.riproduci(dati.nome, dati.centro, campo, function()
+					if fase == "cinematica" then
+						entraPiazzamento(dati)
+					end
+				end)
+			else
+				entraPiazzamento(dati)
+			end
 		elseif dati.fase == "battaglia" then
 			entraBattaglia(dati)
 		elseif dati.fase == "round" then
