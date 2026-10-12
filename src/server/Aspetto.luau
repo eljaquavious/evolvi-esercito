@@ -96,9 +96,12 @@ local ultimo = {} -- player -> { personaggio, firma }: per non rivestire il pers
 
 -- Rimette addosso al personaggio i cosmetici indossati e aggiorna la targhetta.
 -- Si può chiamare a ogni cambio dei dati: se titolo e cosmetici sono gli stessi non fa niente.
-function Aspetto.aggiorna(player, dati)
+-- forza: veste anche se l'avatar non risulta ancora caricato (dopo l'attesa di nuovoPersonaggio).
+function Aspetto.aggiorna(player, dati, forza)
 	local personaggio = player.Character
-	if not personaggio or not dati or not personaggio:FindFirstChild("Head") then
+	-- Finché l'avatar non è caricato le parti del corpo possono ancora essere sostituite:
+	-- ci pensa nuovoPersonaggio, appena è pronto.
+	if not personaggio or not dati or not personaggio:FindFirstChild("Head") or not (forza or player:HasAppearanceLoaded()) then
 		return
 	end
 	local firma = tostring(dati.titolo)
@@ -143,7 +146,8 @@ function Aspetto.inizializza(ottieniDati)
 		end
 		task.wait(0.2)
 		if player.Character == personaggio then
-			Aspetto.aggiorna(player, ottieniDati(player))
+			ultimo[player] = nil
+			Aspetto.aggiorna(player, ottieniDati(player), true)
 		end
 	end
 	local function entrato(player)
