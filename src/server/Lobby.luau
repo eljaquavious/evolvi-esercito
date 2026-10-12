@@ -177,8 +177,8 @@ end
 local function cartello(genitore, centro, verso, larghezza, altezza, titolo, colore, sottotitolo)
 	local cf = CFrame.lookAt(centro, centro + verso)
 	local tavola = scatola(genitore, Vector3.new(larghezza, altezza, 0.6), cf, LEGNO_SCURO, Enum.Material.Wood)
-	scatola(genitore, Vector3.new(larghezza + 0.8, 0.4, 0.8), cf * CFrame.new(0, altezza / 2, 0), ORO, Enum.Material.Metal)
-	scatola(genitore, Vector3.new(larghezza + 0.8, 0.4, 0.8), cf * CFrame.new(0, -altezza / 2, 0), ORO, Enum.Material.Metal)
+	scatola(genitore, Vector3.new(larghezza + 0.8, 0.4, 0.8), cf * CFrame.new(0, altezza / 2, 0), ORO, Enum.Material.Slate)
+	scatola(genitore, Vector3.new(larghezza + 0.8, 0.4, 0.8), cf * CFrame.new(0, -altezza / 2, 0), ORO, Enum.Material.Slate)
 	insegna(tavola, titolo, colore, Enum.NormalId.Front, sottotitolo)
 	return tavola
 end
@@ -327,7 +327,7 @@ local function tappeto(genitore, a, b, larghezza, colore)
 	for i = 1, numero do
 		local z = -lunghezza / 2 + (i - 0.5) * lunghezza / numero
 		for lato = -1, 1, 2 do
-			scatola(genitore, Vector3.new(0.6, 0.18, larghezza * 0.42), cf * CFrame.new(lato * larghezza * 0.15, 0.02, -z) * CFrame.Angles(0, lato * math.rad(-40), 0), colore:Lerp(Color3.new(1, 1, 1), 0.55), Enum.Material.Fabric, { CanCollide = false })
+			scatola(genitore, Vector3.new(0.6, 0.18, larghezza * 0.42), cf * CFrame.new(lato * larghezza * 0.15, 0.02, -z) * CFrame.Angles(0, lato * math.rad(40), 0), colore:Lerp(Color3.new(1, 1, 1), 0.55), Enum.Material.Fabric, { CanCollide = false })
 		end
 	end
 	return t
@@ -405,7 +405,8 @@ end
 local function portale(genitore, nome, cf, colore, titolo, sottotitolo, callback, chiuso)
 	local modello = Instance.new("Model")
 	modello.Name = nome
-	local raggio = 11
+	-- Con l'insegna sopra deve stare sotto i soffitti delle sale (30).
+	local raggio = 9
 	local centro = cf * CFrame.new(0, PAVIMENTO + 2 + raggio + 1.2, 0)
 	-- Basamento a gradini.
 	scatola(modello, Vector3.new(32, 1, 12), cf * CFrame.new(0, PAVIMENTO + 0.5, 1), PIETRA_SCURA, Enum.Material.Slate)
@@ -422,9 +423,9 @@ local function portale(genitore, nome, cf, colore, titolo, sottotitolo, callback
 	end
 	-- Pilastri ai lati.
 	for lato = -1, 1, 2 do
-		scatola(modello, Vector3.new(4, 24, 5), cf * CFrame.new(lato * 15.5, PAVIMENTO + 2 + 12, 1), PIETRA, Enum.Material.Slate)
-		scatola(modello, Vector3.new(5, 1.4, 6), cf * CFrame.new(lato * 15.5, PAVIMENTO + 26.6, 1), ORO, Enum.Material.Slate)
-		fuoco(modello, (cf * CFrame.new(lato * 15.5, PAVIMENTO + 28.4, 1)).Position, 4, colore:Lerp(Color3.fromRGB(255, 170, 90), 0.5), 30, false)
+		scatola(modello, Vector3.new(4, 18, 5), cf * CFrame.new(lato * 14, PAVIMENTO + 2 + 9, 1), PIETRA, Enum.Material.Slate)
+		scatola(modello, Vector3.new(5, 1.4, 6), cf * CFrame.new(lato * 14, PAVIMENTO + 20.6, 1), ORO, Enum.Material.Slate)
+		fuoco(modello, (cf * CFrame.new(lato * 14, PAVIMENTO + 22.2, 1)).Position, 3, colore:Lerp(Color3.fromRGB(255, 170, 90), 0.5), 24, false)
 	end
 	-- Vortice: disco luminoso e quattro bracci a spirale (il client li fa girare).
 	local velo = disco(modello, 0.3, raggio * 2 + 0.4, centro, colore, Enum.Material.Neon)
@@ -432,7 +433,8 @@ local function portale(genitore, nome, cf, colore, titolo, sottotitolo, callback
 	velo.Transparency = chiuso and 0.6 or 0.35
 	velo.CanCollide = false
 	velo.CastShadow = false
-	luce(velo, colore, 46, 2.4, false)
+	-- Luce contenuta: più forte tinge del colore del portale tutta la sala e i soldati in mostra.
+	luce(velo, colore, 30, 1.1, false)
 	local spirale = Instance.new("Model")
 	spirale.Name = "Spirale"
 	for braccio = 0, 3 do
@@ -472,8 +474,8 @@ local function portale(genitore, nome, cf, colore, titolo, sottotitolo, callback
 	end
 	local soglia_ = soglia(modello, Vector3.new(raggio * 1.8, raggio * 2, 4), centro * CFrame.new(0, 0, chiuso and -3.4 or -1), callback)
 	prompt(soglia_, chiuso and "Join queue" or "Enter", titolo, callback, 16)
-	-- Insegna sopra.
-	cartello(modello, (cf * CFrame.new(0, PAVIMENTO + 31, 0.5)).Position, cf.LookVector, 26, 6.4, titolo, colore, sottotitolo)
+	-- Insegna sopra l'anello, un po' in avanti: tutta sotto il soffitto e le travi (29.6).
+	cartello(modello, (cf * CFrame.new(0, PAVIMENTO + 26.3, -2.4)).Position, cf.LookVector, 22, 4.2, titolo, colore, sottotitolo)
 	modello.Parent = genitore
 	return modello
 end
@@ -510,10 +512,11 @@ end
 -- lontano, i fumi delle battaglie.
 
 local function montagne()
-	-- Il picco sotto la cittadella (il pavimento copre la cima).
-	terrain:FillCylinder(CFrame.new(0, -60, 0), 118, 190, Enum.Material.Rock)
+	-- Il picco sotto la cittadella. La cima resta a y = -4, una cella sotto i pavimenti: il terreno
+	-- è a celle di 4 e arrotonda, più in alto spunterebbe sopra pavimenti e tappeti.
+	terrain:FillCylinder(CFrame.new(0, -64, 0), 120, 190, Enum.Material.Rock)
 	terrain:FillCylinder(CFrame.new(0, -150, 0), 80, 300, Enum.Material.Rock)
-	terrain:FillCylinder(CFrame.new(0, -1.5, 0), 3, 185, Enum.Material.Slate)
+	terrain:FillCylinder(CFrame.new(0, -6, 0), 4, 185, Enum.Material.Slate)
 	local rng = Random.new(7)
 	for i = 1, 26 do
 		local a = i / 26 * math.pi * 2 + rng:NextNumber(-0.1, 0.1)
@@ -569,8 +572,10 @@ end
 
 -- Fari antiaerei fuori dalle mura: il client fa oscillare i fasci nel cielo.
 local function fari(genitore)
-	for i, a in ipairs({ 0.6, 2.2, 3.6, 5.2 }) do
-		local base = Vector3.new(math.cos(a) * 70, PAVIMENTO + 2, math.sin(a) * 70)
+	-- Sulle diagonali, lontano dalle ali: i fasci puntano verso l'esterno e non attraversano le sale.
+	for i = 1, 4 do
+		local a = math.pi / 4 + (i - 1) * math.pi / 2
+		local base = Vector3.new(math.cos(a) * 90, PAVIMENTO + 2, math.sin(a) * 90)
 		local faro = Instance.new("Model")
 		faro.Name = "Faro"
 		local fascio = blocco(faro, {
@@ -620,12 +625,13 @@ local function plastico(genitore, centro, larghezza, profondita)
 	local function colore(h)
 		if h > 1.7 then
 			return Color3.fromRGB(236, 234, 228)
-		elseif h > 1.05 then
+		elseif h > 1.3 then
 			return Color3.fromRGB(128, 108, 84)
-		elseif h > 0.6 then
+		elseif h > 0.9 then
 			return Color3.fromRGB(150, 140, 92)
 		end
-		return Color3.fromRGB(104, 128, 72)
+		-- Più di metà delle celle sta sotto 0.9: le pianure verdi fanno riconoscere l'Europa.
+		return Color3.fromRGB(108, 146, 78)
 	end
 	for r = 0, righe - 1 do
 		local c = 0
@@ -667,7 +673,8 @@ local function rotonda(lobby)
 	m.Name = "Rotonda"
 	local centro = Vector3.new(0, 0, 0)
 	-- Pavimento: pietra scura, anello chiaro, rosa dei venti.
-	colonna(m, 1, (R_ROTONDA + 6) * 2, Vector3.new(0, PAVIMENTO - 0.5, 0), Color3.fromRGB(84, 78, 74), Enum.Material.Slate)
+	-- Il disco grande sta un filo più basso dei pavimenti delle ali, che gli passano sopra alle porte.
+	colonna(m, 1, (R_ROTONDA + 6) * 2, Vector3.new(0, PAVIMENTO - 0.53, 0), Color3.fromRGB(84, 78, 74), Enum.Material.Slate)
 	colonna(m, 1, 70, Vector3.new(0, PAVIMENTO - 0.47, 0), PIETRA_CHIARA, Enum.Material.Limestone)
 	colonna(m, 1, 66, Vector3.new(0, PAVIMENTO - 0.45, 0), Color3.fromRGB(110, 100, 92), Enum.Material.Slate)
 	colonna(m, 1, 40, Vector3.new(0, PAVIMENTO - 0.43, 0), Color3.fromRGB(70, 64, 60), Enum.Material.Slate)
@@ -683,9 +690,9 @@ local function rotonda(lobby)
 		table.insert(porte, ala.angolo)
 		local dir = Vector3.new(math.cos(ala.angolo), 0, math.sin(ala.angolo))
 		-- Tappeto dal tavolo alla porta (veloce).
-		tappeto(m, dir * 19, dir * (R_ROTONDA + 4), 7, ala.colore)
-		-- Insegna sopra la porta, rivolta al centro.
-		cartello(m, dir * (R_ROTONDA - 1.2) + Vector3.new(0, PAVIMENTO + 29.5, 0), -dir, 22, 5.6, ala.titolo, ala.colore, ala.sotto)
+		tappeto(m, dir * 19, dir * (R_ROTONDA + 2), 7, ala.colore)
+		-- Insegna sopra la porta, rivolta al centro (i soffitti delle ali cominciano dietro, a 45).
+		cartello(m, dir * (R_ROTONDA - 2.2) + Vector3.new(0, PAVIMENTO + 29.5, 0), -dir, 22, 5.6, ala.titolo, ala.colore, ala.sotto)
 		-- Cornice luminosa della porta, del colore dell'ala.
 		local destra = Vector3.new(-dir.Z, 0, dir.X)
 		for lato = -1, 1, 2 do
@@ -733,8 +740,8 @@ local function rotonda(lobby)
 	scatola(m, Vector3.new(30, 2.6, 24), Vector3.new(0, PAVIMENTO + 3.7, 0), LEGNO_SCURO, Enum.Material.Wood)
 	scatola(m, Vector3.new(31.6, 0.8, 25.6), Vector3.new(0, PAVIMENTO + 5.2, 0), LEGNO, Enum.Material.WoodPlanks)
 	for lato = -1, 1, 2 do
-		scatola(m, Vector3.new(31.6, 0.6, 0.8), Vector3.new(0, PAVIMENTO + 5.8, lato * 12.4), ORO, Enum.Material.Metal)
-		scatola(m, Vector3.new(0.8, 0.6, 25.6), Vector3.new(lato * 15.4, PAVIMENTO + 5.8, 0), ORO, Enum.Material.Metal)
+		scatola(m, Vector3.new(31.6, 0.6, 0.8), Vector3.new(0, PAVIMENTO + 5.8, lato * 12.4), ORO, Enum.Material.Slate)
+		scatola(m, Vector3.new(0.8, 0.6, 25.6), Vector3.new(lato * 15.4, PAVIMENTO + 5.8, 0), ORO, Enum.Material.Slate)
 	end
 	local mare = scatola(m, Vector3.new(30, 0.2, 24), Vector3.new(0, PAVIMENTO + 5.7, 0), Color3.fromRGB(46, 78, 104), Enum.Material.Fabric)
 	plastico(m, mare.Position + Vector3.new(0, 0.1, 0), 29.6, 23.6)
@@ -758,11 +765,11 @@ local function rotonda(lobby)
 		scatola(m, Vector3.new(0.3, 0.3, (a2 - da).Magnitude), CFrame.lookAt((da + a2) / 2, a2), FERRO, Enum.Material.Metal)
 	end
 	local centroLuce = scatola(m, Vector3.new(1, 1, 1), Vector3.new(0, yLampadario - 1, 0), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, { Transparency = 1, CanCollide = false })
-	luce(centroLuce, Color3.fromRGB(255, 190, 130), 34, 1.4, true)
+	luce(centroLuce, Color3.fromRGB(255, 226, 196), 34, 1, true)
 
 	-- Lama di luce dall'oculo sul tavolo, con il pulviscolo.
 	local lama = colonna(m, cima - PAVIMENTO - 6, 17, Vector3.new(0, (cima + PAVIMENTO + 6) / 2, 0), Color3.fromRGB(255, 222, 170), Enum.Material.Neon)
-	lama.Transparency = 0.94
+	lama.Transparency = 0.97
 	lama.CanCollide = false
 	lama.CanQuery = false
 	lama.CastShadow = false
@@ -777,7 +784,8 @@ local function rotonda(lobby)
 	polvere.SpreadAngle = Vector2.new(180, 180)
 	polvere.Parent = lama
 	local sole = scatola(m, Vector3.new(1, 1, 1), Vector3.new(0, cima - 2, 0), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, { Transparency = 1, CanCollide = false })
-	faretto(sole, Color3.fromRGB(255, 214, 160), 60, 3, 36)
+	-- Luce quasi bianca e non troppo forte: sul plastico devono leggersi i colori, non l'arancio.
+	faretto(sole, Color3.fromRGB(255, 244, 228), 60, 1.4, 36)
 
 	-- Quattro bracieri attorno al tavolo.
 	for i = 0, 3 do
@@ -806,14 +814,17 @@ local function galleria(lobby, callback)
 		local lunghezza = z0 - sala.z1
 		scatola(m, Vector3.new(X * 2 + 8, 1, lunghezza), Vector3.new(0, PAVIMENTO - 0.5, (z0 + sala.z1) / 2), sala.pavimento, sala.materiale)
 		-- Muri laterali con due finestroni per lato: da lì si vedono le montagne e il tramonto.
-		local centri = { lunghezza * 0.3, lunghezza * 0.72 }
+		-- Nell'Antichità stanno a z = -60 e -72, tra una colonna e l'altra (se no le colonne le coprono).
+		local centri = i == 1 and { 20, 32 } or { lunghezza * 0.3, lunghezza * 0.72 }
 		for lato = -1, 1, 2 do
 			muro(m, Vector3.new(lato * (X + 2), 0, z0), Vector3.new(lato * (X + 2), 0, sala.z1), PAVIMENTO, PAVIMENTO + ALTO, 4, sala.muri, sala.materialeMuri, finestre(centri, i == 3 and 4 or 7, 9, i == 3 and 20 or 24))
 		end
-		-- Soffitto.
-		scatola(m, Vector3.new(X * 2 + 8, 2, lunghezza), Vector3.new(0, PAVIMENTO + ALTO + 1, (z0 + sala.z1) / 2), sala.muri:Lerp(Color3.new(0, 0, 0), 0.35), sala.materialeMuri)
-		for k = 0, math.floor(lunghezza / 8) do
-			scatola(m, Vector3.new(X * 2, 1.6, 1.4), Vector3.new(0, PAVIMENTO + ALTO - 0.6, z0 - 2 - k * 8), i == 3 and FERRO or LEGNO_SCURO, i == 3 and Enum.Material.Metal or Enum.Material.Wood)
+		-- Soffitto: la prima sala comincia dietro il muro della Rotonda, altrimenti soffitto e travi
+		-- spuntano dentro la Rotonda davanti all'insegna della porta.
+		local zTetto = i == 1 and -45 or sala.z0
+		scatola(m, Vector3.new(X * 2 + 8, 2, zTetto - sala.z1), Vector3.new(0, PAVIMENTO + ALTO + 1, (zTetto + sala.z1) / 2), sala.muri:Lerp(Color3.new(0, 0, 0), 0.35), sala.materialeMuri)
+		for k = 0, math.floor((sala.z0 - sala.z1) / 8) do
+			scatola(m, Vector3.new(X * 2, 1.6, 1.4), Vector3.new(0, PAVIMENTO + ALTO - 0.6, sala.z0 - 2 - k * 8), i == 3 and FERRO or LEGNO_SCURO, i == 3 and Enum.Material.Metal or Enum.Material.Wood)
 		end
 	end
 	-- Muro di fondo.
@@ -840,9 +851,10 @@ local function galleria(lobby, callback)
 			scatola(m, Vector3.new(4.6, 1.2, 4.6), Vector3.new(lato * (X - 2.5), PAVIMENTO + 0.6, z), MARMO, Enum.Material.Marble)
 		end
 	end
-	for _, z in ipairs({ -60, -72 }) do
+	-- Stendardi stretti appesi davanti alle colonne: sui muri coprirebbero le finestre.
+	for _, z in ipairs({ -54, -78 }) do
 		for lato = -1, 1, 2 do
-			stendardo(m, Vector3.new(lato * (X - 0.4), PAVIMENTO + 17, z), Vector3.new(-lato, 0, 0), ROSSO_ROMANO, 5, 12)
+			stendardo(m, Vector3.new(lato * (X - 4.4), PAVIMENTO + 18, z), Vector3.new(-lato, 0, 0), ROSSO_ROMANO, 3, 11)
 		end
 	end
 	braciere(m, Vector3.new(-7, PAVIMENTO, -50), 0.9)
@@ -880,10 +892,9 @@ local function galleria(lobby, callback)
 			scatola(m, Vector3.new(3.6, 0.6, 0.7), CFrame.lookAt(pos + verso * 0.3, pos + verso * 2), ORO, Enum.Material.Fabric)
 		end
 	end
-	for _, z in ipairs({ -93, -105 }) do
-		for lato = -1, 1, 2 do
-			torcia(m, Vector3.new(lato * X, PAVIMENTO + 10, z), Vector3.new(-lato, 0, 0))
-		end
+	-- Torce sul muro pieno tra le due vetrate, sopra lo scudo (a -93 e -105 finivano dentro le vetrate).
+	for lato = -1, 1, 2 do
+		torcia(m, Vector3.new(lato * X, PAVIMENTO + 13, -99), Vector3.new(-lato, 0, 0))
 	end
 	esposizione(m, Vector3.new(-11.5, 0, -91), Vector3.new(1, 0, 0.35).Unit, "Spadaccino", 2, 4, 1, 12, 10, BLU_REALE, "SAXON HUSCARLS")
 	esposizione(m, Vector3.new(11.5, 0, -91), Vector3.new(-1, 0, 0.35).Unit, "Arciere", 2, 3, 1, 12, 10, BLU_REALE, "ENGLISH LONGBOWMEN")
@@ -909,9 +920,10 @@ local function galleria(lobby, callback)
 		end
 	end
 	for _, z in ipairs({ -124, -136 }) do
-		scatola(m, Vector3.new(3, 1.2, 3), Vector3.new(0, PAVIMENTO + ALTO - 6, z), OLIVA, Enum.Material.Metal)
-		scatola(m, Vector3.new(0.2, 4.4, 0.2), Vector3.new(0, PAVIMENTO + ALTO - 3.2, z), FERRO, Enum.Material.Metal)
-		local bulbo = scatola(m, Vector3.new(1.4, 0.4, 1.4), Vector3.new(0, PAVIMENTO + ALTO - 6.8, z), Color3.fromRGB(255, 236, 190), Enum.Material.Neon, { CastShadow = false })
+		-- Appese corte: più in basso coprono l'insegna del portale a chi arriva dal tappeto.
+		scatola(m, Vector3.new(3, 1.2, 3), Vector3.new(0, PAVIMENTO + ALTO - 3, z), OLIVA, Enum.Material.Metal)
+		scatola(m, Vector3.new(0.2, 2.4, 0.2), Vector3.new(0, PAVIMENTO + ALTO - 1.2, z), FERRO, Enum.Material.Metal)
+		local bulbo = scatola(m, Vector3.new(1.4, 0.4, 1.4), Vector3.new(0, PAVIMENTO + ALTO - 3.8, z), Color3.fromRGB(255, 236, 190), Enum.Material.Neon, { CastShadow = false })
 		faretto(bulbo, Color3.fromRGB(255, 226, 180), 40, 2.4, 70)
 	end
 	esposizione(m, Vector3.new(-11.5, 0, -124), Vector3.new(1, 0, 0.35).Unit, "Fante", 2, 4, 1, 12, 10, OLIVA, "FRENCH POILUS")
@@ -961,11 +973,12 @@ local function arena(lobby, callback)
 		muro(m, Vector3.new(44, 0, lato * 15), Vector3.new(74, 0, lato * 15), PAVIMENTO, PAVIMENTO + 26, 4, PIETRA, Enum.Material.Cobblestone)
 		torcia(m, Vector3.new(60, PAVIMENTO + 10, lato * 12.8), Vector3.new(0, 0, -lato))
 	end
-	scatola(m, Vector3.new(30, 2, 34), Vector3.new(58, PAVIMENTO + 27, 0), PIETRA_SCURA, Enum.Material.Slate)
+	-- Il tetto comincia dietro il muro della Rotonda (a 45), per non coprire l'insegna della porta.
+	scatola(m, Vector3.new(28, 2, 34), Vector3.new(59, PAVIMENTO + 27, 0), PIETRA_SCURA, Enum.Material.Slate)
 	tappeto(m, Vector3.new(48, 0, 0), Vector3.new(84, 0, 0), 7, ROSSO)
 
 	-- Pavimento, sabbia al centro, gradinate.
-	colonna(m, 1, (R + 4) * 2, centro + Vector3.new(0, PAVIMENTO - 0.5, 0), Color3.fromRGB(88, 78, 72), Enum.Material.Slate)
+	colonna(m, 1, (R + 4) * 2, centro + Vector3.new(0, PAVIMENTO - 0.53, 0), Color3.fromRGB(88, 78, 72), Enum.Material.Slate)
 	colonna(m, 1, 46, centro + Vector3.new(0, PAVIMENTO - 0.44, 0), Color3.fromRGB(196, 164, 116), Enum.Material.Sand)
 	colonna(m, 1, 48, centro + Vector3.new(0, PAVIMENTO - 0.46, 0), ROSSO:Lerp(Color3.new(0, 0, 0), 0.4), Enum.Material.Slate)
 	-- A ovest il passaggio dal corridoio, a est lo spazio per il portale.
@@ -1015,7 +1028,8 @@ local function arena(lobby, callback)
 			local d = Vector3.new(dir.X, 0, dir.Z * segno)
 			local pos = centro + d * (R - 0.4) + Vector3.new(0, PAVIMENTO + 18, 0)
 			disco(m, 0.8, 7, CFrame.lookAt(pos, centro + Vector3.new(0, pos.Y, 0)), grado[2], Enum.Material.Slate)
-			disco(m, 0.9, 7.8, CFrame.lookAt(pos - d * 0.1, centro + Vector3.new(0, pos.Y, 0)), FERRO, Enum.Material.Metal)
+			-- La cornice di ferro sta dietro lo stemma colorato (davanti lo copriva tutto).
+			disco(m, 0.9, 7.8, CFrame.lookAt(pos + d * 0.15, centro + Vector3.new(0, pos.Y, 0)), FERRO, Enum.Material.Metal)
 			local tavola = scatola(m, Vector3.new(8, 1.8, 0.4), CFrame.lookAt(pos + Vector3.new(0, -5.2, 0) - d * 0.3, centro + Vector3.new(0, pos.Y - 5.2, 0)), LEGNO_SCURO, Enum.Material.Wood)
 			insegna(tavola, grado[1], grado[2])
 		end
@@ -1027,7 +1041,7 @@ local function arena(lobby, callback)
 	end
 	for _, a in ipairs({ math.pi * 0.85, math.pi * 1.15, math.pi * 0.15, math.pi * 1.85 }) do
 		local dir = Vector3.new(math.cos(a), 0, math.sin(a))
-		braciere(m, centro + dir * 23.5, 1, Color3.fromRGB(255, 120, 80))
+		braciere(m, centro + dir * 23.5, 1)
 	end
 	-- Il portale ranked (chiuso finché le ranked non ci sono).
 	portale(m, "PortaleRanked", CFrame.lookAt(centro + Vector3.new(R - 8, 0, 0), centro), ROSSO, "RANKED", "Coming soon", callback, true)
@@ -1053,7 +1067,7 @@ local function rastrelliera(genitore, centro, verso, epoca)
 		elseif epoca == 2 then
 			-- Spade con l'elsa.
 			scatola(genitore, Vector3.new(0.35, 4.6, 0.1), cf * CFrame.new(x, PAVIMENTO + 4, -0.3), Color3.fromRGB(176, 178, 186), Enum.Material.Metal)
-			scatola(genitore, Vector3.new(1.3, 0.25, 0.25), cf * CFrame.new(x, PAVIMENTO + 6.4, -0.3), ORO, Enum.Material.Metal)
+			scatola(genitore, Vector3.new(1.3, 0.25, 0.25), cf * CFrame.new(x, PAVIMENTO + 6.4, -0.3), ORO, Enum.Material.Slate)
 			scatola(genitore, Vector3.new(0.25, 1.2, 0.25), cf * CFrame.new(x, PAVIMENTO + 7.1, -0.3), LEGNO_SCURO, Enum.Material.Wood)
 		else
 			-- Fucili.
@@ -1088,7 +1102,8 @@ local function armeria(lobby, callback)
 		muro(m, Vector3.new(X0, 0, lato * (Z + 2)), Vector3.new(X1, 0, lato * (Z + 2)), PAVIMENTO, PAVIMENTO + ALTO, 4, Color3.fromRGB(140, 92, 70), Enum.Material.Brick, finestre({ 22, 50 }, 6, 12, 22))
 	end
 	scatola(m, Vector3.new(4, ALTO + 2, Z * 2 + 8), Vector3.new(X1 - 2, PAVIMENTO + ALTO / 2, 0), Color3.fromRGB(140, 92, 70), Enum.Material.Brick)
-	scatola(m, Vector3.new(X0 - X1 + 4, 2, Z * 2 + 8), Vector3.new((X0 + X1) / 2, PAVIMENTO + ALTO + 1, 0), LEGNO_SCURO, Enum.Material.WoodPlanks)
+	-- Il tetto comincia dietro il muro della Rotonda (a 45), per non coprire l'insegna della porta.
+	scatola(m, Vector3.new(-45 - (X1 - 2), 2, Z * 2 + 8), Vector3.new((-45 + X1 - 2) / 2, PAVIMENTO + ALTO + 1, 0), LEGNO_SCURO, Enum.Material.WoodPlanks)
 	-- Capriate del tetto.
 	for x = X0 - 6, X1 + 4, -10 do
 		scatola(m, Vector3.new(1.6, 1.6, Z * 2), Vector3.new(x, PAVIMENTO + ALTO - 4, 0), LEGNO_SCURO, Enum.Material.Wood)
@@ -1113,7 +1128,7 @@ local function armeria(lobby, callback)
 		for _, dx in ipairs({ -1.6, 1.6 }) do
 			scatola(scatolone, Vector3.new(0.4, 4.9, 3.7), pos + Vector3.new(dx, PAVIMENTO + 5.9, 0), FERRO, Enum.Material.Metal)
 		end
-		scatola(scatolone, Vector3.new(0.9, 1, 0.3), pos + Vector3.new(0, PAVIMENTO + 6.9, -1.85), ORO, Enum.Material.Metal)
+		scatola(scatolone, Vector3.new(0.9, 1, 0.3), pos + Vector3.new(0, PAVIMENTO + 6.9, -1.85), ORO, Enum.Material.Slate)
 		scatolone.PrimaryPart = corpo
 		scatolone:SetAttribute("Gira", 30 + i * 6)
 		scatolone.Parent = m
@@ -1127,7 +1142,7 @@ local function armeria(lobby, callback)
 	local banco = scatola(m, Vector3.new(4, 4.4, 22), Vector3.new(-110, PAVIMENTO + 2.2, 0), LEGNO, Enum.Material.WoodPlanks)
 	scatola(m, Vector3.new(5, 0.6, 23), Vector3.new(-110, PAVIMENTO + 4.7, 0), LEGNO_SCURO, Enum.Material.Wood)
 	for i = 0, 6 do
-		colonna(m, 0.25, 1.4, Vector3.new(-110 + (i % 2) * 0.6, PAVIMENTO + 5.1 + i * 0.25, 6 + (i % 3) * 0.3), ORO, Enum.Material.Metal)
+		colonna(m, 0.25, 1.4, Vector3.new(-110 + (i % 2) * 0.6, PAVIMENTO + 5.1 + i * 0.25, 6 + (i % 3) * 0.3), ORO, Enum.Material.Slate)
 	end
 	cartello(m, Vector3.new(-121, PAVIMENTO + 17, 0), Vector3.new(1, 0, 0), 28, 7, "SHOP", GIALLO, "Crates & gear")
 	for _, z in ipairs({ -9, 9 }) do
@@ -1170,7 +1185,8 @@ local function eroi(lobby, callback)
 		muro(m, Vector3.new(lato * (X + 2), 0, Z0), Vector3.new(lato * (X + 2), 0, Z1), PAVIMENTO, PAVIMENTO + ALTO, 4, PIETRA_CHIARA, Enum.Material.Limestone, finestre({ 18, 38, 58 }, 6, 10, 27))
 	end
 	scatola(m, Vector3.new(X * 2 + 8, ALTO + 2, 4), Vector3.new(0, PAVIMENTO + ALTO / 2, Z1 + 2), PIETRA_CHIARA, Enum.Material.Limestone)
-	scatola(m, Vector3.new(X * 2 + 8, 2, Z1 - Z0 + 4), Vector3.new(0, PAVIMENTO + ALTO + 1, (Z0 + Z1) / 2), Color3.fromRGB(70, 60, 54), Enum.Material.Slate)
+	-- Il soffitto comincia dietro il muro della Rotonda (a 45), per non coprire l'insegna della porta.
+	scatola(m, Vector3.new(X * 2 + 8, 2, Z1 + 2 - 45), Vector3.new(0, PAVIMENTO + ALTO + 1, (45 + Z1 + 2) / 2), Color3.fromRGB(70, 60, 54), Enum.Material.Slate)
 	for z = Z0 + 6, Z1 - 2, 10 do
 		scatola(m, Vector3.new(X * 2, 2, 1.6), Vector3.new(0, PAVIMENTO + ALTO - 1, z), ORO, Enum.Material.Slate)
 	end

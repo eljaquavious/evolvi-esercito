@@ -45,7 +45,8 @@ Luci.lobby = {
 		ClockTime = 17.55,
 		GeographicLatitude = 30,
 		Brightness = 2.6,
-		Ambient = Color3.fromRGB(58, 46, 44),
+		-- Abbastanza chiaro e poco colorato: con meno i muri e la cupola diventano neri e tutto arancione.
+		Ambient = Color3.fromRGB(104, 94, 96),
 		OutdoorAmbient = Color3.fromRGB(120, 96, 92),
 		EnvironmentDiffuseScale = 0.8,
 		EnvironmentSpecularScale = 0.2,
@@ -60,7 +61,7 @@ Luci.lobby = {
 		Glare = 0.7,
 		Haze = 2.4,
 	},
-	BloomEffect = { Intensity = 0.55, Size = 30, Threshold = 1.4 },
+	BloomEffect = { Intensity = 0.4, Size = 30, Threshold = 1.8 },
 	SunRaysEffect = { Intensity = 0.12, Spread = 0.8 },
 	ColorCorrectionEffect = {
 		Brightness = 0.02,

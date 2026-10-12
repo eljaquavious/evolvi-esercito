@@ -160,8 +160,9 @@ local function aggiorna(dt)
 	end
 	for _, f in ipairs(fasci) do
 		if f.base then
-			local yaw = tempo * 0.12 + f.fase
-			local pitch = math.rad(52 + 16 * math.sin(tempo * 0.27 + f.fase))
+			-- Oscillano attorno alla direzione che si allontana dalla cittadella, mai sopra le sale.
+			local yaw = math.atan2(f.base.Z, f.base.X) + 0.5 * math.sin(tempo * 0.12 + f.fase)
+			local pitch = math.rad(52 + 14 * math.sin(tempo * 0.27 + f.fase))
 			local dir = Vector3.new(math.cos(pitch) * math.cos(yaw), math.sin(pitch), math.cos(pitch) * math.sin(yaw))
 			local meta = f.parte.Size.X / 2
 			f.parte.CFrame = CFrame.lookAt(f.base + dir * meta, f.base + dir * (meta + 1)) * CFrame.Angles(0, math.rad(90), 0)
