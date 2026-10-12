@@ -5,6 +5,7 @@
 -- Le parti nascoste restano: i tronchi continuano a fermare chi cammina. Se la mesh non si può fare,
 -- restano visibili le parti.
 
+local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Mesh = require(ReplicatedStorage.Shared.Mesh)
@@ -84,11 +85,83 @@ local function forse(oggetto)
 	end
 end
 
+-- Modelli fotografici (SurfaceAppearance PBR clonate dal server): se una texture non arriva (errore di rete
+-- "NetFail" al primo caricamento) il modello resta bianco. Ogni texture si precarica una volta; se fallisce si
+-- ritenta e, appena arriva, le SurfaceAppearance che la usano si sostituiscono con una copia (che la ricarica).
+local MAPPE = { "ColorMap", "NormalMap", "RoughnessMap", "MetalnessMap" }
+local TENTATIVI = 4
+
+local statoTexture = {} -- id -> "carico" | "ok"
+local chiUsa = {} -- id -> { SurfaceAppearance = true }
+
+local function rinfresca(id)
+	local lista = chiUsa[id]
+	chiUsa[id] = nil
+	for sa in pairs(lista or {}) do
+		if sa.Parent then
+			local copia = sa:Clone()
+			copia.Parent = sa.Parent
+			sa:Destroy()
+		end
+	end
+end
+
+local function precarica(id)
+	statoTexture[id] = "carico"
+	task.spawn(function()
+		local fallito = false
+		for tentativo = 1, TENTATIVI do
+			local esito
+			pcall(ContentProvider.PreloadAsync, ContentProvider, { id }, function(_, stato)
+				esito = stato
+			end)
+			if esito == Enum.AssetFetchStatus.Success then
+				statoTexture[id] = "ok"
+				if fallito then
+					rinfresca(id)
+				end
+				chiUsa[id] = nil
+				return
+			end
+			fallito = true
+			task.wait(2 ^ tentativo)
+		end
+		statoTexture[id] = nil -- il prossimo modello che la usa ritenta
+		chiUsa[id] = nil
+	end)
+end
+
+local function guardaTexture(sa)
+	for _, mappa in ipairs(MAPPE) do
+		local ok, id = pcall(function()
+			return sa[mappa]
+		end)
+		if ok and type(id) == "string" and id ~= "" then
+			local stato = statoTexture[id]
+			if stato ~= "ok" then
+				chiUsa[id] = chiUsa[id] or {}
+				chiUsa[id][sa] = true
+				if stato == nil then
+					precarica(id)
+				end
+			end
+		end
+	end
+end
+
 function Paesaggio.inizializza()
 	local arene = workspace:WaitForChild("Arene")
-	arene.DescendantAdded:Connect(forse)
+	arene.DescendantAdded:Connect(function(oggetto)
+		forse(oggetto)
+		if oggetto:IsA("SurfaceAppearance") then
+			guardaTexture(oggetto)
+		end
+	end)
 	for _, oggetto in ipairs(arene:GetDescendants()) do
 		forse(oggetto)
+		if oggetto:IsA("SurfaceAppearance") then
+			guardaTexture(oggetto)
+		end
 	end
 end
 
