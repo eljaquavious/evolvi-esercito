@@ -1,15 +1,15 @@
 -- Generato da tools/blocchi (oggetto trinceaCampo, tools/paesaggio/oggetti.py): non modificare a mano.
--- 11394 vertici, 6068 triangoli, texture 256x256. Misure in metri, assi di Roblox.
+-- 2112 vertici, 968 triangoli, texture 256x256. Misure in metri, assi di Roblox.
 return {
 	versione = 1,
-	minimo = { -16.05000, -2.10000, -5.00000 },
-	massimo = { 16.00000, 2.45000, 6.53762 },
+	minimo = { -16.00000, -2.10000, -5.00000 },
+	massimo = { 16.00000, 1.10000, 5.00000 },
 	ossa = {
 
 	},
-	vertici = 11394,
-	triangoli = 6068,
-	lunghezzaGeometria = 275690,
+	vertici = 2112,
+	triangoli = 968,
+	lunghezzaGeometria = 50168,
 	geometria = require(script.Geometria),
 	lato = 256,
 	lunghezzaTexture = 196608,

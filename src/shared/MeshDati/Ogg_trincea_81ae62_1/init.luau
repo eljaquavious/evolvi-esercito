@@ -1,16 +1,16 @@
 -- Generato da tools/blocchi (oggetto trincea, tools/paesaggio/oggetti.py): non modificare a mano.
--- 20616 vertici, 11240 triangoli, texture 256x256. Misure in metri, assi di Roblox.
+-- 960 vertici, 440 triangoli, texture 256x256. Misure in metri, assi di Roblox.
 return {
 	versione = 1,
-	minimo = { -16.30000, -4.80000, -4.83748 },
-	massimo = { 17.09943, 2.45000, 4.83713 },
+	minimo = { -16.25000, -4.80000, -3.40000 },
+	massimo = { 16.25000, 0.20000, 3.40000 },
 	ossa = {
 
 	},
-	vertici = 20616,
-	triangoli = 11240,
-	lunghezzaGeometria = 500384,
-	geometria = table.concat({ require(script.Geometria1), require(script.Geometria2) }),
+	vertici = 960,
+	triangoli = 440,
+	lunghezzaGeometria = 22808,
+	geometria = require(script.Geometria),
 	lato = 256,
 	lunghezzaTexture = 196608,
 	texture = require(script.Texture),

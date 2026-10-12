@@ -1325,13 +1325,30 @@ function P.ghiaccioRotto(g, cf, rng, s)
 end
 ingombro("ghiaccioRotto", 6)
 
+local dentro = false -- un oggetto dentro un altro fa parte del suo modello 3D
+local coda = nil -- mentre si costruisce un modello 3D: gli oggetti appoggiati che aspettano di andare fuori
+
+-- Un oggetto appoggiato a un altro ma con il suo modello (i sacchetti sul ciglio della trincea: fotografici se
+-- ci sono). Non entra nel modello 3D di chi lo porta: si mette accanto, a modello finito. ctx.passabile: niente
+-- scatola che ferma chi cammina (i soldati escono dalla trincea scavalcandoli).
+local function appoggia(nome, g, cf, rng, s, ctx)
+	if coda then
+		table.insert(coda, { nome = nome, cf = cf, s = s, ctx = ctx })
+	elseif not dentro then
+		P[nome](g, cf, rng, s, ctx)
+	end
+end
+
+local function sacchiSul(ctx, l)
+	return { lunghezza = l, passabile = true, neve = ctx.neve, sabbia = ctx.sabbia }
+end
+
 -- Trincea: scavata con Paesaggio.scava; qui le pareti di tavole, i sacchetti sul ciglio e le passerelle.
 function P.trincea(g, cf, rng, s, ctx)
 	local l = ctx.lunghezza or 30
 	for _, lato in ipairs({ -1, 1 }) do
 		parte(g, Vector3.new(l, 5, 0.4), cf * CFrame.new(0, -2.3, lato * 3.2), C(110, 86, 58), M.WoodPlanks)
-		local cfSacchi = cf * CFrame.new(0, 0, lato * 4.2)
-		P.sacchetti(g, cfSacchi, rng, 1, { lunghezza = l })
+		appoggia("sacchetti", g, cf * CFrame.new(0, 0, lato * 4.2), rng, 1, sacchiSul(ctx, l))
 	end
 	for z = -l / 2 + 2, l / 2 - 2, 4 do
 		parte(g, Vector3.new(4, 0.3, 1.2), cf * CFrame.new(z, -4.6, 0) * CFrame.Angles(0, math.pi / 2, 0), C(126, 98, 66), M.WoodPlanks)
@@ -1348,7 +1365,7 @@ function P.trinceaCampo(g, cf, rng, s, ctx)
 	for _, lato in ipairs({ -1, 1 }) do
 		parte(g, Vector3.new(l, p + 0.6, 0.4), cf * CFrame.new(0, -p / 2 + 0.2, lato * (mezzo - 0.2)), varia(C(110, 86, 58), rng, 0.04), M.WoodPlanks)
 	end
-	P.sacchetti(g, cf * CFrame.new(0, 0, mezzo + 0.9), rng, 1, { lunghezza = l })
+	appoggia("sacchetti", g, cf * CFrame.new(0, 0, mezzo + 0.9), rng, 1, sacchiSul(ctx, l))
 	for x = -l / 2 + 2, l / 2 - 2, 3 do
 		parte(g, Vector3.new(0.5, p + 1.2, 0.5), cf * CFrame.new(x, -p / 2 + 0.5, mezzo - 0.5), C(92, 70, 46), M.Wood)
 	end
@@ -1488,7 +1505,6 @@ local function esiste(nomeMesh)
 	return cartellaMesh ~= nil and cartellaMesh:FindFirstChild(nomeMesh) ~= nil
 end
 
-local dentro = false -- un oggetto dentro un altro (i sacchetti della trincea) fa parte del suo modello
 
 -- Le parti di un oggetto e basta, senza modello 3D (per test/campi.luau).
 function Paesaggio.soloParti(nome, g, cf, rng, s, ctx)
@@ -1651,7 +1667,9 @@ local function mettiFotoLineare(g, nome, cf, rng, s, ctx)
 		local giro = i % 2 == 1 and CFrame.Angles(0, math.pi, 0) or CFrame.identity
 		clona(originale, fattore, cf * CFrame.new(x, 0, 0) * giro).Parent = modello
 	end
-	scatola(modello)
+	if not ctx.passabile then
+		scatola(modello)
+	end
 	modello.Parent = g
 	return true
 end
@@ -1692,13 +1710,17 @@ for nome, aParti in pairs(P) do
 			end
 			local modello = Instance.new("Model")
 			modello.Name = nome
-			dentro = true
+			local fuori, codaPrima = {}, coda
+			dentro, coda = true, fuori
 			local ok, errore = pcall(aParti, modello, cf, Caso.new(seme), s, ctx)
-			dentro = false
+			dentro, coda = false, codaPrima
 			if not ok then
 				error(errore, 0)
 			end
 			avvolgi(modello, g, nomeMesh, cf, s)
+			for _, a in ipairs(fuori) do
+				P[a.nome](g, a.cf, rng, a.s, a.ctx)
+			end
 		end
 	end
 end

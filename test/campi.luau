@@ -317,6 +317,9 @@ if registra then
 				local ctx = table.clone(voce.ctx)
 				ctx.lunghezza = caselle * 16
 				Paesaggio.registro[Paesaggio.nomeMesh("trinceaCampo", ctx)] = { nome = "trinceaCampo", ctx = ctx }
+				-- E i sacchetti sul loro ciglio, che hanno un modello a parte.
+				local sacchi = { lunghezza = ctx.lunghezza }
+				Paesaggio.registro[Paesaggio.nomeMesh("sacchetti", sacchi)] = { nome = "sacchetti", ctx = sacchi }
 			end
 		end
 	end
