@@ -59,7 +59,7 @@ Ricompense.Cosmetici = {
 	{ id = "Alloro", nome = "Laurel Wreath", slot = "Testa", rarita = "epico", condizione = { "stelleEpoca", 1 }, epoca = 1, scoperto = true },
 	{ id = "ElmoGrande", nome = "Great Helm", slot = "Testa", rarita = "raro", condizione = { "battaglia", 9 }, epoca = 2 },
 	{ id = "Adrian", nome = "Adrian Helmet", slot = "Testa", rarita = "raro", condizione = { "battaglia", 14 }, epoca = 3 },
-	{ id = "Kepi", nome = "Marshal's Kepi", slot = "Testa", rarita = "epico", condizione = { "stelleEpoca", 3 }, epoca = 3, scoperto = true },
+	{ id = "Kepi", nome = "Marshal's Kepi", slot = "Testa", rarita = "epico", condizione = { "stelleEpoca", 3 }, epoca = 3 },
 	{ id = "Vichingo", nome = "Viking Helmet", slot = "Testa", rarita = "comune", monete = 1000 },
 	{ id = "Corona", nome = "Iron Crown", slot = "Testa", rarita = "leggendario", condizione = { "ranked", 25 }, scoperto = true },
 	-- Corpo

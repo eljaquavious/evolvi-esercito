@@ -108,7 +108,11 @@ function Costruttori.Galea(m)
 		parte(m, "palla", Vector3.new(0.12, 0.12, 0.12), C(s * 0.74, -0.05, -0.22), OTTONE)
 	end
 	parte(m, "blocco", Vector3.new(0.12, 0.08, 1.0), C(0, 0.84, 0.02), OTTONE) -- supporto
-	parte(m, "palla", Vector3.new(0.2, 0.5, 1.4), C(0, 0.98, 0.04), ROSSO, STOFFA) -- cresta
+	for i = -3, 3 do -- cresta di crine che segue la curva dell'elmo, da davanti a dietro
+		local a = i * 0.34
+		local pos = Vector3.new(0, 0.4 + 0.5 * math.cos(a), 0.02 + 0.78 * math.sin(a))
+		parte(m, "palla", Vector3.new(0.2, 0.46, 0.36), CFrame.new(pos) * CFrame.Angles(a, 0, 0), ROSSO, STOFFA)
+	end
 end
 
 -- Elmo a secchio del cavaliere: cilindro d'acciaio con la fessura per gli occhi e la croce d'ottone.
@@ -147,7 +151,7 @@ end
 
 -- Kepì da maresciallo: fascia blu, cupola rossa, gallone d'oro, visiera nera.
 function Costruttori.Kepi(m)
-	local cf = C(0, 0.62, 0.02) * CFrame.Angles(rad(-8), 0, 0)
+	local cf = C(0, 0.5, 0.02) * CFrame.Angles(rad(-8), 0, 0)
 	parte(m, "cilindro", Vector3.new(0.26, 1.34, 1.34), cf * C(0, -0.12, 0) * CFrame.Angles(0, 0, rad(90)), hex("#1E2A55"), STOFFA)
 	parte(m, "cilindro", Vector3.new(0.32, 1.26, 1.26), cf * C(0, 0.16, 0) * CFrame.Angles(0, 0, rad(90)), hex("#A3202C"), STOFFA)
 	parte(m, "cilindro", Vector3.new(0.05, 1.36, 1.36), cf * C(0, 0.0, 0) * CFrame.Angles(0, 0, rad(90)), ORO)
@@ -256,6 +260,12 @@ function Costruttori.Cartucciera(m)
 	local giubba = hex("#5F6F84")
 	parte(m, "blocco", Vector3.new(2.06, 1.6, 1.08), C(0, 0, 0), giubba, STOFFA)
 	parte(m, "blocco", Vector3.new(0.08, 1.5, 0.04), C(0, 0, -0.55), hex("#4B5868"), STOFFA)
+	parte(m, "palla", Vector3.new(1.2, 0.36, 1.12), C(0, 0.8, 0), giubba, STOFFA) -- colletto
+	for _, s in ipairs({ -1, 1 }) do -- spalle arrotondate con le spalline
+		parte(m, "palla", Vector3.new(0.9, 0.62, 1.16), C(s * 0.94, 0.62, 0), giubba, STOFFA)
+		parte(m, "blocco", Vector3.new(0.5, 0.06, 0.22), C(s * 0.82, 0.92, 0) * CFrame.Angles(0, 0, rad(s * -12)), hex("#4B5868"), STOFFA)
+		parte(m, "palla", Vector3.new(0.09, 0.09, 0.06), C(s * 0.62, 0.95, -0.02), OTTONE)
+	end
 	for i = 0, 3 do
 		parte(m, "palla", Vector3.new(0.08, 0.08, 0.05), C(0.12, 0.5 - i * 0.32, -0.56), OTTONE)
 	end
@@ -277,7 +287,10 @@ function Costruttori.Maglia(m)
 	local maglia = hex("#7D838B")
 	parte(m, "blocco", Vector3.new(2.08, 1.62, 1.1), C(0, 0, 0), maglia, STOFFA)
 	parte(m, "blocco", Vector3.new(2.12, 0.5, 1.14), C(0, -1.06, 0), maglia, STOFFA) -- orlo lungo sui fianchi
-	parte(m, "blocco", Vector3.new(1.2, 0.2, 1.14), C(0, 0.76, 0), hex("#6A7078"), STOFFA) -- collo
+	parte(m, "palla", Vector3.new(1.3, 0.42, 1.16), C(0, 0.78, 0), hex("#6A7078"), STOFFA) -- collo
+	for _, s in ipairs({ -1, 1 }) do -- spalle arrotondate che scendono sulle braccia
+		parte(m, "palla", Vector3.new(1.0, 0.7, 1.2), C(s * 0.92, 0.62, 0), maglia, STOFFA)
+	end
 	cintura(m, CUOIO, -0.78, OTTONE)
 end
 
@@ -354,10 +367,10 @@ function Costruttori.Mantello(m)
 	for i, f in ipairs(fasce) do
 		local alto = f[2]
 		local cf = C(0, yPrima - alto / 2, z) * CFrame.Angles(rad(f[4]), 0, 0)
-		parte(m, "blocco", Vector3.new(f[3], alto + 0.06, 0.1), cf, CREMISI, STOFFA)
+		parte(m, "blocco", Vector3.new(f[3], alto + 0.24, 0.1), cf, CREMISI, STOFFA)
 		for _, s in ipairs({ -1, 1 }) do -- i lati piegati in avanti danno la curva
-			parte(m, "blocco", Vector3.new(0.3, alto + 0.06, 0.1), cf * C(s * (f[3] / 2 + 0.1), 0, -0.1) * CFrame.Angles(0, rad(s * -40), 0), CREMISI, STOFFA)
-			parte(m, "blocco", Vector3.new(0.06, alto + 0.06, 0.12), cf * C(s * (f[3] / 2 + 0.2), 0, -0.2) * CFrame.Angles(0, rad(s * -40), 0), ORO, STOFFA)
+			parte(m, "blocco", Vector3.new(0.3, alto + 0.24, 0.1), cf * C(s * (f[3] / 2 + 0.1), 0, -0.1) * CFrame.Angles(0, rad(s * -40), 0), CREMISI, STOFFA)
+			parte(m, "blocco", Vector3.new(0.06, alto + 0.24, 0.12), cf * C(s * (f[3] / 2 + 0.2), 0, -0.2) * CFrame.Angles(0, rad(s * -40), 0), ORO, STOFFA)
 		end
 		if i == #fasce then
 			parte(m, "blocco", Vector3.new(f[3] + 0.4, 0.1, 0.12), cf * C(0, -alto / 2, 0), ORO, STOFFA)
@@ -404,8 +417,8 @@ end
 
 function Costruttori.Aquila(m)
 	-- Aquila imperiale d'oro su asta, con la corona d'alloro e la targa SPQR.
-	parte(m, "cilindro", Vector3.new(4.0, 0.12, 0.12), verticale(0.95, 1.0, 0.78), ORO_SCURO)
-	local base = C(0.95, 2.95, 0.78)
+	parte(m, "cilindro", Vector3.new(4.9, 0.12, 0.12), verticale(1.0, 1.45, 0.78), ORO_SCURO)
+	local base = C(1.0, 3.4, 0.78)
 	parte(m, "blocco", Vector3.new(0.6, 0.08, 0.12), base, ORO_SCURO)
 	parte(m, "palla", Vector3.new(0.32, 0.46, 0.3), base * C(0, 0.3, 0), ORO) -- corpo
 	parte(m, "palla", Vector3.new(0.2, 0.2, 0.2), base * C(0, 0.6, -0.06), ORO) -- testa
@@ -416,9 +429,9 @@ function Costruttori.Aquila(m)
 	end
 	for i = 0, 13 do -- ghirlanda sotto l'aquila, rivolta all'indietro
 		local a = i / 14 * math.pi * 2
-		parte(m, "blocco", Vector3.new(0.12, 0.06, 0.06), base * C(0, -0.42, 0) * CFrame.Angles(0, 0, a) * C(0, 0.24, 0), VERDE_ALLORO, STOFFA)
+		parte(m, "blocco", Vector3.new(0.12, 0.06, 0.06), base * C(0, -0.22, 0) * CFrame.Angles(0, 0, a) * C(0, 0.2, 0), VERDE_ALLORO, STOFFA)
 	end
-	local targa = parte(m, "blocco", Vector3.new(0.7, 0.42, 0.06), base * C(0, -0.95, 0), ROSSO, STOFFA)
+	local targa = parte(m, "blocco", Vector3.new(0.7, 0.42, 0.06), base * C(0, -0.62, 0), ROSSO, STOFFA)
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Back
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
