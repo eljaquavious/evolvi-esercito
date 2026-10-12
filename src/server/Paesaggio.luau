@@ -1518,15 +1518,26 @@ end
 -- esempio "quercia"), Altezza (studs alla scala 1), facoltativi Neve / Sabbia (true: solo lì; false: mai lì)
 -- e Urto (raggio del tronco che ferma chi cammina). Il perno del modello è a terra, al centro della base.
 -- Hanno la precedenza sui modelli generati: il server li clona, quindi li vedono tutti senza altro lavoro.
+-- Edificio = true: case, tende, carri. Restano orientati come l'oggetto che sostituiscono (verso la strada,
+-- in fila nell'accampamento), senza variare la misura, e fermano chi cammina con una scatola grande quanto loro.
+-- OggettoLineare (al posto di Oggetto) + Lunghezza: un tratto di un oggetto lungo (sacchetti); si ripete in fila
+-- per tutta la lunghezza ctx.lunghezza, lungo l'asse X.
 local foto = {} -- nome oggetto -> lista di modelli
+local fotoLineari = {}
 do
 	local ServerStorage = game:GetService("ServerStorage")
 	local cartellaFoto = typeof(ServerStorage) == "Instance" and ServerStorage:FindFirstChild("ModelliFoto") or nil
 	for _, m in ipairs(cartellaFoto and cartellaFoto:GetChildren() or {}) do
-		local oggetto = m:IsA("Model") and m:GetAttribute("Oggetto")
-		if oggetto then
-			foto[oggetto] = foto[oggetto] or {}
-			table.insert(foto[oggetto], m)
+		if m:IsA("Model") then
+			local oggetto = m:GetAttribute("Oggetto")
+			local lineare = m:GetAttribute("OggettoLineare")
+			if oggetto then
+				foto[oggetto] = foto[oggetto] or {}
+				table.insert(foto[oggetto], m)
+			elseif lineare and m:GetAttribute("Lunghezza") then
+				fotoLineari[lineare] = fotoLineari[lineare] or {}
+				table.insert(fotoLineari[lineare], m)
+			end
 		end
 	end
 end
@@ -1543,26 +1554,21 @@ local function adatto(m, ctx)
 	return true
 end
 
-local function mettiFoto(g, nome, cf, rng, s, ctx)
+local function scegliFoto(lista, rng, ctx)
 	local scelte = {}
-	for _, m in ipairs(foto[nome] or {}) do
+	for _, m in ipairs(lista or {}) do
 		if adatto(m, ctx) then
 			table.insert(scelte, m)
 		end
 	end
-	if #scelte == 0 then
-		return false
-	end
-	local originale = scelte[rng:NextInteger(1, #scelte)]
+	return #scelte > 0 and scelte[rng:NextInteger(1, #scelte)] or nil
+end
+
+-- Clona il modello, lo ingrandisce di "fattore" rispetto a com'è salvato (ScaleTo è assoluto) e lo posa.
+local function clona(originale, fattore, posa)
 	local copia = originale:Clone()
-	local altezza = originale:GetAttribute("Altezza")
-	if altezza then
-		local _, misura = originale:GetBoundingBox()
-		copia:ScaleTo(altezza * s / math.max(misura.Y, 0.1) * rng:NextNumber(0.92, 1.08))
-	else
-		copia:ScaleTo(s)
-	end
-	copia:PivotTo(cf * CFrame.Angles(0, rng:NextNumber(0, 2 * math.pi), 0))
+	copia:ScaleTo(copia:GetScale() * fattore)
+	copia:PivotTo(posa)
 	for _, p in ipairs(copia:GetDescendants()) do
 		if p:IsA("BasePart") then
 			p.Anchored = true
@@ -1570,8 +1576,45 @@ local function mettiFoto(g, nome, cf, rng, s, ctx)
 			p.CanTouch = false
 		end
 	end
+	return copia
+end
+
+-- Scatola invisibile grande quanto il modello (orientata come lui): ferma chi cammina.
+local function scatola(copia)
+	local cf, misura = copia:GetBoundingBox()
+	local urto = Instance.new("Part")
+	urto.Name = "Urto"
+	urto.Size = misura
+	urto.CFrame = cf
+	urto.Anchored = true
+	urto.Transparency = 1
+	urto.CanQuery = false
+	urto.CanTouch = false
+	urto.Parent = copia
+end
+
+local function mettiFoto(g, nome, cf, rng, s, ctx)
+	local originale = scegliFoto(foto[nome], rng, ctx)
+	if not originale then
+		return false
+	end
+	local edificio = originale:GetAttribute("Edificio") == true
+	local altezza = originale:GetAttribute("Altezza")
+	local fattore = s
+	if altezza then
+		local _, misura = originale:GetBoundingBox()
+		fattore = altezza * s / math.max(misura.Y, 0.1)
+	end
+	local posa = cf
+	if not edificio then
+		fattore *= rng:NextNumber(0.92, 1.08)
+		posa = cf * CFrame.Angles(0, rng:NextNumber(0, 2 * math.pi), 0)
+	end
+	local copia = clona(originale, fattore, posa)
 	local urto = originale:GetAttribute("Urto")
-	if urto then
+	if edificio then
+		scatola(copia)
+	elseif urto then
 		local tronco = Instance.new("Part")
 		tronco.Name = "Urto"
 		tronco.Shape = Enum.PartType.Cylinder
@@ -1584,6 +1627,32 @@ local function mettiFoto(g, nome, cf, rng, s, ctx)
 	end
 	copia.Name = nome
 	copia.Parent = g
+	return true
+end
+
+-- Un oggetto lungo (lunghezza ctx.lunghezza lungo X, centrato in cf) fatto di tratti fotografici in fila.
+-- I tratti si allungano o accorciano di poco perché la fila torni esatta.
+local LUNGHEZZE_BASE = { sacchetti = 14 }
+local function mettiFotoLineare(g, nome, cf, rng, s, ctx)
+	local originale = scegliFoto(fotoLineari[nome], rng, ctx)
+	if not originale then
+		return false
+	end
+	local l = ctx.lunghezza or LUNGHEZZE_BASE[nome] or 12
+	local tratto = originale:GetAttribute("Lunghezza") * s
+	local n = math.max(1, math.floor(l / tratto + 0.5))
+	local fattore = s * l / (n * tratto)
+	local passo = l / n
+	local modello = Instance.new("Model")
+	modello.Name = nome
+	for i = 0, n - 1 do
+		local x = -l / 2 + (i + 0.5) * passo
+		-- Un tratto su due girato di mezzo giro: la fila sembra meno ripetuta.
+		local giro = i % 2 == 1 and CFrame.Angles(0, math.pi, 0) or CFrame.identity
+		clona(originale, fattore, cf * CFrame.new(x, 0, 0) * giro).Parent = modello
+	end
+	scatola(modello)
+	modello.Parent = g
 	return true
 end
 
@@ -1635,16 +1704,20 @@ for nome, aParti in pairs(P) do
 end
 
 -- Sopra a tutto, i modelli fotografici dove ci sono (altrimenti il modello generato o le parti).
-for nome in pairs(foto) do
-	local generato = P[nome]
-	if generato then
-		P[nome] = function(g, cf, rng, s, ctx)
-			ctx = ctx or {}
-			if dentro or not mettiFoto(g, nome, cf, rng, s, ctx) then
-				return generato(g, cf, rng, s, ctx)
+local function sopra(nomi, metti)
+	for nome in pairs(nomi) do
+		local generato = P[nome]
+		if generato then
+			P[nome] = function(g, cf, rng, s, ctx)
+				ctx = ctx or {}
+				if dentro or not metti(g, nome, cf, rng, s, ctx) then
+					return generato(g, cf, rng, s, ctx)
+				end
 			end
 		end
 	end
 end
+sopra(foto, mettiFoto)
+sopra(fotoLineari, mettiFotoLineare)
 
 return Paesaggio
