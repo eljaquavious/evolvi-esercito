@@ -374,7 +374,10 @@ local function creaCasella(arena, genitore, col, riga, colore, coloreBordo)
 				Size = Vector3.new(lato + 0.05, 0.2, lato + 0.05),
 				CFrame = cframePiastrella(arena, x0, z0, x0 + lato, z0 + lato),
 				Color = colore,
-				Transparency = 0.35,
+				-- Un velo di colore opaco: la plastica liscia luccicava al sole e copriva il terreno.
+				Material = Enum.Material.Plastic,
+				Reflectance = 0,
+				Transparency = 0.55,
 			}))
 		end
 	end
