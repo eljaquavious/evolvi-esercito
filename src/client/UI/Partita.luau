@@ -8,6 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
 
+local Cielo = require(script.Parent.Parent.Cielo)
 local Stile = require(script.Parent.Stile)
 local Carta = require(script.Parent.Carta)
 local Icone = require(script.Parent.Icone)
@@ -99,6 +100,7 @@ local function ripristinaCamera()
 end
 
 local function impostaAtmosfera(colore)
+	Cielo.campo()
 	local atmosfera = Lighting:FindFirstChildOfClass("Atmosphere")
 	if not atmosfera or not colore then
 		return

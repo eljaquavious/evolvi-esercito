@@ -1,6 +1,9 @@
 -- Luci, atmosfera ed effetti di colore per tutto il gioco.
 
 local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Luci = require(ReplicatedStorage.Shared.Config.Luci)
 
 local Ambiente = {}
 
@@ -16,51 +19,26 @@ local function effetto(classe, nome, proprieta)
 end
 
 function Ambiente.imposta()
-	-- Sole del pomeriggio un po' basso: ombre lunghe che danno volume a terreno, alberi e soldati.
 	-- La tecnologia di luce (Future, ombre vere da ogni oggetto) è in default.project.json: uno script non
-	-- la può cambiare.
-	Lighting.ClockTime = 16.2
-	Lighting.GeographicLatitude = 41
-	Lighting.Brightness = 3
-	Lighting.Ambient = Color3.fromRGB(70, 72, 82)
-	Lighting.OutdoorAmbient = Color3.fromRGB(138, 140, 150)
-	Lighting.EnvironmentDiffuseScale = 1
-	-- Poca luce speculare: superfici opache, niente effetto plastica.
-	Lighting.EnvironmentSpecularScale = 0.3
+	-- la può cambiare. I valori sono il preset "campo" di Config/Luci; in lobby il client mette il suo.
+	local preset = Luci.campo
+	for k, v in pairs(preset.Lighting) do
+		Lighting[k] = v
+	end
 	Lighting.GlobalShadows = true
-	Lighting.ShadowSoftness = 0.12
-	Lighting.ExposureCompensation = 0.25
 
-	effetto("Atmosphere", "Atmosfera", {
-		Density = 0.3,
-		Offset = 0.1,
-		Color = Color3.fromRGB(196, 210, 226),
-		Decay = Color3.fromRGB(112, 118, 132),
-		Glare = 0.25,
-		Haze = 1.7,
-	})
-	effetto("BloomEffect", "Bagliore", { Intensity = 0.35, Size = 24, Threshold = 1.8 })
-	effetto("SunRaysEffect", "RaggiDiSole", { Intensity = 0.05, Spread = 0.6 })
-	effetto("ColorCorrectionEffect", "Colore", {
-		Brightness = 0.01,
-		Contrast = 0.12,
-		Saturation = 0.04,
-		TintColor = Color3.fromRGB(255, 250, 242),
-	})
-	effetto("DepthOfFieldEffect", "Profondita", {
-		Enabled = true,
-		FarIntensity = 0.12,
-		FocusDistance = 80,
-		InFocusRadius = 70,
-		NearIntensity = 0,
-	})
+	effetto("Atmosphere", "Atmosfera", preset.Atmosphere)
+	effetto("BloomEffect", "Bagliore", preset.BloomEffect)
+	effetto("SunRaysEffect", "RaggiDiSole", preset.SunRaysEffect)
+	effetto("ColorCorrectionEffect", "Colore", preset.ColorCorrectionEffect)
+	effetto("DepthOfFieldEffect", "Profondita", preset.DepthOfFieldEffect)
 
 	-- Nuvole vere nel cielo (al posto del cielo vuoto).
 	local terreno = workspace.Terrain
 	local nuvole = terreno:FindFirstChildOfClass("Clouds") or Instance.new("Clouds")
-	nuvole.Cover = 0.5
-	nuvole.Density = 0.55
-	nuvole.Color = Color3.fromRGB(250, 250, 252)
+	for k, v in pairs(preset.Clouds) do
+		nuvole[k] = v
+	end
 	nuvole.Parent = terreno
 
 	-- Colori del terreno un po' più naturali (meno saturi). Il colore moltiplica la texture: se in

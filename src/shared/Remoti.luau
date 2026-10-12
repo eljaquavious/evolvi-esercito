@@ -5,6 +5,7 @@ return {
 		"Stato", -- server -> client: monete, livello, epoca
 		"Notifica", -- server -> client: messaggio breve
 		"ApriShop", -- server -> client
+		"ApriEsercito", -- server -> client: il tavolo ARMY della lobby apre il mazzo
 		"Fase", -- server -> client: lobby, mappa, piazzamento, battaglia, round, risultato
 		"Truppe", -- server -> client: soldati da disegnare (schieramento, inizio, passo, fine, pulisci)
 	},

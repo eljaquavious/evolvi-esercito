@@ -13,6 +13,7 @@ local Campagna = require(ReplicatedStorage.Shared.Config.Campagna)
 local MappaEuropa = require(ReplicatedStorage.Shared.Config.MappaEuropa)
 local Biomi = require(ReplicatedStorage.Shared.Config.Biomi)
 local Epoche = require(ReplicatedStorage.Shared.Config.Epoche)
+local Cielo = require(script.Parent.Parent.Cielo)
 local Stile = require(script.Parent.Stile)
 local Carta = require(script.Parent.Carta)
 local Icone = require(script.Parent.Icone)
@@ -465,6 +466,7 @@ local function seleziona(numero, istantanea)
 end
 
 local function impostaAmbiente()
+	Cielo.campo()
 	local atmosfera = Lighting:FindFirstChildOfClass("Atmosphere")
 	local profondita = Lighting:FindFirstChildOfClass("DepthOfFieldEffect")
 	ambienteSalvato = {
