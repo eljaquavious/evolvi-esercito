@@ -430,39 +430,112 @@ local function cadute(stato, t)
 	end
 end
 
--- Lanci: la prima riga (o le prime "righe") del reparto lancia verso il reparto bersaglio.
+-- Proiettile giusto per chi tira: pilum, freccia, fucilata, raffica o cannonata.
+local function proiettile(s, a, colpo)
+	local da = s.animatore:puntoTiro()
+	local stile = s.animatore.stile
+	local volo = math.clamp((a - da).Magnitude / (stile == "arco" and 24 or 90), 0.12, 1.4)
+	if colpo == "lancio" then
+		s.animatore:lasciaLancia()
+		Effetti.pilum(da, a, math.max(0.5, volo))
+	elseif stile == "arco" then
+		Effetti.freccia(da, a, volo)
+	elseif stile == "carro" then
+		Effetti.granata(s.posizione + avanti(s.angolo) * 6 + Vector3.new(0, 4, 0), a, volo)
+	elseif stile == "mitragliatrice" then
+		for i = 0, 2 do
+			task.delay(i * 0.06, Effetti.sparo, da, a + Vector3.new(math.random() - 0.5, 0, math.random() - 0.5), volo)
+		end
+	else
+		Effetti.sparo(da, a, volo)
+	end
+end
+
+-- Lanci: le prime "righe" del reparto lanciano o tirano verso un reparto bersaglio (o un punto),
+-- "ripeti" volte a distanza di "ogni" secondi. colpo: "lancio" (pilum) o "tiro" (arco, fucile, cannone).
 local function lanci(stato, t)
 	for _, l in ipairs(stato.dati.lanci or {}) do
-		if not l.fatto and t >= l.t then
-			l.fatto = true
-			local reparto, bersaglio = stato.reparti[l.reparto], stato.reparti[l.verso]
-			if reparto and bersaglio then
+		l.fatti = l.fatti or 0
+		local prossimo = l.t + l.fatti * (l.ogni or 1.2)
+		if l.fatti < (l.ripeti or 1) and t >= prossimo then
+			l.fatti += 1
+			local reparto, bersaglio = stato.reparti[l.reparto], l.verso and stato.reparti[l.verso]
+			if reparto then
 				for _, s in ipairs(reparto.soldati) do
-					if s.vivo and s.fila <= (l.righe or 1) then
-						local ritardo = math.random() * 0.35
+					if s.vivo and s.fila <= (l.righe or 1) and math.random() <= (l.quota or 1) then
+						local ritardo = math.random() * (l.sparsi or 0.35)
 						task.delay(ritardo, function()
-							if not s.modello.Parent then
+							if not s.vivo or not s.modello.Parent then
 								return
 							end
-							s.animatore:attacca(l.colpo or "lancio", 0.4)
-							task.delay(0.4, function()
-								if not s.modello.Parent then
+							local gesto = s.animatore.stile == "arco" and 0.5 or 0.3
+							s.animatore:attacca(l.colpo or "lancio", gesto)
+							task.delay(gesto, function()
+								if not s.vivo or not s.modello.Parent then
 									return
 								end
-								local mira = bersaglio.soldati[math.random(#bersaglio.soldati)]
-								local a = mira.posizione + Vector3.new(math.random() * 4 - 2, 2.4, math.random() * 4 - 2)
-								local da = s.animatore:puntoTiro()
-								local volo = math.clamp((a - da).Magnitude / 24, 0.5, 1.4)
-								if l.colpo == "tiro" then
-									Effetti.freccia(da, a, volo)
-								else
-									s.animatore:lasciaLancia()
-									Effetti.pilum(da, a, volo)
+								local a
+								if bersaglio and #bersaglio.soldati > 0 then
+									local mira = bersaglio.soldati[math.random(#bersaglio.soldati)]
+									a = mira.posizione + Vector3.new(math.random() * 4 - 2, 2.4, math.random() * 4 - 2)
+								elseif l.punto then
+									local p = stato.centro + Vector3.new(l.punto[1] + math.random() * 10 - 5, 0, l.punto[2] + math.random() * 10 - 5)
+									a = Vector3.new(p.X, stato.quota(p.X, p.Z) + 1, p.Z)
+								end
+								if a then
+									proiettile(s, a, l.colpo)
 								end
 							end)
 						end)
 					end
 				end
+			end
+		end
+	end
+end
+
+-- Esplosioni (artiglieria, granate): "n" scoppi sparsi in un cerchio di "raggio" tra t e t + durata.
+local function esplosioni(stato, t)
+	for _, e in ipairs(stato.dati.esplosioni or {}) do
+		e.fatti = e.fatti or 0
+		local n = e.n or 1
+		while e.fatti < n and t >= e.t + (e.durata or 0) * e.fatti / n do
+			e.fatti += 1
+			local angolo, r = math.random() * 2 * math.pi, math.sqrt(math.random()) * (e.raggio or 0)
+			local p = stato.centro + Vector3.new(e.x + math.cos(angolo) * r, 0, e.z + math.sin(angolo) * r)
+			Effetti.esplosione(Vector3.new(p.X, stato.quota(p.X, p.Z) + 0.5, p.Z))
+		end
+	end
+end
+
+-- Fuochi e fumo a terra (sterpaglia incendiata, case in fiamme, fumo della battaglia).
+local function fuochi(stato, t)
+	for _, f in ipairs(stato.dati.fuochi or {}) do
+		if not f.acceso and t >= f.t then
+			f.acceso = true
+			for _ = 1, f.n or 1 do
+				local angolo, r = math.random() * 2 * math.pi, math.sqrt(math.random()) * (f.raggio or 0)
+				local p = stato.centro + Vector3.new(f.x + math.cos(angolo) * r, 0, f.z + math.sin(angolo) * r)
+				local base = Instance.new("Part")
+				base.Anchored = true
+				base.CanCollide = false
+				base.CanQuery = false
+				base.Transparency = 1
+				base.Size = Vector3.new(4, 1, 4)
+				base.Position = Vector3.new(p.X, stato.quota(p.X, p.Z) + 0.5, p.Z)
+				if not f.soloFumo then
+					local fuoco = Instance.new("Fire")
+					fuoco.Size = 6 + math.random() * 4
+					fuoco.Heat = 12
+					fuoco.Parent = base
+				end
+				local fumo = Instance.new("Smoke")
+				fumo.Color = f.colore or Color3.fromRGB(70, 66, 60)
+				fumo.Opacity = f.opacita or 0.35
+				fumo.RiseVelocity = 6
+				fumo.Size = 6
+				fumo.Parent = base
+				base.Parent = stato.cartella
 			end
 		end
 	end
@@ -604,6 +677,10 @@ local function finisci(stato, subito)
 	for _, effetto in ipairs(stato.effetti) do
 		effetto:Destroy()
 	end
+	if stato.atmosfera then
+		local atmosfera, densita, foschia = table.unpack(stato.atmosfera)
+		atmosfera.Density, atmosfera.Haze = densita, foschia
+	end
 	local camera = workspace.CurrentCamera
 	camera.FieldOfView = 70
 	camera.CameraType = Enum.CameraType.Custom
@@ -649,7 +726,7 @@ function Cinematica.riproduci(nome, centro, arena, fine)
 	end
 	-- Ogni volta una copia: la sceneggiatura si segna cosa ha già fatto (scritte, lanci, caduti).
 	local dati = table.clone(sceneggiatura)
-	for _, chiave in ipairs({ "scritte", "lanci", "cadute" }) do
+	for _, chiave in ipairs({ "scritte", "lanci", "cadute", "esplosioni", "fuochi" }) do
 		if dati[chiave] then
 			local copia = {}
 			for i, v in ipairs(dati[chiave]) do
@@ -716,6 +793,13 @@ function Cinematica.riproduci(nome, centro, arena, fine)
 	profondita.NearIntensity = 0
 	profondita.Enabled = false
 	profondita.Parent = Lighting
+	-- Nebbia della scena (Amiens all'alba): solo per la durata della cinematica.
+	local atmosfera = Lighting:FindFirstChildOfClass("Atmosphere")
+	if dati.nebbia and atmosfera then
+		stato.atmosfera = { atmosfera, atmosfera.Density, atmosfera.Haze }
+		atmosfera.Density = math.max(atmosfera.Density, dati.nebbia)
+		atmosfera.Haze = math.max(atmosfera.Haze, dati.nebbia * 4)
+	end
 	table.insert(stato.effetti, profondita)
 	stato.profondita = profondita
 
@@ -766,6 +850,8 @@ function Cinematica.riproduci(nome, centro, arena, fine)
 			mischia(stato, t)
 		end
 		lanci(stato, t)
+		esplosioni(stato, t)
+		fuochi(stato, t)
 		cadute(stato, t)
 		aggiornaSoldati(stato, t, dt, quota)
 		aggiornaCamera(stato, t)
