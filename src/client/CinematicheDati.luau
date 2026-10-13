@@ -794,7 +794,7 @@ Dati["Amiens"] = {
 		R("tedeschiD", "Fante", "giocatore", 6, 2, { T(0, 19, -40, 0), T(22), T(31, nil, -100, 180) }),
 		R("mitragliaS", "Mitragliere", "giocatore", 1, 1, { T(0, -32, -39, 0) }),
 		R("mitragliaD", "Mitragliere", "giocatore", 1, 1, { T(0, 32, -39, 0) }),
-		R("carri", "CarroArmato", "nemico", 4, 1, { T(0, 0, 70, 180), T(3), T(22, nil, -30), T(31, nil, -33) }, 14),
+		R("carri", "CarroArmato", "nemico", 4, 1, { T(0, 0, 70, 180), T(3), T(22, nil, -30), T(31, nil, -31) }, 14),
 		R("fantiS", "Fante", "nemico", 6, 2, { T(0, -14, 85, 180), T(4), T(22, nil, -18), T(31, nil, -24) }),
 		R("fantiD", "Fante", "nemico", 6, 2, { T(0, 14, 85, 180), T(4), T(22, nil, -18), T(31, nil, -24) }),
 		R("foch", "Foch", "nemico", 1, 1, { T(0, 36, 46, 180) }),
