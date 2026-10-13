@@ -79,10 +79,16 @@ function Ambiente.imposta()
 		[Enum.Material.Ice] = false,
 		[Enum.Material.Cobblestone] = false,
 	}
+	-- Con la foto però l'erba ha un colore suo: Grass colora anche i fili d'erba 3D (bianco = verde acido) e
+	-- LeafyGrass un po' meno saturo, così il prato fotografico non è troppo acceso.
+	local coloriFoto = {
+		[Enum.Material.Grass] = Color3.fromRGB(160, 168, 112),
+		[Enum.Material.LeafyGrass] = Color3.fromRGB(225, 212, 180),
+	}
 	for materiale, colore in pairs(colori) do
 		local ok, foto = pcall(MaterialService.GetBaseMaterialOverride, MaterialService, materiale)
 		if ok and foto ~= "" then
-			terreno:SetMaterialColor(materiale, Color3.new(1, 1, 1))
+			terreno:SetMaterialColor(materiale, coloriFoto[materiale] or Color3.new(1, 1, 1))
 		elseif colore then
 			terreno:SetMaterialColor(materiale, colore)
 		end
