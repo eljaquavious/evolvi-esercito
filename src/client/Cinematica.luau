@@ -149,19 +149,45 @@ end
 
 -- Toglie (solo qui) alberi, tende e rocce dalle zone dove passano i reparti o la telecamera.
 -- zone: { x0, z0, x1, z1 } dal centro della scena. I pezzi molto grandi (terreno, cornice) restano.
+-- L'oggetto intero (il suo Model) si sposta lontano, fuori vista: la trasparenza non basta, perché la mesh
+-- vera dell'oggetto arriva dopo (Client/Paesaggio) e le SurfaceAppearance lasciavano scatole scure con l'ombra.
+-- Si ripete durante la scena per gli oggetti vestiti nel frattempo.
+local LONTANO = Vector3.new(60000, 0, 60000)
+
+local function sposta(stato, pezzo)
+	if stato.spostati[pezzo] then
+		return
+	end
+	stato.spostati[pezzo] = pezzo.CFrame
+	pezzo.CFrame += LONTANO
+end
+
 local function sgombra(stato, radice, zone)
 	if not radice or not zone then
 		return
 	end
 	for _, pezzo in ipairs(radice:GetDescendants()) do
-		if pezzo:IsA("BasePart") and pezzo.LocalTransparencyModifier < 1 then
+		if pezzo:IsA("BasePart") and not stato.spostati[pezzo] and pezzo.LocalTransparencyModifier < 1 then
 			local dimensione = pezzo.Size
 			if math.max(dimensione.X, dimensione.Z) < 40 then
 				local p = pezzo.Position - stato.centro
 				for _, z in ipairs(zone) do
 					if p.X >= z[1] and p.X <= z[3] and p.Z >= z[2] and p.Z <= z[4] then
-						table.insert(stato.nascosti, pezzo)
-						pezzo.LocalTransparencyModifier = 1
+						local modello = pezzo:FindFirstAncestorWhichIsA("Model")
+						local intero = modello and modello ~= radice and modello:IsDescendantOf(radice)
+						if intero then
+							local misura = modello:GetExtentsSize()
+							intero = math.max(misura.X, misura.Z) < 40
+						end
+						if intero then
+							for _, parte in ipairs(modello:GetDescendants()) do
+								if parte:IsA("BasePart") then
+									sposta(stato, parte)
+								end
+							end
+						else
+							sposta(stato, pezzo)
+						end
 						break
 					end
 				end
@@ -219,9 +245,11 @@ local function creaInterfaccia(stato, suSkip)
 
 	local scritta = Instance.new("TextLabel")
 	scritta.BackgroundTransparency = 1
-	scritta.AnchorPoint = Vector2.new(0.5, 1)
-	scritta.Position = UDim2.fromScale(0.5, 1 - BANDA - 0.04)
-	scritta.Size = UDim2.fromScale(0.8, 0.07)
+	-- Dentro la banda nera di sotto, come i sottotitoli dei film: si legge anche su neve e sabbia
+	-- e non copre i soldati.
+	scritta.AnchorPoint = Vector2.new(0.5, 0.5)
+	scritta.Position = UDim2.fromScale(0.5, 1 - BANDA / 2)
+	scritta.Size = UDim2.fromScale(0.68, BANDA * 0.62) -- a destra c'è SKIP
 	scritta.FontFace = FONT_CORSIVO
 	scritta.TextScaled = true
 	scritta.TextColor3 = Color3.fromRGB(245, 236, 214)
@@ -664,6 +692,11 @@ local function finisci(stato, subito)
 			pezzo.LocalTransparencyModifier = 0
 		end
 	end
+	for pezzo, cf in pairs(stato.spostati) do
+		if pezzo.Parent then
+			pezzo.CFrame = cf
+		end
+	end
 	for _, d in ipairs(stato.decalNascosti) do
 		if d[1].Parent then
 			d[1].Transparency = d[2]
@@ -748,6 +781,7 @@ function Cinematica.riproduci(nome, centro, arena, fine)
 		reparti = {},
 		nascosti = {},
 		decalNascosti = {},
+		spostati = {},
 		guiNascoste = {},
 		effetti = {},
 	}
@@ -841,6 +875,7 @@ function Cinematica.riproduci(nome, centro, arena, fine)
 	local inizio = os.clock()
 	local ultimo = 0
 	local prossimaMischia = 0
+	local prossimoSgombro = 0.5
 	stato.connessione = RunService.RenderStepped:Connect(function()
 		local t = os.clock() - inizio
 		local dt = math.min(0.1, t - ultimo)
@@ -848,6 +883,10 @@ function Cinematica.riproduci(nome, centro, arena, fine)
 		if t >= prossimaMischia then
 			prossimaMischia = t + 0.2
 			mischia(stato, t)
+		end
+		if t >= prossimoSgombro then
+			prossimoSgombro = t + (t < 8 and 0.5 or 2)
+			sgombra(stato, arena, dati.sgombra)
 		end
 		lanci(stato, t)
 		esplosioni(stato, t)
