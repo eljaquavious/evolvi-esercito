@@ -83,7 +83,7 @@ local function targhetta(player, personaggio, idTitolo)
 		gui = Instance.new("BillboardGui")
 		gui.Name = "Targhetta"
 		gui.Size = UDim2.fromScale(7, 1.7)
-		gui.StudsOffsetWorldSpace = Vector3.new(0, 3.4, 0) -- sopra elmi e stendardi
+		gui.StudsOffsetWorldSpace = Vector3.new(0, 3.9, 0) -- sopra elmi e stendardi
 		gui.MaxDistance = 80
 		gui.LightInfluence = 0
 		gui.ResetOnSpawn = false

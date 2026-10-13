@@ -418,7 +418,7 @@ end
 function Costruttori.Aquila(m)
 	-- Aquila imperiale d'oro su asta, con la corona d'alloro e la targa SPQR.
 	parte(m, "cilindro", Vector3.new(4.9, 0.12, 0.12), verticale(1.0, 1.45, 0.78), ORO_SCURO)
-	local base = C(1.0, 3.4, 0.78)
+	local base = C(1.0, 3.1, 0.78)
 	parte(m, "blocco", Vector3.new(0.6, 0.08, 0.12), base, ORO_SCURO)
 	parte(m, "palla", Vector3.new(0.32, 0.46, 0.3), base * C(0, 0.3, 0), ORO) -- corpo
 	parte(m, "palla", Vector3.new(0.2, 0.2, 0.2), base * C(0, 0.6, -0.06), ORO) -- testa
