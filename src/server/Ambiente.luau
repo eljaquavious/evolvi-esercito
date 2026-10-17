@@ -59,9 +59,15 @@ function Ambiente.imposta()
 	}
 	-- Con la foto però l'erba ha un colore suo: Grass colora anche i fili d'erba 3D (bianco = verde acido) e
 	-- LeafyGrass un po' meno saturo, così il prato fotografico non è troppo acceso.
+	-- La sabbia fotografica da sola è grigiastra (sembrava neve sporca): una tinta calda la fa dorata, e
+	-- un po' meno calda l'arenaria.
+	-- Il ghiaccio del lago (T4_Ice003) è verdastro: un filo di blu-grigio lo fa sembrare ghiaccio d'acqua dolce.
 	local coloriFoto = {
 		[Enum.Material.Grass] = Color3.fromRGB(160, 168, 112),
 		[Enum.Material.LeafyGrass] = Color3.fromRGB(225, 212, 180),
+		[Enum.Material.Sand] = Color3.fromRGB(255, 222, 168),
+		[Enum.Material.Sandstone] = Color3.fromRGB(250, 228, 196),
+		[Enum.Material.Ice] = Color3.fromRGB(228, 238, 246),
 	}
 	for materiale, colore in pairs(colori) do
 		local ok, foto = pcall(MaterialService.GetBaseMaterialOverride, MaterialService, materiale)
