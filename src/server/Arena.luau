@@ -31,7 +31,9 @@ local MEZZO_QUOTE = 80 -- le quote si misurano su questo quadrato attorno al cen
 local PASSO_QUOTE = 2
 -- Sotto le caselle niente Grass: i suoi fili d'erba 3D (Terrain.Decoration) bucherebbero le caselle. Tutto attorno
 -- invece sì, corta (Terrain.GrassLength si imposta in Studio: non si può da script): è l'erba vera dei prati.
-local SENZA_ERBA_ALTA = META_CAMPO + 6
+-- La fascia è larga quanto quella libera da scenari (Scenari.PROTETTO): più stretta, l'erba alta sul bordo
+-- copriva i soldati delle prime file vista dalla telecamera.
+local SENZA_ERBA_ALTA = META_CAMPO + 20
 local PEZZI_CASELLA = 4 -- ogni casella è fatta di 4x4 piastrelle che seguono il terreno
 local SOPRA_TERRENO = 0.35
 local FONDO_MARE = -7
