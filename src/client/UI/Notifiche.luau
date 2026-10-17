@@ -1,4 +1,5 @@
--- Messaggi brevi in alto al centro dello schermo: pillola blu notte con una striscia colorata.
+-- Messaggi brevi in cima allo schermo, al centro: pillola blu notte con una striscia colorata.
+-- Stanno sopra le finestre (Locker, Shop...) e sopra il cartello del round, non sulle loro schede.
 
 local TweenService = game:GetService("TweenService")
 
@@ -12,7 +13,7 @@ function Notifiche.inizializza(gui)
 	contenitore = Stile.crea("Frame", {
 		Name = "Notifiche",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 150),
+		Position = UDim2.new(0.5, 0, 0, 6),
 		Size = UDim2.fromOffset(900, 400),
 		BackgroundTransparency = 1,
 		ZIndex = 50,

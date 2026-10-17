@@ -362,18 +362,24 @@ function Costruttori.Mantello(m)
 		{ -0.5, 0.9, 2.2, 9 },
 		{ -1.35, 0.9, 2.4, 14 },
 	}
+	-- Ogni fascia ha la sua cerniera in cima (attributo "Cerniera<i>" del modello, "Fascia" sulle parti):
+	-- indossa la salda con un Weld e il client la fa ondeggiare (Mantelli.luau).
 	local z = 0.6
 	local yPrima = 0.8
 	for i, f in ipairs(fasce) do
 		local alto = f[2]
+		m:SetAttribute("Cerniera" .. i, Vector3.new(0, yPrima, z))
+		local function telo(...)
+			parte(m, ...):SetAttribute("Fascia", i)
+		end
 		local cf = C(0, yPrima - alto / 2, z) * CFrame.Angles(rad(f[4]), 0, 0)
-		parte(m, "blocco", Vector3.new(f[3], alto + 0.24, 0.1), cf, CREMISI, STOFFA)
+		telo("blocco", Vector3.new(f[3], alto + 0.24, 0.1), cf, CREMISI, STOFFA)
 		for _, s in ipairs({ -1, 1 }) do -- i lati piegati in avanti danno la curva
-			parte(m, "blocco", Vector3.new(0.3, alto + 0.24, 0.1), cf * C(s * (f[3] / 2 + 0.1), 0, -0.1) * CFrame.Angles(0, rad(s * -40), 0), CREMISI, STOFFA)
-			parte(m, "blocco", Vector3.new(0.06, alto + 0.24, 0.12), cf * C(s * (f[3] / 2 + 0.2), 0, -0.2) * CFrame.Angles(0, rad(s * -40), 0), ORO, STOFFA)
+			telo("blocco", Vector3.new(0.3, alto + 0.24, 0.1), cf * C(s * (f[3] / 2 + 0.1), 0, -0.1) * CFrame.Angles(0, rad(s * -40), 0), CREMISI, STOFFA)
+			telo("blocco", Vector3.new(0.06, alto + 0.24, 0.12), cf * C(s * (f[3] / 2 + 0.2), 0, -0.2) * CFrame.Angles(0, rad(s * -40), 0), ORO, STOFFA)
 		end
 		if i == #fasce then
-			parte(m, "blocco", Vector3.new(f[3] + 0.4, 0.1, 0.12), cf * C(0, -alto / 2, 0), ORO, STOFFA)
+			telo("blocco", Vector3.new(f[3] + 0.4, 0.1, 0.12), cf * C(0, -alto / 2, 0), ORO, STOFFA)
 		end
 		yPrima -= alto * math.cos(rad(f[4]))
 		z += alto * math.sin(rad(f[4]))
@@ -532,13 +538,29 @@ function Cosmetici3D.indossa(personaggio, id, slot)
 		k *= Vector3.new(1.04, 1.02, 1.2)
 	end
 	scala(modello, k)
+	for nome, valore in pairs(modello:GetAttributes()) do
+		if string.sub(nome, 1, 8) == "Cerniera" then
+			modello:SetAttribute(nome, valore * k) -- nello spazio della parte del corpo, come il modello
+		end
+	end
 	modello:PivotTo(corpo.CFrame)
 	for _, p in ipairs(modello:GetDescendants()) do
 		if p:IsA("BasePart") then
-			local saldatura = Instance.new("WeldConstraint")
-			saldatura.Part0 = corpo
-			saldatura.Part1 = p
-			saldatura.Parent = p
+			if p:GetAttribute("Fascia") then
+				-- Le parti che si muovono (il telo del mantello) usano un Weld: il client ne cambia C0.
+				local saldatura = Instance.new("Weld")
+				saldatura.Name = "Telo"
+				saldatura.Part0 = corpo
+				saldatura.Part1 = p
+				saldatura.C0 = corpo.CFrame:ToObjectSpace(p.CFrame)
+				saldatura:SetAttribute("Base", saldatura.C0)
+				saldatura.Parent = p
+			else
+				local saldatura = Instance.new("WeldConstraint")
+				saldatura.Part0 = corpo
+				saldatura.Part1 = p
+				saldatura.Parent = p
+			end
 			p.Anchored = false
 		end
 	end

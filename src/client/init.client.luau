@@ -14,6 +14,7 @@ local Armadio = require(script.UI.Armadio)
 local Truppe = require(script.Truppe)
 local Paesaggio = require(script.Paesaggio)
 local LobbyVita = require(script.LobbyVita)
+local Mantelli = require(script.Mantelli)
 local Cinematica = require(script.Cinematica)
 
 local player = Players.LocalPlayer
@@ -34,6 +35,7 @@ local gui = Stile.crea("ScreenGui", {
 Notifiche.inizializza(gui)
 Truppe.inizializza(remoti)
 LobbyVita.inizializza(remoti)
+Mantelli.inizializza()
 task.spawn(Paesaggio.inizializza)
 Shop.inizializza(gui, remoti)
 Inventario.inizializza(gui, remoti)
