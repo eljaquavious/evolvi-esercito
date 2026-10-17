@@ -29,13 +29,12 @@ local function nascondiAccessori(personaggio, slotOccupati)
 		if accessorio:IsA("Accessory") then
 			local maniglia = accessorio:FindFirstChild("Handle")
 			if maniglia and maniglia:IsA("BasePart") then
+				-- Sotto qualsiasi copricapo i capelli non si vedono (scelta di Mattia), nemmeno sotto corone e ghirlande.
 				local coperto = false
-				for slot, oggetto in pairs(slotOccupati) do
+				for slot in pairs(slotOccupati) do
 					local tipi = COPERTI[slot]
 					if tipi and tipi[accessorio.AccessoryType] then
-						-- Sotto una corona o una ghirlanda i capelli si vedono: si nasconde solo il cappello.
-						local soloCappello = oggetto.scoperto and accessorio.AccessoryType == Enum.AccessoryType.Hair
-						coperto = coperto or not soloCappello
+						coperto = true
 					end
 				end
 				local nascosto = accessorio:GetAttribute(ATTRIBUTO)
