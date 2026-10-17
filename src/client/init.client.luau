@@ -14,6 +14,7 @@ local Armadio = require(script.UI.Armadio)
 local Truppe = require(script.Truppe)
 local Paesaggio = require(script.Paesaggio)
 local LobbyVita = require(script.LobbyVita)
+local Cinematica = require(script.Cinematica)
 
 local player = Players.LocalPlayer
 local cartellaRemoti = ReplicatedStorage:WaitForChild("Remoti")
@@ -99,6 +100,7 @@ local function aggiornaStato(stato)
 	Profilo.aggiorna(stato)
 	Armadio.aggiorna(stato)
 	Mappa.aggiorna(stato)
+	Cinematica.aggiorna(stato)
 end
 
 remoti.Fase.OnClientEvent:Connect(function(dati)

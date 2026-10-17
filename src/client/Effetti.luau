@@ -127,13 +127,27 @@ function Effetti.esplosione(posizione)
 	e.DestroyJointRadiusPercent = 0
 	e.ExplosionType = Enum.ExplosionType.NoCraters
 	e.Parent = cartella
-	for _ = 1, 6 do
-		local polvere = parte({ Size = Vector3.one * 2, Shape = Enum.PartType.Ball, Color = Color3.fromRGB(120, 104, 86), Material = Enum.Material.SmoothPlastic, Transparency = 0.2, Position = posizione })
-		polvere.Parent = cartella
-		local verso = Vector3.new(math.random() - 0.5, math.random() * 0.8 + 0.2, math.random() - 0.5).Unit * 5
-		TweenService:Create(polvere, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = posizione + verso, Size = Vector3.one * 4.5, Transparency = 1 }):Play()
-		Debris:AddItem(polvere, 1)
-	end
+	-- Terra e fumo che salgono (particelle morbide, non palle lisce).
+	local ancora = parte({ Size = Vector3.one * 0.2, Transparency = 1, Position = posizione })
+	ancora.Parent = cartella
+	local polvere = Instance.new("ParticleEmitter")
+	polvere.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	polvere.Color = ColorSequence.new(Color3.fromRGB(96, 82, 66), Color3.fromRGB(150, 138, 122))
+	polvere.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2.5), NumberSequenceKeypoint.new(1, 7) })
+	polvere.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(1, 1) })
+	polvere.Lifetime = NumberRange.new(1.1, 1.8)
+	polvere.Speed = NumberRange.new(5, 11)
+	polvere.SpreadAngle = Vector2.new(35, 35)
+	polvere.EmissionDirection = Enum.NormalId.Top
+	polvere.Acceleration = Vector3.new(0, -4, 0)
+	polvere.Drag = 2
+	polvere.Rotation = NumberRange.new(0, 360)
+	polvere.RotSpeed = NumberRange.new(-40, 40)
+	polvere.LightInfluence = 1
+	polvere.Rate = 0
+	polvere.Parent = ancora
+	polvere:Emit(14)
+	Debris:AddItem(ancora, 2)
 end
 
 function Effetti.granata(da, a, durata)
