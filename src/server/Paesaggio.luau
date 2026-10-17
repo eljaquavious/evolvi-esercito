@@ -1648,7 +1648,7 @@ end
 
 -- Un oggetto lungo (lunghezza ctx.lunghezza lungo X, centrato in cf) fatto di tratti fotografici in fila.
 -- I tratti si allungano o accorciano di poco perché la fila torni esatta.
-local LUNGHEZZE_BASE = { sacchetti = 14 }
+local LUNGHEZZE_BASE = { sacchetti = 14, palizzata = 24 } -- come i predefiniti di P.sacchetti e P.palizzata
 local function mettiFotoLineare(g, nome, cf, rng, s, ctx)
 	local originale = scegliFoto(fotoLineari[nome], rng, ctx)
 	if not originale then
