@@ -100,6 +100,9 @@ Lobby.costruisci({
 	shop = function(player)
 		remoti.ApriShop:FireClient(player)
 	end,
+	esercito = function(player)
+		remoti.ApriEsercito:FireClient(player)
+	end,
 })
 
 local function giocatoreEntrato(player)
@@ -109,9 +112,9 @@ end
 Players.PlayerAdded:Connect(giocatoreEntrato)
 for _, player in ipairs(Players:GetPlayers()) do
 	task.spawn(giocatoreEntrato, player)
-	-- In Studio il personaggio può essere nato prima che lo spawn fosse spostato nella piazza.
+	-- In Studio il personaggio può essere nato prima che lo spawn fosse spostato nella Rotonda.
 	if player.Character then
-		player.Character:PivotTo(CFrame.new(Lobby.SPAWN))
+		player.Character:PivotTo(Lobby.SPAWN)
 	end
 end
 

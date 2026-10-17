@@ -13,6 +13,7 @@ local Mappa = require(script.UI.Mappa)
 local Armadio = require(script.UI.Armadio)
 local Truppe = require(script.Truppe)
 local Paesaggio = require(script.Paesaggio)
+local LobbyVita = require(script.LobbyVita)
 
 local player = Players.LocalPlayer
 local cartellaRemoti = ReplicatedStorage:WaitForChild("Remoti")
@@ -31,6 +32,7 @@ local gui = Stile.crea("ScreenGui", {
 
 Notifiche.inizializza(gui)
 Truppe.inizializza(remoti)
+LobbyVita.inizializza(remoti)
 task.spawn(Paesaggio.inizializza)
 Shop.inizializza(gui, remoti)
 Inventario.inizializza(gui, remoti)
@@ -109,12 +111,18 @@ remoti.Stato.OnClientEvent:Connect(aggiornaStato)
 remoti.Notifica.OnClientEvent:Connect(function(messaggio)
 	Notifiche.mostra(messaggio)
 end)
-remoti.ApriShop.OnClientEvent:Connect(function()
-	if not Partita.inCorso() and not Mappa.aperta() then
-		chiudiFinestre(Shop)
-		Shop.apri()
+-- Le finestre aperte dalla lobby (bancone dello shop, tavolo ARMY): si aprono, non si alternano,
+-- così passarci davanti due volte non le richiude.
+local function apriDallaLobby(finestra)
+	return function()
+		if not Partita.inCorso() and not Mappa.aperta() then
+			chiudiFinestre(finestra)
+			finestra.apri()
+		end
 	end
-end)
+end
+remoti.ApriShop.OnClientEvent:Connect(apriDallaLobby(Shop))
+remoti.ApriEsercito.OnClientEvent:Connect(apriDallaLobby(Inventario))
 
 task.spawn(function()
 	-- I dati possono non essere ancora caricati: riprova finché arrivano.
