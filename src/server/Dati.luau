@@ -23,6 +23,7 @@ local function predefiniti()
 	return {
 		monete = 100,
 		livello = 1, -- prossimo livello della campagna da giocare
+		formazione = "linea", -- ultima formazione scelta (Config/Formazioni)
 		campagnaCompletata = false,
 		collezione = collezione, -- tipo -> copie possedute
 		mazzo = table.clone(iniziale), -- lista di tipi, una voce per carta

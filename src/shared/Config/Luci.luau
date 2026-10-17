@@ -38,6 +38,78 @@ Luci.campo = {
 	Clouds = { Cover = 0.5, Density = 0.55, Color = Color3.fromRGB(250, 250, 252) },
 }
 
+-- Cielo e tempo delle battaglie (Campagna.Battaglie[].meteo): ognuno cambia solo alcuni valori del preset
+-- "campo" (stessi nomi), così torna tutto a posto quando si rimette il campo o la lobby.
+-- particelle = pioggia o neve che cadono attorno alla telecamera (Client/Meteo).
+-- Chi non indica Atmosphere.Color tiene il colore del bioma.
+local function C(r, g, b)
+	return Color3.fromRGB(r, g, b)
+end
+
+Luci.meteo = {
+	sereno = {},
+	caldo = {
+		Lighting = { ClockTime = 13.6, Brightness = 3.4, OutdoorAmbient = C(150, 140, 128), ExposureCompensation = 0.3 },
+		Atmosphere = { Density = 0.34, Haze = 2.2, Glare = 0.5 },
+		BloomEffect = { Intensity = 0.45 },
+		ColorCorrectionEffect = { Saturation = 0.08, TintColor = C(255, 244, 226) },
+		Clouds = { Cover = 0.3, Density = 0.4 },
+	},
+	polvere = {
+		Lighting = { ClockTime = 15, Brightness = 2.8, OutdoorAmbient = C(150, 134, 112) },
+		Atmosphere = { Density = 0.45, Offset = 0.05, Color = C(214, 186, 140), Decay = C(150, 116, 80), Haze = 2.8, Glare = 0.4 },
+		ColorCorrectionEffect = { Saturation = -0.05, TintColor = C(255, 236, 210) },
+		Clouds = { Cover = 0.35, Density = 0.45, Color = C(240, 226, 206) },
+	},
+	nuvoloso = {
+		Lighting = { ClockTime = 12.5, Brightness = 1.7, Ambient = C(78, 80, 88), OutdoorAmbient = C(124, 128, 138), ShadowSoftness = 0.6, ExposureCompensation = 0.35 },
+		Atmosphere = { Density = 0.36, Haze = 2.2, Glare = 0 },
+		BloomEffect = { Intensity = 0.25 },
+		SunRaysEffect = { Intensity = 0 },
+		ColorCorrectionEffect = { Saturation = -0.12, Contrast = 0.08, TintColor = C(236, 240, 246) },
+		Clouds = { Cover = 0.86, Density = 0.75, Color = C(196, 200, 208) },
+	},
+	pioggia = {
+		Lighting = { ClockTime = 14, Brightness = 1.3, Ambient = C(74, 78, 86), OutdoorAmbient = C(112, 118, 128), ShadowSoftness = 0.75, ExposureCompensation = 0.4 },
+		Atmosphere = { Density = 0.42, Haze = 2.6, Color = C(170, 178, 188), Decay = C(100, 106, 116), Glare = 0 },
+		BloomEffect = { Intensity = 0.2 },
+		SunRaysEffect = { Intensity = 0 },
+		ColorCorrectionEffect = { Saturation = -0.18, Contrast = 0.1, TintColor = C(220, 228, 238) },
+		Clouds = { Cover = 0.95, Density = 0.9, Color = C(150, 154, 162) },
+		particelle = "pioggia",
+	},
+	neve = {
+		Lighting = { ClockTime = 12, Brightness = 1.9, OutdoorAmbient = C(150, 156, 170), ShadowSoftness = 0.5 },
+		Atmosphere = { Density = 0.42, Haze = 2.4, Color = C(214, 224, 238), Decay = C(150, 160, 176), Glare = 0 },
+		SunRaysEffect = { Intensity = 0 },
+		ColorCorrectionEffect = { Saturation = -0.1, TintColor = C(236, 244, 255) },
+		Clouds = { Cover = 0.88, Density = 0.7, Color = C(225, 230, 238) },
+		particelle = "neve",
+	},
+	nebbia = {
+		Lighting = { ClockTime = 9, Brightness = 1.6, OutdoorAmbient = C(140, 142, 148), ShadowSoftness = 0.7 },
+		Atmosphere = { Density = 0.64, Offset = 0, Haze = 3.4, Color = C(200, 204, 210), Decay = C(150, 154, 160), Glare = 0 },
+		SunRaysEffect = { Intensity = 0 },
+		ColorCorrectionEffect = { Saturation = -0.15, TintColor = C(232, 236, 240) },
+		DepthOfFieldEffect = { FarIntensity = 0.2 },
+		Clouds = { Cover = 0.8, Density = 0.6, Color = C(214, 216, 220) },
+	},
+	alba = {
+		Lighting = { ClockTime = 6.7, Brightness = 2.2, Ambient = C(80, 72, 78), OutdoorAmbient = C(140, 120, 120) },
+		Atmosphere = { Density = 0.4, Haze = 2.4, Color = C(255, 206, 176), Decay = C(140, 96, 110), Glare = 0.6 },
+		SunRaysEffect = { Intensity = 0.12 },
+		ColorCorrectionEffect = { Saturation = 0.06, TintColor = C(255, 236, 224) },
+		Clouds = { Cover = 0.45, Color = C(255, 222, 210) },
+	},
+	tramonto = {
+		Lighting = { ClockTime = 17.9, Brightness = 2.4, OutdoorAmbient = C(150, 112, 100) },
+		Atmosphere = { Density = 0.36, Haze = 2.2, Color = C(255, 186, 140), Decay = C(130, 80, 90), Glare = 0.8 },
+		SunRaysEffect = { Intensity = 0.14 },
+		ColorCorrectionEffect = { Saturation = 0.1, TintColor = C(255, 232, 214) },
+		Clouds = { Cover = 0.55, Color = C(255, 200, 180) },
+	},
+}
+
 -- Cittadella: tramonto di guerra. Sole basso e arancio, foschia calda sulle montagne, nuvole spesse
 -- tinte di rosa; dentro la luce la fanno i bracieri, quindi l'ambiente resta scuro e caldo.
 Luci.lobby = {

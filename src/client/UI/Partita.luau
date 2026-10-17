@@ -1,14 +1,16 @@
--- Interfaccia della campagna: piazzamento dei reggimenti con il resoconto degli esploratori,
--- conto alla rovescia, battaglia, punteggio dei round (al meglio di 5) e risultato con le stelle.
+-- Interfaccia della campagna: schieramento (carte scelte + formazione storica) con il resoconto degli
+-- esploratori, conto alla rovescia, battaglia con gli ordini generali all'armata, cinematica breve tra i
+-- round (al meglio di 5) e risultato con le stelle.
 -- Aspetto come nei mockup 6-battle (piazzamento e battaglia) e 7-victory (risultato).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
 
 local Cielo = require(script.Parent.Parent.Cielo)
+local Meteo = require(script.Parent.Parent.Meteo)
+local Intermezzo = require(script.Parent.Parent.Intermezzo)
 local Stile = require(script.Parent.Stile)
 local Carta = require(script.Parent.Carta)
 local Icone = require(script.Parent.Icone)
@@ -16,7 +18,7 @@ local Notifiche = require(script.Parent.Notifiche)
 local Prova = require(ReplicatedStorage.Shared.Prova)
 local Epoche = require(ReplicatedStorage.Shared.Config.Epoche)
 local Carte = require(ReplicatedStorage.Shared.Config.Carte)
-local Truppe = require(script.Parent.Parent.Truppe)
+local Battaglia = require(ReplicatedStorage.Shared.Battaglia)
 local Cinematica = require(script.Parent.Parent.Cinematica)
 
 local Partita = {}
@@ -27,17 +29,22 @@ local suFineLobby -- callback per tornare all'interfaccia della lobby
 
 local info -- dati del livello in corso
 local fase = "lobby"
-local selezionata -- indice nel mazzo
-local usate = {} -- [indice] = true
+local scelte = {} -- indici del mazzo schierati, in ordine
+local usate = {} -- [indice] = true (le stesse scelte, per cercarle in fretta)
 local carte = {} -- [indice] = carta nella barra
 local arena
-local evidenziata -- casella sotto il mouse, colorata d'oro solo su questo client
--- In battaglia: le carte in basso sono i reggimenti sul campo. Si sceglie un reggimento e poi un nemico da attaccare.
-local reggimentoScelto -- id del reggimento in battaglia
+-- In battaglia le carte in basso sono i reggimenti sul campo (con l'abilità dei comandanti); gli ordini
+-- valgono per tutta l'armata e si danno dal pannello ORDERS (o con i tasti da 1 a 5).
 local idPerIndice = {} -- indice del mazzo -> id del reggimento in battaglia
 local bottoniAbilita = {} -- id del comandante -> pulsante ABILITY
 local suggerimento
-local coloriEvidenziata = {}
+local pannelloFormazioni, listaFormazioni, descrizioneFormazione
+local bottoniFormazione = {} -- id della formazione -> pulsante
+local pannelloOrdini
+local bottoniOrdine = {} -- nome dell'ordine -> pulsante
+local ordineAttuale = "avanza"
+local caricaSuonata = false
+local inviando = false -- una richiesta di schieramento alla volta
 
 -- Tabellone in alto: targhe YOU / Round / ENEMY con i pallini dei round vinti.
 local intestazione, titoloLivello, titoloRound, sottotitolo, puntiTu, puntiNemico, timer
@@ -48,8 +55,6 @@ local battagliaRisultato, pannelloPremi, testoMonete, testoEsperienza, dettaglio
 local bottoneContinua, testoContinua, bottoneLobbyRisultato
 local prossimoLivello
 local bottoneVinci -- modalità prova (solo in Studio): vince subito il round
-
-local atmosferaOriginale
 
 local ZOOM_INIZIALE = 30
 local ZOOM_LOBBY = 14
@@ -100,25 +105,15 @@ local function ripristinaCamera()
 	end
 end
 
-local function impostaAtmosfera(colore)
-	Cielo.campo()
-	local atmosfera = Lighting:FindFirstChildOfClass("Atmosphere")
-	if not atmosfera or not colore then
-		return
-	end
-	if not atmosferaOriginale then
-		atmosferaOriginale = { atmosfera.Color, atmosfera.Decay }
-	end
-	atmosfera.Color = colore
-	atmosfera.Decay = colore:Lerp(Color3.new(0, 0, 0), 0.3)
+-- Cielo e tempo della battaglia (Config/Luci.meteo), con il colore dell'aria del bioma; pioggia e neve
+-- le fa cadere Meteo.
+local function impostaCielo(dati)
+	Meteo.imposta(Cielo.battaglia(dati.meteo, dati.atmosfera))
 end
 
-local function ripristinaAtmosfera()
-	local atmosfera = Lighting:FindFirstChildOfClass("Atmosphere")
-	if atmosfera and atmosferaOriginale then
-		atmosfera.Color, atmosfera.Decay = atmosferaOriginale[1], atmosferaOriginale[2]
-	end
-	atmosferaOriginale = nil
+local function ripristinaCielo()
+	Meteo.imposta(nil)
+	Cielo.campo()
 end
 
 -- Piccola animazione "pop": la UIScale dell'oggetto parte da "da" e rimbalza a 1.
@@ -141,38 +136,62 @@ local function mostraTimer(testo)
 	posizionaAvviso()
 end
 
-local function numeroUsate()
-	local n = 0
-	for _ in pairs(usate) do
-		n += 1
-	end
-	return n
-end
-
 local function aggiornaCarte()
 	for indice, carta in pairs(carte) do
-		Carta.spegni(carta, usate[indice] == true, "DEPLOYED")
-		Carta.seleziona(carta, indice == selezionata)
+		-- Le carte schierate brillano, quelle rimaste fuori sono scure.
+		Carta.spegni(carta, not usate[indice], "RESERVE")
+		Carta.seleziona(carta, usate[indice] == true)
 	end
-	contatore.Text = ("REGIMENTS %d/%d"):format(numeroUsate(), info.maxReggimenti)
+	contatore.Text = ("REGIMENTS %d/%d"):format(#scelte, info.maxReggimenti)
 end
 
-local function seleziona(indice)
-	selezionata = indice
-	aggiornaCarte()
+local function impostaScelte(lista)
+	scelte, usate = {}, {}
+	for _, indice in ipairs(lista or {}) do
+		table.insert(scelte, indice)
+		usate[indice] = true
+	end
 end
 
--- Dopo un piazzamento passa alla prima carta ancora libera.
-local function selezionaLibera()
-	if selezionata and not usate[selezionata] then
+local function datiFormazione(id)
+	for _, f in ipairs(info and info.formazioni or {}) do
+		if f.id == id then
+			return f
+		end
+	end
+	return nil
+end
+
+-- Pannello FORMATION: oro quella scelta, blu le altre sbloccate, grigie quelle ancora chiuse.
+local function aggiornaFormazioni()
+	for id, bottone in pairs(bottoniFormazione) do
+		local f = datiFormazione(id)
+		Stile.coloraPulsante(bottone, id == info.formazione and "oro" or (f and f.sbloccata and "blu" or "grigio"))
+	end
+	local f = datiFormazione(info.formazione)
+	descrizioneFormazione.Text = f and f.descrizione or ""
+end
+
+-- Manda al server le carte scelte e (se cambia) la formazione: i reggimenti prendono subito posto sul campo.
+local function inviaScelte(nuove, formazione)
+	if inviando then
 		return
 	end
-	selezionata = nil
-	for indice = 1, #info.mazzo do
-		if not usate[indice] then
-			selezionata = indice
-			break
+	inviando = true
+	local ok, messaggio, lista = remoti.Schiera:InvokeServer(nuove, formazione)
+	inviando = false
+	if fase ~= "piazzamento" then
+		return
+	end
+	if ok then
+		impostaScelte(lista)
+		if formazione then
+			info.formazione = formazione
 		end
+		aggiornaCarte()
+		aggiornaFormazioni()
+	elseif messaggio then
+		Notifiche.mostra(messaggio, Stile.Colori.Rosso)
 	end
 end
 
@@ -181,9 +200,8 @@ local function costruisciMazzo()
 		carta:Destroy()
 	end
 	carte, idPerIndice, bottoniAbilita = {}, {}, {}
-	reggimentoScelto = nil
 	if suggerimento then
-		suggerimento.Text = "CLICK A CARD, THEN A BLUE TILE"
+		suggerimento.Text = "CLICK A CARD TO DEPLOY OR RECALL IT"
 	end
 	for indice, tipo in ipairs(info.mazzo) do
 		local carta = Carta.crea(tipo)
@@ -191,90 +209,62 @@ local function costruisciMazzo()
 		carta.LayoutOrder = indice
 		carta.Parent = carteMazzo
 		carta.Activated:Connect(function()
-			if usate[indice] then
-				Notifiche.mostra("Already on the field: click its tile to take it back.")
+			if fase ~= "piazzamento" then
 				return
 			end
-			seleziona(indice)
+			local nuove = table.clone(scelte)
+			local posto = table.find(nuove, indice)
+			if posto then
+				table.remove(nuove, posto)
+			elseif #nuove >= info.maxReggimenti then
+				Notifiche.mostra(("Maximum %d regiments in this battle: recall one first."):format(info.maxReggimenti), Stile.Colori.Rosso)
+				return
+			else
+				table.insert(nuove, indice)
+			end
+			inviaScelte(nuove, nil)
 		end)
 		carte[indice] = carta
 	end
 end
 
-local function casellaSotto(posizioneSchermo)
-	local tabellone = arena and arena:FindFirstChild("Tabellone")
-	if not tabellone then
-		return nil
+local function costruisciFormazioni()
+	for _, bottone in pairs(bottoniFormazione) do
+		bottone:Destroy()
 	end
-	local raggio = workspace.CurrentCamera:ScreenPointToRay(posizioneSchermo.X, posizioneSchermo.Y)
-	local parametri = RaycastParams.new()
-	parametri.FilterType = Enum.RaycastFilterType.Include
-	parametri.FilterDescendantsInstances = { tabellone }
-	local colpo = workspace:Raycast(raggio.Origin, raggio.Direction * 500, parametri)
-	-- Ogni casella è un modello fatto di piastrelle: si risale al modello.
-	local casella = colpo and colpo.Instance.Parent
-	if casella and casella:GetAttribute("Col") then
-		return casella
-	end
-	return nil
-end
-
--- Colora d'oro le piastrelle della casella sotto il mouse (gli Highlight non si vedono con grafica bassa).
-local function evidenzia(casella)
-	if casella == evidenziata then
-		return
-	end
-	for parte, colore in pairs(coloriEvidenziata) do
-		parte.Color = colore
-	end
-	coloriEvidenziata = {}
-	evidenziata = casella
-	if casella then
-		for _, parte in ipairs(casella:GetChildren()) do
-			if parte:IsA("BasePart") then
-				coloriEvidenziata[parte] = parte.Color
-				parte.Color = parte.Name == "Bordo" and Stile.Colori.Oro or parte.Color:Lerp(Stile.Colori.Oro, 0.75)
+	bottoniFormazione = {}
+	for i, f in ipairs(info.formazioni or {}) do
+		local testo = f.sbloccata and string.upper(f.nome) or ("%s  ·  BATTLE %d"):format(string.upper(f.nome), f.sblocco)
+		local bottone = Stile.pulsante({
+			Name = f.id,
+			Size = UDim2.new(1, 0, 0, 46),
+			LayoutOrder = i,
+			Parent = listaFormazioni,
+		}, f.sbloccata and "blu" or "grigio", {
+			Testo = testo,
+			TestoSize = 22,
+			Icona = not f.sbloccata and "lock" or nil,
+			IconaSize = 28,
+			IconaX = 10,
+			Profondita = 5,
+			Raggio = 12,
+			Contorno = 3,
+		})
+		bottone.Activated:Connect(function()
+			if fase ~= "piazzamento" then
+				return
 			end
-		end
+			if not f.sbloccata then
+				Notifiche.mostra(("%s unlocks at battle %d."):format(f.nome, f.sblocco))
+				return
+			end
+			if f.id ~= info.formazione then
+				inviaScelte(scelte, f.id)
+			end
+		end)
+		bottoniFormazione[f.id] = bottone
 	end
-end
-
-local function casellaValida(casella)
-	return casella and casella:GetAttribute("Riga") <= info.righeGiocatore and not casella:GetAttribute("Ostacolo")
-end
-
-local function clic(posizioneSchermo)
-	local casella = casellaSotto(posizioneSchermo)
-	if not casella then
-		return
-	end
-	if casella:GetAttribute("TerraDiNessuno") then
-		Notifiche.mostra("That's no man's land: deploy on the blue tiles.")
-		return
-	end
-	if casella:GetAttribute("Riga") > info.righeGiocatore then
-		Notifiche.mostra("You can only deploy on the blue tiles.")
-		return
-	end
-	if casella:GetAttribute("Ostacolo") then
-		local terreno = casella:GetAttribute("Terreno")
-		Notifiche.mostra(terreno == "fiume" and "You can't deploy in the river."
-			or terreno == "casa" and "There's a building there: pick another tile."
-			or terreno == "rottami" and "Wreckage blocks that tile."
-			or "That tile is blocked.")
-		return
-	end
-	local ok, messaggio, lista = remoti.Casella:InvokeServer(selezionata, casella:GetAttribute("Col"), casella:GetAttribute("Riga"))
-	if ok then
-		usate = {}
-		for _, indice in ipairs(lista or {}) do
-			usate[indice] = true
-		end
-		selezionaLibera()
-		aggiornaCarte()
-	elseif messaggio then
-		Notifiche.mostra(messaggio, Stile.Colori.Rosso)
-	end
+	aggiornaFormazioni()
 end
 
 local function mostraPiazzamento(visibile)
@@ -284,6 +274,7 @@ local function mostraPiazzamento(visibile)
 	bottoneLobby.Visible = visibile
 	avviso.Visible = visibile
 	esploratori.Visible = visibile
+	pannelloFormazioni.Visible = visibile
 	if not visibile then
 		mostraTimer(nil)
 	end
@@ -386,32 +377,28 @@ local function entraPiazzamento(dati)
 	if nuovoCampo then
 		impostaCamera()
 	end
-	impostaAtmosfera(dati.atmosfera)
+	impostaCielo(dati)
 	titoloLivello.Text = ("%d. %s  ·  %s"):format(dati.livello, string.upper(dati.nome), dati.anno)
 	aggiornaPunteggio(dati)
-	sottotitolo.Text = dati.assedio and "SIEGE! STORM THE FORTRESS" or "PLACE YOUR REGIMENTS"
+	sottotitolo.Text = dati.assedio and "SIEGE! STORM THE FORTRESS" or "DEPLOY YOUR ARMY"
 	sottotitolo.TextColor3 = dati.assedio and Stile.Colori.Oro or AZZURRO
-	usate = {}
-	for _, indice in ipairs(dati.usate or {}) do
-		usate[indice] = true
-	end
+	impostaScelte(dati.usate)
 	costruisciMazzo()
-	selezionata = nil
-	selezionaLibera()
 	aggiornaCarte()
+	costruisciFormazioni()
 	mostraEsploratori(dati.esploratori)
 	bannerRound.Visible = false
 	if dati.assedio then
 		avviso.Text = "SIEGE! The enemy hides in a fortress: destroy it and win the battle."
 		avviso.TextColor3 = Stile.Colori.Oro
 	elseif dati.round == 1 and dati.fiume then
-		avviso.Text = "Pick a card, then click a blue tile. No troops in the river: they cross it at the sandy fords."
+		avviso.Text = "Click cards to deploy them and pick a formation. Your regiments cross the river at the sandy fords."
 		avviso.TextColor3 = Stile.Colori.Testo
 	elseif dati.round == 1 then
-		avviso.Text = "Walk around the field. Pick a card, then click a blue tile. Hills protect troops and help archers."
+		avviso.Text = "Click cards to deploy them and pick a formation: your army takes position at once. Hills protect troops."
 		avviso.TextColor3 = Stile.Colori.Testo
 	else
-		avviso.Text = "Your regiments are back in position: change them or press FIGHT!"
+		avviso.Text = "Your army is back in formation: change it or press FIGHT!"
 		avviso.TextColor3 = Stile.Colori.Testo
 	end
 	mostraPiazzamento(true)
@@ -444,12 +431,6 @@ local function contoAllaRovescia(conto)
 	end
 end
 
-local function aggiornaCarteBattaglia()
-	for indice, carta in pairs(carte) do
-		Carta.seleziona(carta, idPerIndice[indice] ~= nil and idPerIndice[indice] == reggimentoScelto)
-	end
-end
-
 local function spegniAbilita(id, testo)
 	local bottone = bottoniAbilita[id]
 	if bottone then
@@ -474,7 +455,6 @@ local function costruisciBarraBattaglia(reggimenti)
 		carta:Destroy()
 	end
 	carte, idPerIndice, bottoniAbilita = {}, {}, {}
-	reggimentoScelto = nil
 	table.sort(reggimenti, function(a, b)
 		return a.indice < b.indice
 	end)
@@ -485,17 +465,7 @@ local function costruisciBarraBattaglia(reggimenti)
 		carta.Size = UDim2.fromOffset(112, 162)
 		carta.LayoutOrder = r.indice
 		carta.Parent = carteMazzo
-		carta.Activated:Connect(function()
-			if fase ~= "battaglia" or carta:GetAttribute("Caduto") then
-				return
-			end
-			reggimentoScelto = reggimentoScelto ~= r.id and r.id or nil
-			aggiornaCarteBattaglia()
-			if reggimentoScelto then
-				avviso.Text = ("%s: click an enemy regiment to attack it."):format(def.nome)
-				avviso.TextColor3 = Stile.Colori.Oro
-			end
-		end)
+		carta.AutoButtonColor = false
 		if def.abilita then
 			local bottone = Stile.pulsante({
 				Name = "Abilita",
@@ -520,38 +490,38 @@ local function costruisciBarraBattaglia(reggimenti)
 		end
 		carte[r.indice] = carta
 	end
-	contatore.Text = "ORDERS"
-	suggerimento.Text = "CLICK A CARD, THEN AN ENEMY"
+	contatore.Text = "REGIMENTS"
+	suggerimento.Text = "ORDERS GO TO YOUR WHOLE ARMY  ·  KEYS 1-5"
 end
 
--- Clic sul campo in battaglia: il reggimento scelto va ad attaccare il nemico più vicino al punto cliccato.
-local function clicBattaglia(posizioneSchermo)
-	if not reggimentoScelto then
-		return
-	end
-	local raggio = workspace.CurrentCamera:ScreenPointToRay(posizioneSchermo.X, posizioneSchermo.Y)
-	local parametri = RaycastParams.new()
-	parametri.FilterType = Enum.RaycastFilterType.Exclude
-	parametri.FilterDescendantsInstances = { player.Character }
-	local colpo = workspace:Raycast(raggio.Origin, raggio.Direction * 600, parametri)
-	if not colpo then
-		return
-	end
-	local bersaglio = Truppe.nemicoVicino(colpo.Position, 20)
-	if not bersaglio then
-		Notifiche.mostra("Click on an enemy regiment to attack it.")
-		return
-	end
-	local ok = remoti.Ordine:InvokeServer(reggimentoScelto, bersaglio)
-	if ok then
-		reggimentoScelto = nil
-		aggiornaCarteBattaglia()
-		avviso.Text = "Order sent! Pick another card to give more orders."
-		avviso.TextColor3 = Stile.Colori.Testo
+-- Cosa fa ogni ordine, per l'avviso sotto il tabellone.
+local SPIEGAZIONE_ORDINI = {
+	avanza = "Every regiment marches on the nearest enemy.",
+	tieni = "Your line stands firm and fights only who comes close.",
+	ripiega = "Your army falls back in good order, then holds the new line.",
+	fianchi = "The cavalry rides around the wings to hit the enemy archers, the rest holds.",
+	carica = "Everyone charges faster and the cavalry charges again. Once per round!",
+}
+
+-- Pannello ORDERS: oro l'ordine in corso, grigia la carica se è già stata suonata.
+local function aggiornaOrdini()
+	for nome, bottone in pairs(bottoniOrdine) do
+		local finita = nome == "carica" and caricaSuonata and ordineAttuale ~= "carica"
+		Stile.coloraPulsante(bottone, nome == ordineAttuale and "oro" or (finita and "grigio" or "blu"))
 	end
 end
 
--- Eventi della battaglia che cambiano la barra: reggimenti caduti e abilità usate (anche dal nemico).
+local function daiOrdine(nome)
+	if fase ~= "battaglia" then
+		return
+	end
+	local ok, messaggio = remoti.Ordine:InvokeServer(nome)
+	if not ok and messaggio then
+		Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+	end
+end
+
+-- Eventi della battaglia che cambiano la barra: reggimenti caduti, ordini e abilità usate (anche dal nemico).
 local function eventoBattaglia(e)
 	if e.tipo == "morte" and e.reggimento then
 		for indice, id in pairs(idPerIndice) do
@@ -559,12 +529,21 @@ local function eventoBattaglia(e)
 				carte[indice]:SetAttribute("Caduto", true)
 				Carta.spegni(carte[indice], true, "FALLEN")
 				spegniAbilita(id, "FALLEN")
-				if reggimentoScelto == id then
-					reggimentoScelto = nil
-					aggiornaCarteBattaglia()
-				end
 			end
 		end
+	elseif e.tipo == "ordine" and e.squadra == "giocatore" then
+		ordineAttuale = e.ordine
+		if e.ordine == "carica" then
+			caricaSuonata = true
+		end
+		aggiornaOrdini()
+		local nome = Battaglia.NOMI_ORDINI[e.ordine]
+		if e.automatico then
+			avviso.Text = e.ordine == "tieni" and "The retreat is over: your army holds the new line." or "The charge is spent: your army keeps advancing."
+		elseif nome then
+			avviso.Text = ("%s %s"):format(nome.grido, SPIEGAZIONE_ORDINI[e.ordine] or "")
+		end
+		avviso.TextColor3 = Stile.Colori.Oro
 	elseif e.tipo == "abilita" then
 		local def = Epoche.Truppe[e.tipoCarta]
 		if def and def.abilita then
@@ -587,10 +566,14 @@ local function entraBattaglia(dati)
 	bottoneCombatti.Visible = false
 	bottoneLobby.Visible = false
 	esploratori.Visible = false
+	pannelloFormazioni.Visible = false
+	pannelloOrdini.Visible = true
+	ordineAttuale = "avanza"
+	caricaSuonata = false
+	aggiornaOrdini()
 	sottotitolo.Text = "GET READY!"
 	sottotitolo.TextColor3 = Stile.Colori.Oro
 	avviso.Text = dati.assedio and "Storm the fortress!" or "The enemy army is revealed!"
-	evidenzia(nil)
 	task.spawn(contoAllaRovescia, dati.conto or 3)
 	task.delay((dati.conto or 3) + 0.2, function()
 		if fase == "battaglia" then
@@ -599,28 +582,27 @@ local function entraBattaglia(dati)
 	end)
 end
 
--- Fine di un round: grande scritta con il punteggio, poi il server manda il prossimo piazzamento o il risultato.
+-- Fine di un round: cinematica breve sul campo (Intermezzo) con l'esito e il punteggio, poi il server manda
+-- il prossimo schieramento o il risultato. Senza campo, la vecchia grande scritta.
 local function mostraRound(dati)
 	fase = "round"
-	barraMazzo.Visible = false
-	reggimentoScelto = nil
+	mostraPiazzamento(false)
+	pannelloOrdini.Visible = false
 	mostraVinci(false)
 	scrittaConto.Visible = false
 	mostraTimer(nil)
+	aggiornaPunteggio(dati)
+	if info and info.centro then
+		bannerRound.Visible = false
+		Intermezzo.riproduci(dati, info.centro)
+		return
+	end
 	bannerRound.Visible = true
 	local titolo = bannerRound:FindFirstChild("Titolo")
 	titolo.Text = dati.vittoria and "ROUND WON!" or "ROUND LOST"
 	titolo.TextColor3 = dati.vittoria and Stile.PAL.oro.t or Stile.PAL.rosso.t
 	bannerRound:FindFirstChild("Punteggio").Text = ("YOU  %d - %d  ENEMY"):format(dati.vinti, dati.persi)
-	aggiornaPunteggio(dati)
-	sottotitolo.Text = dati.vittoria and "ROUND WON!" or "ROUND LOST"
-	sottotitolo.TextColor3 = dati.vittoria and Stile.Colori.Oro or Stile.PAL.rosso.t
 	pop(bannerRound, 0.6)
-	if dati.vittoria and dati.vinti == dati.perVincere - 1 and dati.persi < dati.perVincere - 1 then
-		avviso.Text = "Match point! The enemy retreats into its fortress."
-	else
-		avviso.Text = ""
-	end
 end
 
 -- Stella del risultato: piena se guadagnata, spenta altrimenti (immagine o emoji).
@@ -688,6 +670,9 @@ local function mostraRisultato(dati)
 	if dati.nuovoLivelloGiocatore then
 		table.insert(righe, ("LEVEL UP! You are now level %d."):format(dati.nuovoLivelloGiocatore))
 	end
+	if dati.nuoveFormazioni and #dati.nuoveFormazioni > 0 then
+		table.insert(righe, "NEW FORMATION: " .. table.concat(dati.nuoveFormazioni, ", ") .. "!")
+	end
 	if dati.nuovaEpoca then
 		table.insert(righe, "NEW ERA! Your army evolves: " .. dati.nuovaEpoca .. " era unlocked! Check your new cards in ARMY.")
 	elseif dati.completata and dati.vittoria then
@@ -750,8 +735,9 @@ local function esci(ripristinaVista)
 	risultato.Visible = false
 	scrittaConto.Visible = false
 	bannerRound.Visible = false
-	evidenzia(nil)
-	ripristinaAtmosfera()
+	pannelloOrdini.Visible = false
+	Intermezzo.ferma()
+	ripristinaCielo()
 	if ripristinaVista then
 		ripristinaCamera()
 	end
@@ -988,7 +974,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -28, 0, 20),
 		Size = UDim2.fromOffset(480, 30),
-		Text = "CLICK A CARD, THEN A BLUE TILE",
+		Text = "CLICK A CARD TO DEPLOY OR RECALL IT",
 		TextColor3 = Stile.Colori.Oro,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		Parent = barraMazzo,
@@ -1097,6 +1083,93 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Parent = esploratori,
 	})
 	Stile.crea("UITextSizeConstraint", { MaxTextSize = 16, Parent = regola })
+
+	-- Pannello "Formation" a destra durante lo schieramento.
+	pannelloFormazioni = Stile.crea("Frame", {
+		Name = "Formazioni",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -28, 0, 190),
+		Size = UDim2.fromOffset(330, 640),
+		BackgroundColor3 = Stile.BIANCO,
+		Visible = false,
+		ZIndex = 5,
+		Parent = tela,
+	}, { Stile.angoli(26), Stile.bordo(Stile.CONTORNO, 5), Stile.sfumatura(Stile.PAL.notte.b, Stile.PAL.notte.d) })
+	local testataFormazioni = targa({
+		Name = "Testata",
+		Size = UDim2.new(1, 0, 0, 72),
+		Parent = pannelloFormazioni,
+	}, Stile.PAL.blu, 24)
+	Stile.scritta({
+		Position = UDim2.fromOffset(22, 0),
+		Size = UDim2.new(1, -30, 1, 0),
+		Text = "Formation",
+		TextSize = 42,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = testataFormazioni,
+	})
+	listaFormazioni = Stile.crea("Frame", {
+		Name = "Lista",
+		Position = UDim2.fromOffset(14, 86),
+		Size = UDim2.new(1, -28, 0, 460),
+		BackgroundTransparency = 1,
+		Parent = pannelloFormazioni,
+	}, {
+		Stile.crea("UIListLayout", {
+			Padding = UDim.new(0, 5),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+	descrizioneFormazione = Stile.testo({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -10),
+		Size = UDim2.new(1, -28, 0, 80),
+		Text = "",
+		TextColor3 = Stile.BIANCO,
+		FontFace = Stile.FontTesto,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		Parent = pannelloFormazioni,
+	})
+	Stile.crea("UITextSizeConstraint", { MaxTextSize = 18, MinTextSize = 10, Parent = descrizioneFormazione })
+
+	-- Pannello "Orders" in basso a destra durante la battaglia: un ordine vale per tutta l'armata.
+	pannelloOrdini = Stile.crea("Frame", {
+		Name = "Ordini",
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -28, 1, -28),
+		Size = UDim2.fromOffset(330, 72 + #Battaglia.ORDINI * 58 + 18),
+		BackgroundColor3 = Stile.BIANCO,
+		Visible = false,
+		ZIndex = 5,
+		Parent = tela,
+	}, { Stile.angoli(26), Stile.bordo(Stile.CONTORNO, 5), Stile.sfumatura(Stile.PAL.notte.b, Stile.PAL.notte.d) })
+	local testataOrdini = targa({
+		Name = "Testata",
+		Size = UDim2.new(1, 0, 0, 72),
+		Parent = pannelloOrdini,
+	}, Stile.PAL.arancio, 24)
+	Stile.scritta({
+		Position = UDim2.fromOffset(22, 0),
+		Size = UDim2.new(1, -30, 1, 0),
+		Text = "Orders",
+		TextSize = 42,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = testataOrdini,
+	})
+	for i, nome in ipairs(Battaglia.ORDINI) do
+		local bottone = Stile.pulsante({
+			Name = nome,
+			Position = UDim2.fromOffset(14, 86 + (i - 1) * 58),
+			Size = UDim2.new(1, -28, 0, 52),
+			Parent = pannelloOrdini,
+		}, "blu", { Testo = ("%d  %s"):format(i, string.upper(Battaglia.NOMI_ORDINI[nome].nome)), TestoSize = 26, Profondita = 5, Raggio = 12, Contorno = 3 })
+		bottone.Activated:Connect(function()
+			daiOrdine(nome)
+		end)
+		bottoniOrdine[nome] = bottone
+	end
 
 	-- Grande scritta di fine round.
 	bannerRound = Stile.crea("Frame", {
@@ -1348,25 +1421,14 @@ function Partita.inizializza(gui, r, callbackLobby)
 		remoti.TornaLobby:InvokeServer()
 	end)
 
+	local TASTI = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five }
 	UserInputService.InputBegan:Connect(function(input, usatoDaGui)
-		if usatoDaGui or input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+		if usatoDaGui or fase ~= "battaglia" then
 			return
 		end
-		if fase == "piazzamento" then
-			clic(Vector2.new(input.Position.X, input.Position.Y))
-		elseif fase == "battaglia" then
-			clicBattaglia(Vector2.new(input.Position.X, input.Position.Y))
-		end
-	end)
-	-- Sul telefono si trascina per girare la telecamera: si piazza solo con un tocco secco.
-	UserInputService.TouchTap:Connect(function(posizioni, usatoDaGui)
-		if usatoDaGui or not posizioni[1] then
-			return
-		end
-		if fase == "piazzamento" then
-			clic(posizioni[1])
-		elseif fase == "battaglia" then
-			clicBattaglia(posizioni[1])
+		local numero = table.find(TASTI, input.KeyCode)
+		if numero and Battaglia.ORDINI[numero] then
+			daiOrdine(Battaglia.ORDINI[numero])
 		end
 	end)
 	remoti.Truppe.OnClientEvent:Connect(function(dati)
@@ -1376,17 +1438,12 @@ function Partita.inizializza(gui, r, callbackLobby)
 			end
 		end
 	end)
-	UserInputService.InputChanged:Connect(function(input)
-		if fase ~= "piazzamento" or input.UserInputType ~= Enum.UserInputType.MouseMovement then
-			return
-		end
-		local casella = casellaSotto(Vector2.new(input.Position.X, input.Position.Y))
-		evidenzia(casellaValida(casella) and casella or nil)
-	end)
-
 	remoti.Fase.OnClientEvent:Connect(function(dati)
 		if dati.fase ~= "piazzamento" and fase == "cinematica" then
 			Cinematica.ferma()
+		end
+		if dati.fase ~= "round" and Intermezzo.inCorso() then
+			Intermezzo.ferma()
 		end
 		if dati.fase == "piazzamento" then
 			-- All'inizio di un livello, prima del piazzamento, la cinematica della battaglia.
@@ -1394,7 +1451,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 			if inizioLivello and fase ~= "cinematica" and Cinematica.daMostrare(dati.nome, dati.livello) then
 				fase = "cinematica"
 				info = nil
-				impostaAtmosfera(dati.atmosfera)
+				impostaCielo(dati)
 				local campo = workspace:WaitForChild("Arene"):WaitForChild(dati.arena, 10)
 				Cinematica.riproduci(dati.nome, dati.centro, campo, function()
 					if fase == "cinematica" then

@@ -74,7 +74,10 @@ end
 local function esceDallaLobby()
 	inLobby = false
 	sulTappeto = false
-	Cielo.campo()
+	-- Solo se c'è ancora il cielo della lobby: la battaglia può aver già messo il suo meteo.
+	if Cielo.inLobby() then
+		Cielo.campo()
+	end
 	impostaVelocita()
 	impostaFov(FOV)
 end

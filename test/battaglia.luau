@@ -274,24 +274,60 @@ for _, n in pairs(lanci) do
 end
 verifica("i legionari lanciano il pilum una volta", lanciatori >= 4 and not ripetuti)
 
--- Ordini: il reggimento attacca quello indicato, anche se un altro è più vicino.
+-- Ordini generali all'armata.
 b = Battaglia.nuova({
-	{ id = 1, squadra = "giocatore", def = SPADACCINO, x = 1, y = 2 },
-	{ id = 101, squadra = "nemico", def = SPADACCINO, x = 1, y = 5 },
-	{ id = 102, squadra = "nemico", def = SPADACCINO, x = 6, y = 5 },
+	{ id = 1, squadra = "giocatore", def = SPADACCINO, x = 3, y = 2 },
+	{ id = 101, squadra = "nemico", def = SPADACCINO, x = 3, y = 6 },
 })
-verifica("l'ordine verso un nemico vivo vale", b:ordina(1, 102))
-verifica("non si ordina di attaccare un alleato", not b:ordina(1, 1))
-local colpitoLontano, colpitoVicino = false, false
-for _ = 1, 150 do
+verifica("un ordine sconosciuto non vale", not b:ordine("giocatore", "balla"))
+verifica("tenere la linea si può ordinare", b:ordine("giocatore", "tieni"))
+verifica("tra due ordini serve una pausa", not b:ordine("giocatore", "avanza"))
+local partenza = b.perReggimento[1].soldati[1].y
+for _ = 1, 20 do
+	b:passo(0.1)
+end
+verifica("chi tiene la linea non avanza", math.abs(b.perReggimento[1].soldati[1].y - partenza) < 0.05)
+
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = SPADACCINO, x = 3, y = 2.4 },
+	{ id = 101, squadra = "nemico", def = SPADACCINO, x = 3, y = 6 },
+})
+verifica("si può ripiegare", b:ordine("giocatore", "ripiega"))
+for _ = 1, 30 do
+	b:passo(0.1)
+end
+verifica("chi ripiega va indietro", b.perReggimento[1].soldati[1].y < 1.6)
+for _ = 1, 50 do
+	b:passo(0.1)
+end
+verifica("finita la ritirata si tiene la linea", b.ordini.giocatore == "tieni")
+
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = CAVALIERE, x = 3, y = 1 },
+	{ id = 101, squadra = "nemico", def = SPADACCINO, x = 3, y = 4 },
+	{ id = 102, squadra = "nemico", def = ARCIERE, x = 5, y = 6 },
+})
+b:ordine("giocatore", "fianchi")
+local primoBersaglio
+for _ = 1, 200 do
 	for _, evento in ipairs(b:passo(0.1)) do
-		if evento.tipo == "attacco" and evento.da // 16 == 1 then
-			colpitoLontano = colpitoLontano or evento.a // 16 == 102
-			colpitoVicino = colpitoVicino or evento.a // 16 == 101
+		if evento.tipo == "attacco" and evento.da // 16 == 1 and not primoBersaglio then
+			primoBersaglio = evento.a // 16
 		end
 	end
 end
-verifica("il reggimento va contro il bersaglio ordinato", colpitoLontano and not colpitoVicino)
+verifica("con l'aggiramento la cavalleria cerca i tiratori", primoBersaglio == 102)
+
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = CAVALIERE, x = 3, y = 1 },
+	{ id = 101, squadra = "nemico", def = SPADACCINO, x = 3, y = 6 },
+})
+verifica("la carica generale si ordina", b:ordine("giocatore", "carica"))
+for _ = 1, 65 do
+	b:passo(0.1)
+end
+verifica("finita la carica si torna ad avanzare", b.ordini.giocatore == "avanza")
+verifica("la carica si suona una volta per round", not b:ordine("giocatore", "carica"))
 
 -- Abilità dei comandanti: una volta sola, bonus doppio per chi è della stessa origine.
 local CESARE = { id = "Cesare", soldati = 1, classe = "Fanteria", comandante = true, origine = "Rome", hp = 700, danno = 36, cadenza = 1, gittata = 1.2, velocita = 1, armatura = 0.35, abilita = { nome = "Veni, Vidi, Vici", danno = 0.2, durata = 8 } }

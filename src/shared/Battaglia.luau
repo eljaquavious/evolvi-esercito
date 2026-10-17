@@ -56,6 +56,30 @@ local GESTO_MISCHIA = 0.3
 local GESTO_LANCIO = 0.45
 local VOLO_LANCIO = 2.6
 
+-- Ordini generali che il giocatore dà a tutta la sua armata (il nemico avanza sempre):
+--   avanza: ogni soldato va contro il nemico più vicino;
+--   tieni: la linea resta dov'è e si muove solo contro chi arriva vicino, con un po' di difesa in più;
+--   ripiega: ritirata ordinata di RIPIEGO caselle verso le proprie retrovie, poi si tiene la nuova linea:
+--     il nemico che insegue si allunga e arriva a pezzi;
+--   fianchi: la cavalleria gira larga sull'ala più vicina e piomba sui tiratori nemici, fanti e tiratori tengono;
+--   carica: carica generale, una volta per round: tutti avanzano più veloci e la cavalleria ricarica.
+Battaglia.ORDINI = { "avanza", "tieni", "ripiega", "fianchi", "carica" }
+-- Nomi visibili nel gioco (inglese) e grido sopra l'armata quando arriva l'ordine.
+Battaglia.NOMI_ORDINI = {
+	avanza = { nome = "Advance", grido = "ADVANCE!" },
+	tieni = { nome = "Hold the Line", grido = "HOLD THE LINE!" },
+	ripiega = { nome = "Fall Back", grido = "FALL BACK!" },
+	fianchi = { nome = "Flank Them", grido = "ON THEIR FLANKS!" },
+	carica = { nome = "General Charge", grido = "CHARGE!" },
+}
+Battaglia.ATTESA_ORDINE = 3 -- secondi di battaglia tra un ordine e il successivo
+Battaglia.DURATA_CARICA = 6
+local RIPIEGO = 1.5
+local DURATA_RIPIEGO = 6 -- dopo tanto chi ripiega si ferma comunque e tiene la linea
+local INGAGGIO = 0.9 -- chi tiene la linea va contro un nemico solo se è entro tanto oltre la sua portata
+local DIFESA_IN_LINEA = 0.15
+local SCARTO_LINEA = 0.3 -- chi tiene la linea ed è stato spinto più in là di tanto torna al suo posto
+
 -- Effetti del terreno della casella su cui sta un soldato.
 Battaglia.TERRENO = {
 	fiume = { velocita = 0.45, dannoSubito = 1.2 },
@@ -136,6 +160,9 @@ function Battaglia.nuova(reggimenti, opzioni)
 	self.effetti = {} -- abilità dei comandanti in corso: { squadra, origine, fine, danno, velocita, difesa }
 	self.eventiInAttesa = {} -- eventi nati fuori da un passo (ordini, abilità): escono col passo dopo
 	self.perReggimento = {}
+	self.ordini = { giocatore = "avanza", nemico = "avanza" }
+	self.ultimoOrdine = { giocatore = -math.huge, nemico = -math.huge }
+	self.caricaUsata = {}
 	self.tempo = 0
 	self.finita = false
 	self.vincitore = nil
@@ -156,7 +183,6 @@ function Battaglia.nuova(reggimenti, opzioni)
 			soldati = {},
 			vivo = true,
 			hpMax = def.hp * forza,
-			ordine = nil, -- reggimento nemico da attaccare per ordine del giocatore
 			abilitaUsata = false,
 		}
 		local avanti = r.squadra == "giocatore" and 1 or -1
@@ -183,7 +209,10 @@ function Battaglia.nuova(reggimenti, opzioni)
 				rivolto = r.squadra == "giocatore" and 0 or math.pi,
 				inMarcia = false,
 				inMischia = false,
+				girato = false, -- ordine "fianchi": la cavalleria ha già girato attorno all'ala
 			}
+			-- Posto da tenere con gli ordini "tieni" e "ripiega".
+			s.ax, s.ay = s.x, s.y
 			table.insert(reggimento.soldati, s)
 			table.insert(self.soldati, s)
 			self.perId[s.id] = s
@@ -275,18 +304,65 @@ function Battaglia:_bonus(u, campo)
 	return totale
 end
 
--- Ordine del giocatore: il reggimento "id" va ad attaccare il reggimento nemico "idBersaglio".
-function Battaglia:ordina(id, idBersaglio)
-	local r, b = self.perReggimento[id], self.perReggimento[idBersaglio]
-	if self.finita or not r or not b or not r.vivo or not b.vivo or r.squadra == b.squadra or r.def.velocita == 0 then
-		return false
+-- Cambia l'ordine generale della squadra (uno di Battaglia.ORDINI). Restituisce false e il motivo se non si può.
+function Battaglia:ordine(squadra, nome, automatico)
+	if self.finita or not table.find(Battaglia.ORDINI, nome) or not self.ordini[squadra] then
+		return false, "Unknown order."
 	end
-	r.ordine = b
-	for _, s in ipairs(r.soldati) do
-		s.ripensa = 0
+	if self.ordini[squadra] == nome then
+		return false, nil
 	end
-	table.insert(self.eventiInAttesa, { tipo = "ordine", reggimento = id, bersaglio = idBersaglio })
+	if not automatico and self.tempo - self.ultimoOrdine[squadra] < Battaglia.ATTESA_ORDINE then
+		return false, "Your officers are still carrying out the last order."
+	end
+	if nome == "carica" then
+		if self.caricaUsata[squadra] then
+			return false, "The general charge can be sounded once per round."
+		end
+		self.caricaUsata[squadra] = true
+		table.insert(self.effetti, { squadra = squadra, fine = self.tempo + Battaglia.DURATA_CARICA, velocita = 0.3, danno = 0.1 })
+	end
+	self.ordini[squadra] = nome
+	if not automatico then
+		self.ultimoOrdine[squadra] = self.tempo
+	end
+	local avanti = squadra == "giocatore" and 1 or -1
+	for _, s in ipairs(self.soldati) do
+		if s.vivo and s.squadra == squadra then
+			s.ax, s.ay = s.x, s.y
+			s.girato = false
+			s.ripensa = 0
+			if nome == "ripiega" then
+				s.ay = math.clamp(s.y - RIPIEGO * avanti, 0.7, self.righe + 0.3)
+			elseif nome == "carica" and s.def.carica then
+				s.caricaUsata = false
+			end
+		end
+	end
+	table.insert(self.eventiInAttesa, { tipo = "ordine", squadra = squadra, ordine = nome, automatico = automatico or nil })
 	return true
+end
+
+-- Ordini che finiscono da soli: la carica dopo DURATA_CARICA torna avanzata, la ritirata finita (o durata
+-- troppo) diventa una linea da tenere.
+function Battaglia:_aggiornaOrdini()
+	for squadra, nome in pairs(self.ordini) do
+		local trascorso = self.tempo - self.ultimoOrdine[squadra]
+		if nome == "carica" and trascorso >= Battaglia.DURATA_CARICA then
+			self:ordine(squadra, "avanza", true)
+		elseif nome == "ripiega" then
+			local tutti = true
+			for _, s in ipairs(self.soldati) do
+				if s.vivo and s.squadra == squadra and s.def.velocita > 0 and (s.x - s.ax) ^ 2 + (s.y - s.ay) ^ 2 > 0.15 ^ 2 then
+					tutti = false
+					break
+				end
+			end
+			if tutti or trascorso >= DURATA_RIPIEGO then
+				self:ordine(squadra, "tieni", true)
+			end
+		end
+	end
 end
 
 -- Abilità del comandante "id": una volta per battaglia, mentre è vivo.
@@ -321,38 +397,8 @@ function Battaglia:attivaAbilita(id)
 end
 
 -- Sceglie il nemico da attaccare: il più vicino, ma chi ha già tanti addosso conta come più lontano.
--- Se il reggimento ha un ordine, il più vicino tra i soldati del reggimento indicato.
+-- Con l'ordine "fianchi" la cavalleria preferisce i tiratori nemici (finché ce ne sono).
 function Battaglia:_bersaglio(u, dt)
-	local ordine = u.reggimento.ordine
-	if ordine and not ordine.vivo then
-		u.reggimento.ordine = nil
-		ordine = nil
-	end
-	if ordine then
-		local attuale = u.bersaglio
-		u.ripensa = u.ripensa - dt
-		if attuale and attuale.vivo and attuale.reggimento == ordine and (self:_inGittata(u, attuale) or u.ripensa > 0) then
-			return attuale
-		end
-		u.ripensa = RIPENSA
-		local migliore, dMin = nil, math.huge
-		for _, s in ipairs(ordine.soldati) do
-			if s.vivo then
-				local d = distanza(u, s)
-				if d < dMin then
-					migliore, dMin = s, d
-				end
-			end
-		end
-		if attuale and attuale.assalitori and attuale ~= migliore then
-			attuale.assalitori = attuale.assalitori - 1
-		end
-		if migliore and migliore ~= attuale and not tiratore(u.def) then
-			migliore.assalitori = (migliore.assalitori or 0) + 1
-		end
-		u.bersaglio = migliore
-		return migliore
-	end
 	local attuale = u.bersaglio
 	u.ripensa = u.ripensa - dt
 	if attuale and attuale.vivo and (self:_inGittata(u, attuale) or u.ripensa > 0) then
@@ -360,9 +406,18 @@ function Battaglia:_bersaglio(u, dt)
 	end
 	u.ripensa = RIPENSA
 	local mischia = not tiratore(u.def)
+	local cercaTiratori = false
+	if self.ordini[u.squadra] == "fianchi" and u.def.classe == "Cavalleria" then
+		for _, altro in ipairs(self.soldati) do
+			if altro.vivo and altro.squadra ~= u.squadra and altro.def.classe == "Tiratore" then
+				cercaTiratori = true
+				break
+			end
+		end
+	end
 	local migliore, punteggioMin = nil, math.huge
 	for _, altro in ipairs(self.soldati) do
-		if altro.vivo and altro.squadra ~= u.squadra then
+		if altro.vivo and altro.squadra ~= u.squadra and (not cercaTiratori or altro.def.classe == "Tiratore") then
 			local punteggio = distanza(u, altro) - altro.raggio
 			if mischia and altro ~= attuale then
 				punteggio = punteggio + (altro.assalitori or 0) * AFFOLLAMENTO
@@ -663,8 +718,10 @@ function Battaglia:_ferisci(b, danno, eventi, attaccante)
 	if not b.vivo then
 		return 0
 	end
+	-- Chi tiene la linea ed è fermo para meglio.
+	local inLinea = self.ordini[b.squadra] == "tieni" and not b.inMarcia
 	local reale = danno * (1 - (b.def.armatura or 0)) * (self:_terrenoSotto(b).dannoSubito or 1)
-		* (1 - math.min(0.6, self:_bonus(b, "difesa")))
+		* (1 - math.min(0.6, self:_bonus(b, "difesa") + (inLinea and DIFESA_IN_LINEA or 0)))
 	b.hp = b.hp - reale
 	if b.hp <= 0 then
 		b.hp = 0
@@ -744,7 +801,7 @@ end
 -- { tipo = "attacco", da, a, colpo = "mischia" | "tiro" | "lancio", ritardo, gesto, carica }
 -- { tipo = "colpo", da, a, danno, area = { { id, danno } } }
 -- { tipo = "morte", id, da, reggimento, reggimentoCaduto }
--- { tipo = "ordine", reggimento, bersaglio } e { tipo = "abilita", reggimento, squadra, tipoCarta, durata }
+-- { tipo = "ordine", squadra, ordine, automatico } e { tipo = "abilita", reggimento, squadra, tipoCarta, durata }
 function Battaglia:passo(dt)
 	local eventi = self.eventiInAttesa
 	self.eventiInAttesa = {}
@@ -752,12 +809,20 @@ function Battaglia:passo(dt)
 		return eventi
 	end
 	self.tempo = self.tempo + dt
+	self:_aggiornaOrdini()
 	for _, u in ipairs(self.soldati) do
 		if u.vivo then
 			u.inMarcia = false
 			u.ricarica = math.max(0, u.ricarica - dt)
 			local b = self:_bersaglio(u, dt)
-			if b then
+			local ordine = self.ordini[u.squadra]
+			local mobile = u.def.velocita > 0
+			local lontanoDalPosto = (u.x - u.ax) ^ 2 + (u.y - u.ay) ^ 2
+			if ordine == "ripiega" and mobile and lontanoDalPosto > 0.15 ^ 2 then
+				-- Ritirata: chi non è ancora al suo nuovo posto ci va, senza fermarsi a combattere.
+				u.inMischia = false
+				self:_muovi(u, { id = "posto" .. u.id, x = u.ax, y = u.ay }, dt, 0)
+			elseif b then
 				local portata = self:_portata(u, b)
 				local lancia = u.def.lancio and self:_puoLanciare(u, b)
 				local inGittata = distanza(u, b) <= portata + 1e-3
@@ -795,8 +860,30 @@ function Battaglia:passo(dt)
 							carica = carica,
 						})
 					end
-				elseif u.def.velocita > 0 then
-					self:_muovi(u, b, dt, portata)
+				elseif mobile then
+					-- Con "tieni", dopo una ritirata e con "fianchi" (tranne la cavalleria) la linea resta ferma:
+					-- si va incontro solo a un nemico ormai vicino, e chi è stato spinto via torna al suo posto.
+					local inLinea = ordine == "tieni" or ordine == "ripiega" or (ordine == "fianchi" and u.def.classe ~= "Cavalleria")
+					if inLinea then
+						if not tiratore(u.def) and distanza(u, b) <= portata + INGAGGIO then
+							self:_muovi(u, b, dt, portata)
+						elseif lontanoDalPosto > SCARTO_LINEA ^ 2 then
+							self:_muovi(u, { id = "posto" .. u.id, x = u.ax, y = u.ay }, dt, 0)
+						else
+							u.rivolto = math.atan2(b.x - u.x, b.y - u.y)
+						end
+					elseif ordine == "fianchi" and not u.girato and distanza(u, b) > 1.5 then
+						-- Aggiramento: prima larga sull'ala più vicina fino all'altezza del bersaglio, poi dentro.
+						local ala = u.x < (self.colonne + 1) / 2 and 0.75 or self.colonne + 0.25
+						if math.abs(u.x - ala) < 0.5 and math.abs(u.y - b.y) < 0.6 then
+							u.girato = true
+							self:_muovi(u, b, dt, portata)
+						else
+							self:_muovi(u, { id = "ala" .. u.id, x = ala, y = b.y }, dt, 0)
+						end
+					else
+						self:_muovi(u, b, dt, portata)
+					end
 				end
 			end
 		end

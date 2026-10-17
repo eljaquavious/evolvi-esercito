@@ -1,5 +1,6 @@
 -- Cielo e luce del client: il preset "lobby" (tramonto sulla cittadella) quando si è in lobby, il preset
--- "campo" (quello del server) quando si esce per la mappa o le battaglie. I preset sono in Config/Luci.
+-- "campo" (quello del server) sulla mappa, e in battaglia il campo con il meteo del livello. I preset sono
+-- in Config/Luci.
 -- Mappa e Partita salvano e ripristinano qualche valore dell'atmosfera: prima di farlo chiamano
 -- Cielo.campo(), così salvano sempre i valori del campo e non quelli della lobby.
 
@@ -23,7 +24,7 @@ local function oggetti(classe)
 	return Lighting:FindFirstChildOfClass(classe)
 end
 
-local function applica(nome, durata)
+local function applica(nome, durata, preset)
 	if attuale == nome then
 		return
 	end
@@ -32,7 +33,7 @@ local function applica(nome, durata)
 		t:Cancel()
 	end
 	table.clear(tween)
-	for classe, proprieta in pairs(Luci[nome]) do
+	for classe, proprieta in pairs(preset or Luci[nome]) do
 		local oggetto = oggetti(classe)
 		if oggetto then
 			local animabili = {}
@@ -59,6 +60,29 @@ end
 
 function Cielo.lobby(durata)
 	applica("lobby", durata)
+end
+
+-- Cielo di una battaglia: il preset "campo" con il colore dell'aria del bioma e sopra il meteo del livello
+-- (Luci.meteo). Restituisce le particelle del meteo (pioggia, neve) o nil.
+function Cielo.battaglia(meteo, coloreBioma)
+	local extra = Luci.meteo[meteo] or {}
+	local preset = {}
+	for classe, proprieta in pairs(Luci.campo) do
+		preset[classe] = table.clone(proprieta)
+	end
+	if coloreBioma then
+		preset.Atmosphere.Color = coloreBioma
+		preset.Atmosphere.Decay = coloreBioma:Lerp(Color3.new(0, 0, 0), 0.3)
+	end
+	for classe, proprieta in pairs(extra) do
+		if type(proprieta) == "table" and preset[classe] then
+			for k, v in pairs(proprieta) do
+				preset[classe][k] = v
+			end
+		end
+	end
+	applica("battaglia:" .. tostring(meteo) .. ":" .. tostring(coloreBioma), nil, preset)
+	return extra.particelle
 end
 
 function Cielo.inLobby()

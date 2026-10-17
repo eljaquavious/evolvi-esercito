@@ -1,6 +1,6 @@
 -- I soldati sul campo, tutti disegnati e animati dal client.
 -- Il server simula la battaglia (Shared/Battaglia) e manda qui, sul remoto "Truppe":
---   schieramento: i reggimenti del giocatore piazzati sulle caselle (fermi, in formazione);
+--   schieramento: i reggimenti del giocatore al loro posto nella formazione scelta (fermi);
 --   inizio: tutti i soldati dei due eserciti al via; passo: posizioni ed eventi a ogni tick;
 --   fine / pulisci: il campo si svuota.
 -- Ogni soldato è un modello di Shared/Modelli mosso dolcemente verso l'ultima posizione ricevuta,
@@ -28,7 +28,7 @@ cartella.Name = "TruppeClient"
 cartella.Parent = workspace
 
 local campo = nil -- { origine, colonne, righe }
-local schierati = {} -- chiave casella -> { soldati }
+local schierati = {} -- "x,y:tipo" -> { soldati }
 local soldati = {} -- id -> soldato in battaglia
 local velocitaBattaglia = 0.75
 local SOLDATI_PER_FRAME = 16
@@ -159,14 +159,14 @@ local function impostaCampo(dati)
 	campo = { origine = dati.origine, colonne = dati.colonne, righe = dati.righe }
 end
 
--- Reggimenti del giocatore sulle caselle durante lo schieramento.
+-- Reggimenti del giocatore al loro posto durante lo schieramento.
 local function schieramento(dati)
 	impostaCampo(dati)
 	versioneSchieramento += 1
 	local versione = versioneSchieramento
 	local visti = {}
 	for _, r in ipairs(dati.reggimenti) do
-		local chiave = r.col .. "," .. r.riga .. ":" .. r.tipo
+		local chiave = ("%.2f,%.2f:%s"):format(r.x, r.y, r.tipo)
 		visti[chiave] = true
 		if not schierati[chiave] then
 			local def = Epoche.Truppe[r.tipo]
@@ -176,9 +176,7 @@ local function schieramento(dati)
 			-- della battaglia (che lo toglie).
 			schierati[chiave] = gruppo
 			for _, offset in ipairs(Battaglia.formazione(def.soldati, def)) do
-				-- Sopra le piastrelle (la cima è 0,45 sul terreno): così non coprono i piedi.
-				local sopra = punto(r.col + offset[1], r.riga + offset[2]) + Vector3.new(0, 0.46, 0)
-				local s = nuovoSoldato(r.tipo, "giocatore", sopra, 0)
+				local s = nuovoSoldato(r.tipo, "giocatore", punto(r.x + offset[1], r.y + offset[2]), 0)
 				if schierati[chiave] ~= gruppo then
 					togli(s, true)
 					break
@@ -201,16 +199,6 @@ local function schieramento(dati)
 	end
 end
 
--- Segni sopra i reggimenti nemici attaccati per ordine del giocatore: id del reggimento -> BillboardGui.
-local bersagli = {}
-
-local function togliBersagli()
-	for _, gui in pairs(bersagli) do
-		gui:Destroy()
-	end
-	bersagli = {}
-end
-
 -- Centro dei soldati vivi di un reggimento (nil se non ne restano).
 local function centroReggimento(id)
 	local somma, n = Vector3.zero, 0
@@ -223,43 +211,20 @@ local function centroReggimento(id)
 	return n > 0 and somma / n or nil
 end
 
-local function segnaBersaglio(id)
-	if bersagli[id] then
-		return
+-- Centro dei soldati vivi di una squadra (nil se non ne restano).
+local function centroSquadra(squadra)
+	local somma, n = Vector3.zero, 0
+	for _, s in pairs(soldati) do
+		if s.vivo and s.squadra == squadra then
+			somma += s.posizione
+			n += 1
+		end
 	end
-	local gui = Instance.new("BillboardGui")
-	gui.Name = "Bersaglio"
-	gui.Size = UDim2.fromOffset(150, 46)
-	gui.AlwaysOnTop = true
-	gui.LightInfluence = 0
-	gui.MaxDistance = 400
-	local etichetta = Instance.new("TextLabel")
-	etichetta.Size = UDim2.fromScale(1, 1)
-	etichetta.BackgroundTransparency = 1
-	etichetta.Text = "⚔ TARGET"
-	etichetta.TextColor3 = Color3.fromRGB(255, 80, 70)
-	etichetta.TextScaled = true
-	etichetta.Font = Enum.Font.LuckiestGuy
-	etichetta.TextStrokeTransparency = 0
-	etichetta.Parent = gui
-	-- Il segno sta su una parte invisibile che segue il reggimento.
-	local ancora = Instance.new("Part")
-	ancora.Name = "SegnoBersaglio"
-	ancora.Anchored = true
-	ancora.CanCollide = false
-	ancora.CanQuery = false
-	ancora.CanTouch = false
-	ancora.Transparency = 1
-	ancora.Size = Vector3.one * 0.2
-	ancora.Position = (centroReggimento(id) or Vector3.zero) + Vector3.new(0, 9, 0)
-	gui.Parent = ancora
-	ancora.Parent = cartella
-	bersagli[id] = ancora
+	return n > 0 and somma / n or nil
 end
 
 local function inizio(dati)
 	impostaCampo(dati)
-	togliBersagli()
 	svuotaSchierati()
 	svuotaBattaglia(true)
 	Effetti.pulisci()
@@ -378,10 +343,12 @@ local function evento(e)
 			end
 		end
 	elseif e.tipo == "ordine" then
-		segnaBersaglio(e.bersaglio)
-		local centro = centroReggimento(e.bersaglio)
-		if centro then
-			Effetti.scritta(centro + Vector3.new(0, 6, 0), "ATTACK!", Color3.fromRGB(255, 90, 80), true)
+		-- Ordine generale: il grido sopra l'armata che lo riceve.
+		local centro = centroSquadra(e.squadra)
+		local nome = Battaglia.NOMI_ORDINI[e.ordine]
+		if centro and nome then
+			local colore = e.squadra == "giocatore" and Color3.fromRGB(120, 200, 255) or Color3.fromRGB(255, 110, 100)
+			Effetti.scritta(centro + Vector3.new(0, 9, 0), nome.grido, colore, true)
 		end
 	elseif e.tipo == "abilita" then
 		local centro = centroReggimento(e.reggimento)
@@ -396,10 +363,6 @@ local function evento(e)
 			end
 		end
 	elseif e.tipo == "morte" then
-		if e.reggimento and bersagli[e.reggimento] then
-			bersagli[e.reggimento]:Destroy()
-			bersagli[e.reggimento] = nil
-		end
 		local s = soldati[e.id]
 		if s and s.vivo then
 			s.vivo = false
@@ -456,12 +419,6 @@ RunService.RenderStepped:Connect(function(dt)
 	for _, s in pairs(soldati) do
 		aggiorna(s, dt, t)
 	end
-	for id, gui in pairs(bersagli) do
-		local centro = centroReggimento(id)
-		if centro then
-			gui.Position = centro + Vector3.new(0, 9, 0)
-		end
-	end
 	for _, gruppo in pairs(schierati) do
 		for _, s in ipairs(gruppo) do
 			aggiorna(s, dt, t)
@@ -469,18 +426,38 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 end)
 
--- Il reggimento nemico più vicino a un punto del mondo (entro "raggio" studs in orizzontale), o nil.
-function Truppe.nemicoVicino(posizione, raggio)
-	local migliore, dMin = nil, raggio
-	for id, s in pairs(soldati) do
-		if s.vivo and s.squadra == "nemico" then
-			local d = Vector3.new(s.posizione.X - posizione.X, 0, s.posizione.Z - posizione.Z).Magnitude
-			if d < dMin then
-				migliore, dMin = id // 16, d
-			end
+-- Centro dei superstiti di una squadra, per la cinematica tra i round (nil se non ne restano).
+function Truppe.centro(squadra)
+	return centroSquadra(squadra)
+end
+
+-- Cinematica tra i round: i superstiti della squadra sconfitta ripiegano verso le loro retrovie, gli altri
+-- restano e li guardano andare via.
+function Truppe.ritirata(squadra, durata)
+	if not campo then
+		return
+	end
+	local indietro = squadra == "giocatore" and -1 or 1
+	local numero = numeroBattaglia
+	-- Niente barre della vita: da vicino coprono l'inquadratura.
+	for _, s in pairs(soldati) do
+		if s.barra then
+			s.barra.Enabled = false
 		end
 	end
-	return migliore
+	local inizio = os.clock()
+	task.spawn(function()
+		while os.clock() - inizio < durata and numero == numeroBattaglia do
+			for _, s in pairs(soldati) do
+				if s.vivo and s.squadra == squadra then
+					s.obiettivo = s.obiettivo + Vector3.new(0, 0, indietro * CASELLA * 0.035)
+					s.obiettivo = Vector3.new(s.obiettivo.X, quota(s.obiettivo.X, s.obiettivo.Z), s.obiettivo.Z)
+					s.angoloObiettivo = indietro > 0 and 0 or math.pi
+				end
+			end
+			task.wait(0.05)
+		end
+	end)
 end
 
 function Truppe.inizializza(remoti)
@@ -492,7 +469,6 @@ function Truppe.inizializza(remoti)
 		elseif dati.tipo == "passo" then
 			passo(dati)
 		elseif dati.tipo == "fine" then
-			togliBersagli()
 			local numero = numeroBattaglia
 			task.delay(1.2, function()
 				if numero == numeroBattaglia then
@@ -500,7 +476,6 @@ function Truppe.inizializza(remoti)
 				end
 			end)
 		elseif dati.tipo == "pulisci" then
-			togliBersagli()
 			numeroBattaglia += 1
 			svuotaSchierati()
 			svuotaBattaglia(true)

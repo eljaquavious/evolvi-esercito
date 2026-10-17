@@ -14,9 +14,9 @@ return {
 		"ChiediStato",
 		"ApriMappa",
 		"AvviaCampagna", -- numero del livello
-		"Casella", -- piazza o rimuove una truppa
+		"Schiera", -- carte scelte (indici del mazzo) e formazione: i reggimenti prendono posto
 		"Combatti",
-		"Ordine", -- in battaglia: un tuo reggimento attacca un reggimento nemico
+		"Ordine", -- in battaglia: ordine generale a tutta la tua armata (avanza, tieni, ripiega, fianchi, carica)
 		"Abilita", -- in battaglia: attiva l'abilità di un tuo comandante
 		"VinciRound", -- modalità prova (solo in Studio): il round in corso è vinto subito
 		"TornaLobby",
