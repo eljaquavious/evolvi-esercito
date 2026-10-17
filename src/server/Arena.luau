@@ -29,7 +29,9 @@ local LARGHEZZA_FIUME = 13
 local SPONDA = 10 -- larghezza della sponda in pendio
 local MEZZO_QUOTE = 80 -- le quote si misurano su questo quadrato attorno al centro
 local PASSO_QUOTE = 2
-local SENZA_ERBA_ALTA = 150 -- vicino al campo niente Grass: la sua erba alta nasconde soldati e caselle
+-- Sotto le caselle niente Grass: i suoi fili d'erba 3D (Terrain.Decoration) bucherebbero le caselle. Tutto attorno
+-- invece sì, corta (Terrain.GrassLength si imposta in Studio: non si può da script): è l'erba vera dei prati.
+local SENZA_ERBA_ALTA = META_CAMPO + 6
 local PEZZI_CASELLA = 4 -- ogni casella è fatta di 4x4 piastrelle che seguono il terreno
 local SOPRA_TERRENO = 0.35
 local FONDO_MARE = -7
@@ -222,6 +224,20 @@ local function materiale(arena, x, z, h, pendenza)
 	if pendenza > 0.9 then
 		return r.roccia
 	end
+	local erboso = r.base == Enum.Material.Grass
+	if erboso then
+		-- Prato: erba alta (Grass) con chiazze più basse (LeafyGrass) e qualche spiazzo di terra battuta, a
+		-- macchie irregolari (due scale di rumore) invece che a tondi tutti uguali.
+		local sotto = math.max(math.abs(x), math.abs(z)) < SENZA_ERBA_ALTA
+		local f = math.noise(x / 46, z / 46, arena.seme + 3) + 0.45 * math.noise(x / 13, z / 13, arena.seme + 11)
+		if f > 0.55 and not sotto then
+			return r.chiazze
+		end
+		if sotto or f > 0.12 or h > ALTEZZA_BASE + 26 then
+			return r.campo
+		end
+		return r.base
+	end
 	if math.max(math.abs(x), math.abs(z)) < META_CAMPO + 10 then
 		return math.noise(x / 18, z / 18, arena.seme) > 0.25 and r.chiazze or r.campo
 	end
@@ -230,10 +246,6 @@ local function materiale(arena, x, z, h, pendenza)
 	end
 	if math.noise(x / 26, z / 26, arena.seme + 3) > 0.35 then
 		return r.chiazze
-	end
-	local vicino = math.max(math.abs(x), math.abs(z)) + math.noise(x / 40, z / 40, arena.seme + 5) * 30 < SENZA_ERBA_ALTA
-	if vicino and r.base == Enum.Material.Grass then
-		return r.campo
 	end
 	return r.base
 end
