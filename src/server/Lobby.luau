@@ -313,21 +313,30 @@ local function corsia(parte)
 	return parte
 end
 
--- Tappeto colorato con bordi dorati da "a" a "b" (a terra), largo "larghezza".
-local function tappeto(genitore, a, b, larghezza, colore)
+-- Tappeto di moquette da "a" a "b" (a terra), largo "larghezza": spesso, con una cornice più scura,
+-- un filo dorato tra cornice e campo e le frange alle due estremità. "aperto" ("a" o "b") è il capo che
+-- continua in un altro tappeto: lì niente cornice né frange, così i due sembrano uno solo.
+local function tappeto(genitore, a, b, larghezza, colore, aperto)
 	local medio = (a + b) / 2
-	local cf = CFrame.lookAt(Vector3.new(medio.X, PAVIMENTO + 0.08, medio.Z), Vector3.new(b.X, PAVIMENTO + 0.08, b.Z))
+	local cf = CFrame.lookAt(Vector3.new(medio.X, PAVIMENTO, medio.Z), Vector3.new(b.X, PAVIMENTO, b.Z))
 	local lunghezza = (Vector3.new(b.X, 0, b.Z) - Vector3.new(a.X, 0, a.Z)).Magnitude
-	local t = corsia(scatola(genitore, Vector3.new(larghezza, 0.16, lunghezza), cf, colore, Enum.Material.Fabric))
+	local cornice = colore:Lerp(Color3.new(0, 0, 0), 0.45)
+	local frange = colore:Lerp(Color3.fromRGB(240, 228, 200), 0.75)
+	-- Nel CFrame il capo "b" è verso -Z, il capo "a" verso +Z.
+	local chiusoA, chiusoB = aperto ~= "a", aperto ~= "b"
+	local tagliaA, tagliaB = chiusoA and 0.7 or 0, chiusoB and 0.7 or 0
+	local t = corsia(scatola(genitore, Vector3.new(larghezza, 0.3, lunghezza), cf * CFrame.new(0, 0.15, 0), cornice, Enum.Material.Fabric))
+	corsia(scatola(genitore, Vector3.new(larghezza - 1.4, 0.34, lunghezza - tagliaA - tagliaB), cf * CFrame.new(0, 0.17, (tagliaB - tagliaA) / 2), colore, Enum.Material.Fabric))
+	local filoA, filoB = chiusoA and 0.5 or 0, chiusoB and 0.5 or 0
 	for lato = -1, 1, 2 do
-		scatola(genitore, Vector3.new(0.5, 0.2, lunghezza), cf * CFrame.new(lato * (larghezza / 2 + 0.2), 0.02, 0), ORO, Enum.Material.Fabric)
-	end
-	-- Frecce chiare lungo il tappeto, verso "b": dicono da che parte si va veloci.
-	local numero = math.floor(lunghezza / 9)
-	for i = 1, numero do
-		local z = -lunghezza / 2 + (i - 0.5) * lunghezza / numero
-		for lato = -1, 1, 2 do
-			scatola(genitore, Vector3.new(0.6, 0.18, larghezza * 0.42), cf * CFrame.new(lato * larghezza * 0.15, 0.02, -z) * CFrame.Angles(0, lato * math.rad(40), 0), colore:Lerp(Color3.new(1, 1, 1), 0.55), Enum.Material.Fabric, { CanCollide = false })
+		scatola(genitore, Vector3.new(0.18, 0.32, lunghezza - filoA - filoB), cf * CFrame.new(lato * (larghezza / 2 - 0.55), 0.16, (filoB - filoA) / 2), ORO, Enum.Material.Fabric, { CanCollide = false })
+		if (lato == 1 and chiusoA) or (lato == -1 and chiusoB) then
+			scatola(genitore, Vector3.new(larghezza - 1, 0.32, 0.18), cf * CFrame.new(0, 0.16, lato * (lunghezza / 2 - 0.55)), ORO, Enum.Material.Fabric, { CanCollide = false })
+			-- Frange: fili chiari che escono dal capo.
+			for i = 0, math.floor(larghezza / 0.5) - 1 do
+				local x = -larghezza / 2 + 0.25 + i * 0.5
+				scatola(genitore, Vector3.new(0.12, 0.06, 0.7), cf * CFrame.new(x, 0.03, lato * (lunghezza / 2 + 0.35)), frange, Enum.Material.Fabric, { CanCollide = false, CastShadow = false })
+			end
 		end
 	end
 	return t
@@ -690,7 +699,7 @@ local function rotonda(lobby)
 		table.insert(porte, ala.angolo)
 		local dir = Vector3.new(math.cos(ala.angolo), 0, math.sin(ala.angolo))
 		-- Tappeto dal tavolo alla porta (veloce).
-		tappeto(m, dir * 19, dir * (R_ROTONDA + 2), 7, ala.colore)
+		tappeto(m, dir * 19, dir * (R_ROTONDA + 2), 7, ala.colore, "b")
 		-- Insegna sopra la porta, rivolta al centro (i soffitti delle ali cominciano dietro, a 45).
 		cartello(m, dir * (R_ROTONDA - 2.2) + Vector3.new(0, PAVIMENTO + 29.5, 0), -dir, 22, 5.6, ala.titolo, ala.colore, ala.sotto)
 		-- Cornice luminosa della porta, del colore dell'ala.
@@ -830,7 +839,7 @@ local function galleria(lobby, callback)
 	-- Muro di fondo.
 	scatola(m, Vector3.new(X * 2 + 8, ALTO + 2, 4), Vector3.new(0, PAVIMENTO + ALTO / 2, Z1 - 2), SALE[3].muri, Enum.Material.Concrete)
 	-- Tappeto veloce al centro fino al portale.
-	tappeto(m, Vector3.new(0, 0, -48), Vector3.new(0, 0, Z1 + 12), 7, BLU)
+	tappeto(m, Vector3.new(0, 0, -48), Vector3.new(0, 0, Z1 + 12), 7, BLU, "a")
 
 	-- Archi tra le sale con il nome della sala che si apre dietro.
 	for i, sala in ipairs(SALE) do
@@ -975,7 +984,7 @@ local function arena(lobby, callback)
 	end
 	-- Il tetto comincia dietro il muro della Rotonda (a 45), per non coprire l'insegna della porta.
 	scatola(m, Vector3.new(28, 2, 34), Vector3.new(59, PAVIMENTO + 27, 0), PIETRA_SCURA, Enum.Material.Slate)
-	tappeto(m, Vector3.new(48, 0, 0), Vector3.new(84, 0, 0), 7, ROSSO)
+	tappeto(m, Vector3.new(48, 0, 0), Vector3.new(84, 0, 0), 7, ROSSO, "a")
 
 	-- Pavimento, sabbia al centro, gradinate.
 	colonna(m, 1, (R + 4) * 2, centro + Vector3.new(0, PAVIMENTO - 0.53, 0), Color3.fromRGB(88, 78, 72), Enum.Material.Slate)
@@ -1112,7 +1121,7 @@ local function armeria(lobby, callback)
 		end
 		scatola(m, Vector3.new(1, 4, 1), Vector3.new(x, PAVIMENTO + ALTO - 2, 0), LEGNO_SCURO, Enum.Material.Wood)
 	end
-	tappeto(m, Vector3.new(-48, 0, 0), Vector3.new(-104, 0, 0), 7, GIALLO)
+	tappeto(m, Vector3.new(-48, 0, 0), Vector3.new(-104, 0, 0), 7, GIALLO, "a")
 
 	-- Le tre casse dello shop su piedistalli illuminati (il client le fa girare).
 	for i, info in ipairs(Casse.Lista) do
@@ -1190,7 +1199,7 @@ local function eroi(lobby, callback)
 	for z = Z0 + 6, Z1 - 2, 10 do
 		scatola(m, Vector3.new(X * 2, 2, 1.6), Vector3.new(0, PAVIMENTO + ALTO - 1, z), ORO, Enum.Material.Slate)
 	end
-	tappeto(m, Vector3.new(0, 0, 48), Vector3.new(0, 0, 108), 7, VERDE)
+	tappeto(m, Vector3.new(0, 0, 48), Vector3.new(0, 0, 108), 7, VERDE, "a")
 
 	-- Le statue: tre per lato, rivolte al tappeto, nell'ordine delle epoche.
 	local comandanti = { "Annibale", "Cesare", "Guglielmo", "Giovanna", "Foch", "DeGaulle" }
