@@ -453,6 +453,11 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 	for _, gruppo in pairs(schierati) do
 		for _, s in ipairs(gruppo) do
+			-- Se il terreno è arrivato dopo lo schieramento (streaming), si rimettono i piedi a terra.
+			if campo then
+				local o = s.obiettivo
+				s.obiettivo = Vector3.new(o.X, quota(o.X, o.Z), o.Z)
+			end
 			aggiorna(s, dt, t)
 		end
 	end

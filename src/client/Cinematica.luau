@@ -697,6 +697,9 @@ local function finisci(stato, subito)
 			pezzo.CFrame = cf
 		end
 	end
+	if stato.truppe then
+		stato.truppe.Parent = workspace
+	end
 	for _, d in ipairs(stato.decalNascosti) do
 		if d[1].Parent then
 			d[1].Transparency = d[2]
@@ -810,6 +813,13 @@ function Cinematica.riproduci(nome, centro, arena, fine)
 		end
 	end
 	nascondi(stato, player.Character)
+	-- I reggimenti che il giocatore schiera (Client/Truppe) arrivano mentre la scena è in corso: nella storia
+	-- non c'entrano, la loro cartella esce dal mondo finché la cinematica non finisce.
+	local truppe = workspace:FindFirstChild("TruppeClient")
+	if truppe then
+		stato.truppe = truppe
+		truppe.Parent = nil
+	end
 	sgombra(stato, arena, dati.sgombra)
 
 	-- Colori da film: un po' più di contrasto, toni caldi, profondità di campo per i primi piani.
