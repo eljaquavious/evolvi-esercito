@@ -9,6 +9,7 @@ local versione = require(Shared.Versione)
 
 local Dati = require(script.Dati)
 local Ambiente = require(script.Ambiente)
+local ModelliAsset = require(script.ModelliAsset)
 local Lobby = require(script.Lobby)
 local GestoreCampagna = require(script.GestoreCampagna)
 local Collezione = require(script.Collezione)
@@ -83,6 +84,7 @@ remoti.Ranked.OnServerInvoke = function(player)
 	return false
 end
 
+ModelliAsset.carica()
 Ambiente.imposta()
 GestoreCampagna.inizializza(remoti)
 Collezione.inizializza(remoti)

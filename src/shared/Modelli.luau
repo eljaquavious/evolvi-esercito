@@ -4,7 +4,28 @@
 -- (Bone o Motor6D): a riposo sono orientate come il modello, quindi si ruota attorno agli assi del soldato.
 -- Il fronte del modello è la direzione -Z, la sua destra è +X. La parte "Radice" è ancorata a terra.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local Mesh = require(script.Parent.Mesh)
+local AssetTruppe = require(script.Parent.Config.AssetTruppe)
+
+-- Modelli caricati come asset (Config/AssetTruppe): il server li mette in ReplicatedStorage.ModelliTruppe
+-- all'avvio (Server/ModelliAsset). Non consumano il tetto di memoria delle mesh costruite a runtime.
+-- Restituisce una copia della MeshPart, il suo centro rispetto ai piedi e quanto scende sotto il centro;
+-- nil se l'asset non è arrivato (allora si usa la mesh costruita a runtime).
+local ATTESA_ASSET = 15
+local function copiaAsset(tipo)
+	local asset = AssetTruppe[tipo]
+	if not asset then
+		return nil
+	end
+	local cartella = ReplicatedStorage:FindFirstChild("ModelliTruppe") or ReplicatedStorage:WaitForChild("ModelliTruppe", ATTESA_ASSET)
+	local sorgente = cartella and (cartella:FindFirstChild(tipo) or cartella:WaitForChild(tipo, ATTESA_ASSET))
+	if not sorgente then
+		return nil
+	end
+	return sorgente:Clone(), asset.centro, asset.basso
+end
 
 local Modelli = {}
 
@@ -675,8 +696,11 @@ function Modelli.crea(tipo, squadra, cframe, opzioni)
 	local radice = nuovaRadice(modello, cframe)
 	local colore = Modelli.COLORI_SQUADRA[squadra or "giocatore"]
 	local giunti, conMesh = {}, false
-	if Mesh.disponibile(tipo) then
-		local parte, centro, basso = Mesh.copia(tipo, info.metri)
+	if Mesh.disponibile(tipo) or AssetTruppe[tipo] then
+		local parte, centro, basso = copiaAsset(tipo)
+		if not parte then
+			parte, centro, basso = Mesh.copia(tipo, info.metri)
+		end
 		if parte then
 			-- L'origine dei modelli Blender è sotto i piedi del soldato; nei cavalieri il cavaliere è stato
 			-- costruito in piedi e poi messo in sella, così gli zoccoli scendono sotto l'origine: si alza tutto
