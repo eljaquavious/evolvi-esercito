@@ -33,6 +33,7 @@ local gui = Stile.crea("ScreenGui", {
 })
 
 Notifiche.inizializza(gui)
+require(script.UI.Preferiti).inizializza(remoti)
 Truppe.inizializza(remoti)
 LobbyVita.inizializza(remoti)
 Mantelli.inizializza()

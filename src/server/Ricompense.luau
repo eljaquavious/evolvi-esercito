@@ -215,6 +215,17 @@ function Ricompense.inizializza(r)
 	remoti.Equipaggia.OnServerInvoke = Ricompense.equipaggia
 	remoti.AcquistaOggetto.OnServerInvoke = Ricompense.acquista
 	remoti.RiscattaCodice.OnServerInvoke = Ricompense.riscatta
+	-- Il server non può controllare i Preferiti (lo sa solo il client): ci si fida, il premio è solo estetico.
+	remoti.Preferito.OnServerInvoke = function(player)
+		local dati = Dati.ottieni(player)
+		if not dati or dati.preferito then
+			return false
+		end
+		Dati.modifica(player, function(d)
+			d.preferito = true
+		end)
+		return true
+	end
 	MarketplaceService.ProcessReceipt = ricevuta
 end
 

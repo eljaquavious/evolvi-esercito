@@ -11,6 +11,7 @@
 --   sconfitti  = sconfiggi n reggimenti nemici
 --   comandanti = possiedi tutti i comandanti
 --   ranked     = vinci n partite ranked (le ranked non ci sono ancora: restano bloccati, "coming soon")
+--   preferito  = metti il gioco nei Preferiti di Roblox
 
 local Epoche = require(script.Parent.Epoche)
 local Campagna = require(script.Parent.Campagna)
@@ -31,6 +32,7 @@ Ricompense.Slot = {
 	{ id = "Testa", nome = "HEAD" },
 	{ id = "Corpo", nome = "BODY" },
 	{ id = "Schiena", nome = "BACK" },
+	{ id = "Aura", nome = "AURA" }, -- particelle attorno al corpo (Shared.Cosmetici3D)
 }
 
 Ricompense.Titoli = {
@@ -47,6 +49,7 @@ Ricompense.Titoli = {
 	{ id = "Comandante", nome = "Commander", rarita = "raro", condizione = { "ranked", 10 } },
 	{ id = "Generalissimo", nome = "Generalissimo", rarita = "leggendario", condizione = { "ranked", 100 } },
 	{ id = "Mercenario", nome = "Mercenary", rarita = "raro", monete = 4000 },
+	{ id = "Fedele", nome = "Loyal Ally", rarita = "raro", condizione = { "preferito" } },
 	{ id = "Magnifico", nome = "The Magnificent", rarita = "leggendario", robux = { prezzo = 99, prodotto = 0 } },
 	{ id = "Fondatore", nome = "Founder", rarita = "esclusivo", soloCodice = true },
 }
@@ -74,6 +77,14 @@ Ricompense.Cosmetici = {
 	{ id = "Fucile", nome = "Lebel Rifle", slot = "Schiena", rarita = "raro", condizione = { "battaglia", 15 }, epoca = 3 },
 	{ id = "Stendardo", nome = "War Banner", slot = "Schiena", rarita = "raro", monete = 2500 },
 	{ id = "Aquila", nome = "Imperial Eagle", slot = "Schiena", rarita = "leggendario", robux = { prezzo = 99, prodotto = 0 } },
+	-- Aure
+	{ id = "AuraFedele", nome = "Loyal Aura", slot = "Aura", rarita = "epico", condizione = { "preferito" } },
+	{ id = "AuraBrace", nome = "Ember Aura", slot = "Aura", rarita = "raro", monete = 3000 },
+	{ id = "AuraGelo", nome = "Frost Aura", slot = "Aura", rarita = "raro", condizione = { "battaglia", 8 }, epoca = 2 },
+	{ id = "AuraFumo", nome = "Smoke of War", slot = "Aura", rarita = "raro", condizione = { "battaglia", 17 }, epoca = 3 },
+	{ id = "AuraSangue", nome = "Crimson Aura", slot = "Aura", rarita = "epico", condizione = { "sconfitti", 250 } },
+	{ id = "AuraTempesta", nome = "Storm Aura", slot = "Aura", rarita = "epico", condizione = { "vittorie", 50 } },
+	{ id = "AuraReale", nome = "Royal Aura", slot = "Aura", rarita = "leggendario", robux = { prezzo = 149, prodotto = 0 } },
 }
 
 local indiceTitoli, indiceCosmetici = {}, {}
@@ -157,6 +168,8 @@ function Ricompense.avanzamento(oggetto, d)
 		return posseduti, totale
 	elseif tipo == "ranked" then
 		return s.vittorieRanked or 0, n
+	elseif tipo == "preferito" then
+		return d.preferito and 1 or 0, 1
 	end
 	return 0, 1
 end
@@ -200,6 +213,8 @@ function Ricompense.comeSbloccare(oggetto)
 		return "Collect every commander card."
 	elseif tipo == "ranked" then
 		return ("Win %d ranked matches (coming soon)."):format(n)
+	elseif tipo == "preferito" then
+		return "Add the game to your Favorites."
 	end
 	return ""
 end

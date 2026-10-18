@@ -136,11 +136,22 @@ local function prepara(lobby)
 			table.insert(fasci, { parte = oggetto, base = oggetto:GetAttribute("Base"), fase = #fasci * 1.7 })
 		end
 	end
-	-- I modelli dopo il resto: costruirli può richiedere qualche frame.
-	for _, oggetto in ipairs(lobby:GetDescendants()) do
+	-- I modelli dopo il resto: costruirli può richiedere qualche frame. Con lo streaming i piedistalli lontani
+	-- arrivano dopo (o escono e rientrano): ognuno si popola una volta sola, riconosciuto dalla posizione.
+	local popolati = {}
+	local function forse(oggetto)
 		if oggetto:IsA("BasePart") and oggetto:GetAttribute("Esposizione") then
-			popola(oggetto)
+			local p = oggetto.Position
+			local chiave = ("%d,%d,%d"):format(math.round(p.X), math.round(p.Y), math.round(p.Z))
+			if not popolati[chiave] then
+				popolati[chiave] = true
+				task.spawn(popola, oggetto)
+			end
 		end
+	end
+	lobby.DescendantAdded:Connect(forse)
+	for _, oggetto in ipairs(lobby:GetDescendants()) do
+		forse(oggetto)
 	end
 end
 

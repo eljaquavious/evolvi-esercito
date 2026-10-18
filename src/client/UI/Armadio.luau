@@ -10,6 +10,7 @@ local Config = require(ReplicatedStorage.Shared.Config.Ricompense)
 local Cosmetici3D = require(ReplicatedStorage.Shared.Cosmetici3D)
 local Stile = require(script.Parent.Stile)
 local Notifiche = require(script.Parent.Notifiche)
+local Preferiti = require(script.Parent.Preferiti)
 
 local Armadio = {}
 
@@ -74,6 +75,7 @@ local DIREZIONE = {
 	Testa = Vector3.new(-0.75, 0.45, -1),
 	Corpo = Vector3.new(-0.55, 0.25, -1),
 	Schiena = Vector3.new(0.6, 0.25, 1),
+	Aura = Vector3.new(-0.5, 0.35, -1),
 }
 
 local function luci(vp)
@@ -220,6 +222,9 @@ local function pulsanteOggetto(tipo, oggetto, proprieta, testoSize)
 		})
 		bottone.Activated:Connect(function()
 			Notifiche.mostra(Config.comeSbloccare(oggetto))
+			if oggetto.condizione and oggetto.condizione[1] == "preferito" then
+				Preferiti.chiedi()
+			end
 		end)
 	end
 	return bottone
@@ -404,7 +409,7 @@ local function paginaCosmetici(pagina)
 	})
 	local palco = Stile.crea("Frame", {
 		Position = UDim2.fromOffset(20, 66),
-		Size = UDim2.new(1, -40, 0, 400),
+		Size = UDim2.new(1, -40, 0, 340),
 		BackgroundColor3 = Stile.BIANCO,
 		ClipsDescendants = true,
 		Parent = pannello,
@@ -425,8 +430,8 @@ local function paginaCosmetici(pagina)
 
 	for i, s in ipairs(Config.Slot) do
 		local riga = Stile.crea("Frame", {
-			Position = UDim2.fromOffset(20, 484 + (i - 1) * 76),
-			Size = UDim2.new(1, -40, 0, 64),
+			Position = UDim2.fromOffset(20, 418 + (i - 1) * 70),
+			Size = UDim2.new(1, -40, 0, 60),
 			BackgroundColor3 = ARANCIO_SCURO,
 			Parent = pannello,
 		}, { Stile.angoli(18), Stile.bordo(Stile.CONTORNO, 4) })

@@ -20,6 +20,8 @@ local Epoche = require(ReplicatedStorage.Shared.Config.Epoche)
 local Carte = require(ReplicatedStorage.Shared.Config.Carte)
 local Battaglia = require(ReplicatedStorage.Shared.Battaglia)
 local Cinematica = require(script.Parent.Parent.Cinematica)
+local Suoni = require(script.Parent.Parent.Suoni)
+local Preferiti = require(script.Parent.Preferiti)
 
 local Partita = {}
 
@@ -370,6 +372,7 @@ local function entraPiazzamento(dati)
 	local nuovoCampo = not info or info.arena ~= dati.arena or info.livello ~= dati.livello or dati.round == 1
 	info = dati
 	fase = "piazzamento"
+	Suoni.musica("schieramento")
 	risultato.Visible = false
 	scrittaConto.Visible = false
 	arena = workspace:WaitForChild("Arene"):WaitForChild(dati.arena, 10)
@@ -425,6 +428,8 @@ local function contoAllaRovescia(conto)
 	end
 	scrittaConto.Visible = false
 	if fase == "battaglia" then
+		-- Grido di guerra di tutta l'armata al via.
+		Suoni.effetto("grido")
 		mostraTimer(nil)
 		sottotitolo.Text = "FIGHT!"
 		sottotitolo.TextColor3 = Stile.PAL.arancio.t
@@ -561,6 +566,7 @@ end
 
 local function entraBattaglia(dati)
 	fase = "battaglia"
+	Suoni.musica("battaglia")
 	costruisciBarraBattaglia(dati.reggimenti or {})
 	barraMazzo.Visible = true
 	bottoneCombatti.Visible = false
@@ -617,6 +623,7 @@ end
 
 local function mostraRisultato(dati)
 	fase = "risultato"
+	Suoni.fermaMusica()
 	mostraPiazzamento(false)
 	mostraVinci(false)
 	scrittaConto.Visible = false
@@ -714,6 +721,7 @@ local function mostraRisultato(dati)
 	end
 
 	if dati.vittoria then
+		Preferiti.dopoVittoria()
 		testoContinua.Text = dati.prossimo == dati.numero and "PLAY AGAIN" or "NEXT BATTLE"
 		Stile.coloraPulsante(bottoneContinua, "verde")
 		Stile.coloraPulsante(bottoneLobbyRisultato, "verde")
@@ -728,6 +736,7 @@ end
 -- Esce dalla partita; ripristinaVista = false quando si passa alla mappa, che ha la sua telecamera.
 local function esci(ripristinaVista)
 	fase = "lobby"
+	Suoni.fermaMusica()
 	info = nil
 	arena = nil
 	mostraPiazzamento(false)

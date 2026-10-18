@@ -54,6 +54,7 @@ local function stato(dati)
 		titolo = dati.titolo,
 		cosmetici = dati.cosmetici,
 		indossati = dati.indossati,
+		preferito = dati.preferito,
 	}
 end
 

@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config.Ricompense)
 local Cosmetici3D = require(ReplicatedStorage.Shared.Cosmetici3D)
+local Progressi = require(ReplicatedStorage.Shared.Config.Progressi)
 
 local Aspetto = {}
 
@@ -67,8 +68,8 @@ local function scritta(genitore, testo, posizione, altezza, colore, font)
 	return etichetta
 end
 
--- Targhetta sopra la testa: nome in bianco, titolo sotto nel colore della sua rarità.
-local function targhetta(player, personaggio, idTitolo)
+-- Targhetta sopra la testa: livello e nome in bianco, titolo sotto nel colore della sua rarità.
+local function targhetta(player, personaggio, idTitolo, livello)
 	local testa = personaggio:FindFirstChild("Head")
 	if not testa then
 		return
@@ -90,6 +91,10 @@ local function targhetta(player, personaggio, idTitolo)
 		scritta(gui, "", UDim2.fromScale(0, 0.58), 0.42, Color3.new(1, 1, 1), Font.new("rbxasset://fonts/families/Nunito.json", Enum.FontWeight.Heavy)).Name = "Titolo"
 		gui.Parent = testa
 	end
+	-- Livello del giocatore in oro prima del nome.
+	local nome = gui:FindFirstChild("Nome")
+	nome.RichText = true
+	nome.Text = ('<font color="#FFD23F">Lv.%d</font>  %s'):format(livello or 1, player.DisplayName)
 	local titolo = Config.titolo(idTitolo) or Config.titolo(Config.TITOLO_INIZIALE)
 	local etichetta = gui:FindFirstChild("Titolo")
 	etichetta.Text = "« " .. string.upper(titolo.nome) .. " »"
@@ -108,7 +113,8 @@ function Aspetto.aggiorna(player, dati, forza)
 	if not personaggio or not dati or not personaggio:FindFirstChild("Head") or not (forza or player:HasAppearanceLoaded()) then
 		return
 	end
-	local firma = tostring(dati.titolo)
+	local livello = Progressi.livello(dati.esperienza or 0)
+	local firma = tostring(dati.titolo) .. "|" .. livello
 	for _, slot in ipairs(Config.Slot) do
 		firma ..= "|" .. tostring(dati.indossati[slot.id])
 	end
@@ -136,7 +142,7 @@ function Aspetto.aggiorna(player, dati, forza)
 	end
 	cartella.Parent = personaggio
 	nascondiAccessori(personaggio, occupati)
-	targhetta(player, personaggio, dati.titolo)
+	targhetta(player, personaggio, dati.titolo, livello)
 end
 
 -- ottieniDati: funzione player -> dati (Dati.ottieni), così questo modulo non dipende da Dati.

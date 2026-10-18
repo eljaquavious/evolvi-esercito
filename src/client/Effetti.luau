@@ -5,6 +5,8 @@ local Debris = game:GetService("Debris")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
+local Suoni = require(script.Parent.Suoni)
+
 local Effetti = {}
 
 local cartella = Instance.new("Folder")
@@ -120,6 +122,7 @@ function Effetti.sparo(da, a, durata)
 end
 
 function Effetti.esplosione(posizione)
+	Suoni.effetto("esplosione", posizione)
 	local e = Instance.new("Explosion")
 	e.Position = posizione
 	e.BlastRadius = 6

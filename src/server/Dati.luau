@@ -34,6 +34,7 @@ local function predefiniti()
 		cosmetici = {}, -- id -> true
 		indossati = {}, -- slot (Testa, Corpo, Schiena) -> id del cosmetico
 		codiciUsati = {}, -- CODICE -> true
+		preferito = false, -- ha messo il gioco nei Preferiti (titolo e aura in regalo)
 		statistiche = {
 			battaglie = 0,
 			vittorie = 0,

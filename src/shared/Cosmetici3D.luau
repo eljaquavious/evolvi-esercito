@@ -455,6 +455,156 @@ function Costruttori.Aquila(m)
 	parte(m, "blocco", Vector3.new(0.12, 2.0, 0.06), C(0, 0.1, 0.58) * CFrame.Angles(0, 0, rad(-40)), CUOIO) -- cinghia
 end
 
+-- ===================================================================== AURE
+-- Un'aura è fatta di particelle attorno al corpo (non hanno forma). Nelle finestre, dove le particelle non si
+-- vedono, si mostra un globo luminoso con i suoi colori; addosso, un blocco invisibile saldato alla radice del
+-- personaggio fa uscire le particelle (Cosmetici3D.indossa).
+
+local SCINTILLE = "rbxasset://textures/particles/sparkles_main.dds"
+local FUMO = "rbxasset://textures/particles/smoke_main.dds"
+local FUOCO = "rbxasset://textures/particles/fire_main.dds"
+
+-- Ogni emettitore: texture, colori (inizio, fine), quanti al secondo, misura, durata, velocità verso l'alto,
+-- piedi = escono da terra attorno ai piedi invece che da tutto il corpo.
+local AURE = {
+	AuraFedele = {
+		globo = { hex("#FFE07A"), hex("#FFF6D0") },
+		luce = hex("#FFD86A"),
+		emettitori = {
+			{ texture = SCINTILLE, colori = { hex("#FFE58A"), hex("#FFB830") }, rate = 18, misura = 0.45, durata = 1.6, su = 2.5 },
+			{ texture = SCINTILLE, colori = { hex("#FFFFFF"), hex("#FFE9A8") }, rate = 8, misura = 0.25, durata = 2.2, su = 1.2, piedi = true },
+		},
+	},
+	AuraBrace = {
+		globo = { hex("#FF7A1A"), hex("#FFC14D") },
+		luce = hex("#FF7A2A"),
+		emettitori = {
+			{ texture = FUOCO, colori = { hex("#FFB040"), hex("#B21E0A") }, rate = 34, misura = 1.7, durata = 0.8, su = 5, piedi = true, luminosa = 1, velocita = { 2, 4 }, apertura = 12, trasparenza = 0.25 },
+			{ texture = SCINTILLE, colori = { hex("#FFD27A"), hex("#FF5A10") }, rate = 10, misura = 0.25, durata = 1.4, su = 4 },
+		},
+	},
+	AuraGelo = {
+		globo = { hex("#9FE3FF"), hex("#FFFFFF") },
+		luce = hex("#9FDcff"),
+		emettitori = {
+			{ texture = SCINTILLE, colori = { hex("#FFFFFF"), hex("#8FD8FF") }, rate = 16, misura = 0.35, durata = 2.2, su = -0.8 },
+			{ texture = FUMO, colori = { hex("#E8F7FF"), hex("#A8D8F0") }, rate = 12, misura = 2, durata = 1.8, su = 0.4, piedi = true, trasparenza = 0.45, luce = 0, luminosa = 0.3 },
+		},
+	},
+	AuraFumo = {
+		globo = { hex("#6E6A64"), hex("#A8A29A") },
+		emettitori = {
+			{ texture = FUMO, colori = { hex("#B8B0A4"), hex("#6A645C") }, rate = 16, misura = 2.6, durata = 2.4, su = 1.4, piedi = true, trasparenza = 0.3, luce = 0.3 },
+			{ texture = SCINTILLE, colori = { hex("#FFB060"), hex("#7A2A10") }, rate = 4, misura = 0.2, durata = 1.2, su = 3, piedi = true },
+		},
+	},
+	AuraSangue = {
+		globo = { hex("#B0141E"), hex("#FF4A4A") },
+		luce = hex("#D0202A"),
+		emettitori = {
+			{ texture = FUMO, colori = { hex("#E0202C"), hex("#600810") }, rate = 16, misura = 2.2, durata = 1.8, su = 1.8, piedi = true, trasparenza = 0.3, luce = 0, luminosa = 0.5 },
+			{ texture = SCINTILLE, colori = { hex("#FF5A5A"), hex("#8A0A10") }, rate = 10, misura = 0.3, durata = 1.4, su = 2.2 },
+		},
+	},
+	AuraTempesta = {
+		globo = { hex("#4A8CFF"), hex("#E0F0FF") },
+		luce = hex("#6AA8FF"),
+		emettitori = {
+			{ texture = SCINTILLE, colori = { hex("#E6F4FF"), hex("#3A7CFF") }, rate = 26, misura = 0.4, durata = 0.6, su = 0, veloce = true },
+			{ texture = FUMO, colori = { hex("#7A90B0"), hex("#3A4660") }, rate = 12, misura = 2.2, durata = 2, su = 0.6, piedi = true, trasparenza = 0.4, luce = 0.3 },
+		},
+	},
+	AuraReale = {
+		globo = { hex("#8A3CE0"), hex("#FFD23F") },
+		luce = hex("#B070FF"),
+		emettitori = {
+			{ texture = SCINTILLE, colori = { hex("#C890FF"), hex("#6A20C0") }, rate = 16, misura = 0.45, durata = 1.8, su = 2 },
+			{ texture = SCINTILLE, colori = { hex("#FFE27A"), hex("#FFB020") }, rate = 10, misura = 0.3, durata = 2, su = 1.4, piedi = true },
+		},
+	},
+}
+
+-- Globo per le finestre: nucleo luminoso, guscio velato e scintille attorno, nei colori dell'aura.
+for id, aura in pairs(AURE) do
+	Costruttori[id] = function(m)
+		local a, b = aura.globo[1], aura.globo[2]
+		parte(m, "palla", Vector3.new(1.1, 1.1, 1.1), C(0, 0, 0), a, Enum.Material.Neon)
+		local guscio = parte(m, "palla", Vector3.new(1.9, 1.9, 1.9), C(0, 0, 0), b, Enum.Material.Glass)
+		guscio.Transparency = 0.6
+		for i = 0, 7 do
+			local ang = i / 8 * math.pi * 2
+			local alto = math.sin(i * 1.7) * 0.7
+			parte(m, "palla", Vector3.new(0.22, 0.22, 0.22), C(math.cos(ang) * 1.45, alto, math.sin(ang) * 1.45), i % 2 == 0 and a or b, Enum.Material.Neon)
+		end
+		anello(m, 20, 1.25, -0.95, Vector3.new(0.34, 0.06, 0.1), b, Enum.Material.Neon)
+	end
+end
+
+local function invisibile(nome, misura)
+	local p = Instance.new("Part")
+	p.Name = nome
+	p.Transparency = 1
+	p.Size = misura
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Massless = true
+	return p
+end
+
+-- I blocchi invisibili che fanno uscire le particelle: uno grande quanto il corpo (alto "altezza") e uno
+-- piatto ai piedi. Restituisce il blocco del corpo, con quello dei piedi dentro (da saldare).
+local function emettitoriAura(aura, altezza)
+	local blocco = invisibile("Aura", Vector3.new(2.6, altezza, 2.2))
+	local piedi = invisibile("AuraPiedi", Vector3.new(3, 0.2, 3))
+	piedi.Parent = blocco
+	for _, e in ipairs(aura.emettitori) do
+		local emettitore = Instance.new("ParticleEmitter")
+		emettitore.Texture = e.texture
+		emettitore.Color = ColorSequence.new(e.colori[1], e.colori[2])
+		-- Le scintille sono minuscole: ne servono tante e grandi perché l'aura si veda anche da lontano.
+		local scintille = e.texture == SCINTILLE
+		local misura = scintille and e.misura * 1.6 or e.misura
+		emettitore.Rate = scintille and e.rate * 2.2 or e.rate
+		emettitore.Lifetime = NumberRange.new(e.durata * 0.7, e.durata)
+		emettitore.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, misura * 0.6),
+			NumberSequenceKeypoint.new(0.3, misura),
+			NumberSequenceKeypoint.new(1, 0),
+		})
+		local t = e.trasparenza or 0.1
+		emettitore.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.15, t),
+			NumberSequenceKeypoint.new(0.75, t),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		emettitore.LightEmission = e.luminosa or (e.texture == FUMO and 0 or 1)
+		emettitore.LightInfluence = e.luce or (e.texture == FUMO and 1 or 0)
+		emettitore.Rotation = NumberRange.new(0, 360)
+		emettitore.RotSpeed = NumberRange.new(-60, 60)
+		emettitore.Acceleration = Vector3.new(0, e.su, 0)
+		local v = e.velocita or (e.veloce and { 2, 4 }) or { 0.2, 0.8 }
+		emettitore.Speed = NumberRange.new(v[1], v[2])
+		emettitore.SpreadAngle = Vector2.new(e.apertura or 180, e.apertura or 180)
+		emettitore.Drag = e.veloce and 3 or 0.5
+		-- Dai piedi escono dal blocco piatto a terra; le altre da tutto il corpo.
+		emettitore.Shape = Enum.ParticleEmitterShape.Box
+		emettitore.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+		emettitore.Parent = e.piedi and piedi or blocco
+	end
+	if aura.luce then
+		local luce = Instance.new("PointLight")
+		luce.Color = aura.luce
+		luce.Brightness = 0.6
+		luce.Range = 7
+		luce.Shadows = false
+		luce.Parent = blocco
+	end
+	return blocco
+end
+
 -- Modello del cosmetico alle misure standard, attorno all'origine. Restituisce il Model
 -- e la parte del corpo che lo porta ("Testa" o "Busto").
 function Cosmetici3D.costruisci(id, slot)
@@ -524,6 +674,34 @@ end
 
 -- Mette il cosmetico addosso al personaggio, saldato alla testa o al busto. Restituisce il Model.
 function Cosmetici3D.indossa(personaggio, id, slot)
+	if slot == "Aura" then
+		local aura = AURE[id]
+		local radice = personaggio:FindFirstChild("HumanoidRootPart")
+		local umanoide = personaggio:FindFirstChildOfClass("Humanoid")
+		if not (aura and radice) then
+			return nil
+		end
+		-- Altezza del corpo: dalle anche (HipHeight) fino in cima alla testa, circa.
+		local anca = umanoide and umanoide.HipHeight or 2
+		local altezza = math.clamp(anca + radice.Size.Y / 2 + 2.2, 4, 9)
+		local modello = Instance.new("Model")
+		modello.Name = id
+		local blocco = emettitoriAura(aura, altezza)
+		-- Il centro del blocco sta a metà tra i piedi e la cima della testa.
+		local piediY = -(radice.Size.Y / 2 + anca)
+		blocco.CFrame = radice.CFrame * CFrame.new(0, piediY + altezza / 2, 0)
+		local piedi = blocco.AuraPiedi
+		piedi.CFrame = radice.CFrame * CFrame.new(0, piediY + 0.15, 0)
+		for _, p in ipairs({ blocco, piedi }) do
+			local saldatura = Instance.new("WeldConstraint")
+			saldatura.Part0 = radice
+			saldatura.Part1 = p
+			saldatura.Parent = p
+		end
+		blocco.Parent = modello
+		modello.Parent = personaggio
+		return modello
+	end
 	local modello, riferimento = Cosmetici3D.costruisci(id, slot)
 	if not modello then
 		return nil

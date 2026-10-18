@@ -21,8 +21,12 @@ local Casse = require(ReplicatedStorage.Shared.Config.Casse)
 
 local Lobby = {}
 
+-- Tutta la cittadella è disegnata qui sotto a misura 1 e poi ingrandita di SCALA attorno al centro della
+-- Rotonda (Mattia, 18/10/2026: "troppo chiusa, in ogni caso più grande"). Montagna e fari ne tengono conto.
+local SCALA = 1.35
+
 -- Si nasce nella Rotonda, a sud del tavolo, guardando verso la Galleria e il portale della campagna.
-Lobby.SPAWN = CFrame.lookAt(Vector3.new(0, 4, 32), Vector3.new(0, 4, 0))
+Lobby.SPAWN = CFrame.lookAt(Vector3.new(0, 4, 32 * SCALA), Vector3.new(0, 4, 0))
 
 local terrain = workspace.Terrain
 
@@ -523,9 +527,9 @@ end
 local function montagne()
 	-- Il picco sotto la cittadella. La cima resta a y = -4, una cella sotto i pavimenti: il terreno
 	-- è a celle di 4 e arrotonda, più in alto spunterebbe sopra pavimenti e tappeti.
-	terrain:FillCylinder(CFrame.new(0, -64, 0), 120, 190, Enum.Material.Rock)
-	terrain:FillCylinder(CFrame.new(0, -150, 0), 80, 300, Enum.Material.Rock)
-	terrain:FillCylinder(CFrame.new(0, -6, 0), 4, 185, Enum.Material.Slate)
+	terrain:FillCylinder(CFrame.new(0, -64, 0), 120, 190 * SCALA, Enum.Material.Rock)
+	terrain:FillCylinder(CFrame.new(0, -150, 0), 80, 300 * SCALA, Enum.Material.Rock)
+	terrain:FillCylinder(CFrame.new(0, -6, 0), 4, 185 * SCALA, Enum.Material.Slate)
 	local rng = Random.new(7)
 	for i = 1, 26 do
 		local a = i / 26 * math.pi * 2 + rng:NextNumber(-0.1, 0.1)
@@ -584,7 +588,7 @@ local function fari(genitore)
 	-- Sulle diagonali, lontano dalle ali: i fasci puntano verso l'esterno e non attraversano le sale.
 	for i = 1, 4 do
 		local a = math.pi / 4 + (i - 1) * math.pi / 2
-		local base = Vector3.new(math.cos(a) * 90, PAVIMENTO + 2, math.sin(a) * 90)
+		local base = Vector3.new(math.cos(a) * 90 * SCALA, PAVIMENTO + 2, math.sin(a) * 90 * SCALA)
 		local faro = Instance.new("Model")
 		faro.Name = "Faro"
 		local fascio = blocco(faro, {
@@ -1251,6 +1255,25 @@ end
 ---------------------------------------------------------------------------------------------------------
 
 -- callback: { campagna, ranked, shop, esercito } = function(player)
+-- Ingrandisce la cittadella (già costruita a misura 1) di SCALA attorno al centro del pavimento.
+-- ScaleTo non tocca luci, prompt e attributi: si sistemano a mano. I soldati e le statue sui piedistalli
+-- li mette il client (LobbyVita) con l'attributo "Scala": crescono solo statue e fortezze, che erano già
+-- ridimensionate. I soldati restano a misura 1: ridimensionarli costringe Roblox a copiare la mesh di
+-- ognuno e la memoria per le mesh finisce (provato il 18/10/2026).
+local function ingrandisci(lobby)
+	lobby.WorldPivot = CFrame.new(0, PAVIMENTO, 0)
+	lobby:ScaleTo(SCALA)
+	for _, d in ipairs(lobby:GetDescendants()) do
+		if d:IsA("Light") then
+			d.Range = math.min(60, d.Range * SCALA)
+		elseif d:IsA("ProximityPrompt") then
+			d.MaxActivationDistance *= SCALA
+		elseif d:IsA("BasePart") and d:GetAttribute("Esposizione") and (d:GetAttribute("Scala") or 1) ~= 1 then
+			d:SetAttribute("Scala", d:GetAttribute("Scala") * SCALA)
+		end
+	end
+end
+
 function Lobby.costruisci(callback)
 	montagne()
 	local baseplate = workspace:FindFirstChild("Baseplate")
@@ -1271,6 +1294,7 @@ function Lobby.costruisci(callback)
 	arena(lobby, callback.ranked)
 	armeria(lobby, callback.shop)
 	eroi(lobby, callback.esercito)
+	ingrandisci(lobby)
 	local esterno = Instance.new("Folder")
 	esterno.Name = "Esterno"
 	fumiDiGuerra(esterno)

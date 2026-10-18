@@ -16,6 +16,7 @@ local Modelli = require(Shared.Modelli)
 local Epoche = require(Shared.Config.Epoche)
 local Animatore = require(script.Parent.Animatore)
 local Effetti = require(script.Parent.Effetti)
+local Suoni = require(script.Parent.Suoni)
 
 local Truppe = {}
 
@@ -273,8 +274,10 @@ local function tiro(attaccante, bersaglio, evento)
 		if evento.colpo == "lancio" then
 			attaccante.animatore:lasciaLancia()
 			Effetti.pilum(da, a, volo)
+			Suoni.effetto("freccia", da)
 		elseif stile == "arco" then
 			Effetti.freccia(da, a, volo)
+			Suoni.effetto("freccia", da)
 		elseif stile == "fortezza" then
 			-- Le fortezze Blender hanno i punti di tiro (torri, feritoie) come ossa "tiro1", "tiro2"...
 			local tiri = {}
@@ -288,8 +291,10 @@ local function tiro(attaccante, bersaglio, evento)
 				or attaccante.posizione + Vector3.new(math.random() * 8 - 4, attaccante.altezza * 0.8, math.random() * 8 - 4)
 			if attaccante.tipo == "FortezzaNovecento" then
 				Effetti.sparo(cima, a, volo)
+				Suoni.effetto("sparo", cima)
 			else
 				Effetti.freccia(cima, a, volo)
+				Suoni.effetto("freccia", cima)
 			end
 		elseif stile == "carro" then
 			Effetti.granata(attaccante.posizione + direzione(attaccante.angolo) * 6 + Vector3.new(0, 4, 0), bersaglio.posizione, volo)
@@ -297,8 +302,10 @@ local function tiro(attaccante, bersaglio, evento)
 			for i = 0, 2 do
 				task.delay(i * 0.06, Effetti.sparo, da, a + Vector3.new(math.random() - 0.5, 0, math.random() - 0.5), volo)
 			end
+			Suoni.effetto("raffica", da)
 		else
 			Effetti.sparo(da, a, volo)
+			Suoni.effetto("sparo", da)
 		end
 	end)
 end
@@ -313,7 +320,9 @@ local function evento(e)
 		if e.colpo == "mischia" then
 			task.delay(e.gesto / velocitaBattaglia, function()
 				if attaccante.vivo then
-					Effetti.scintille(attaccante.posizione:Lerp(bersaglio.posizione, 0.6) + Vector3.new(0, 2.2, 0))
+					local punto = attaccante.posizione:Lerp(bersaglio.posizione, 0.6) + Vector3.new(0, 2.2, 0)
+					Effetti.scintille(punto)
+					Suoni.effetto("spada", punto)
 				end
 			end)
 		else
@@ -321,6 +330,7 @@ local function evento(e)
 		end
 		if e.carica then
 			Effetti.scritta(puntoColpo(bersaglio) + Vector3.new(0, 3, 0), "CHARGE!", Color3.fromRGB(255, 200, 60), true)
+			Suoni.effetto("grido", attaccante.posizione)
 		end
 	elseif e.tipo == "colpo" then
 		local colpiti = { { id = e.a, danno = e.danno } }
@@ -349,6 +359,7 @@ local function evento(e)
 		if centro and nome then
 			local colore = e.squadra == "giocatore" and Color3.fromRGB(120, 200, 255) or Color3.fromRGB(255, 110, 100)
 			Effetti.scritta(centro + Vector3.new(0, 9, 0), nome.grido, colore, true)
+			Suoni.effetto("grido", centro)
 		end
 	elseif e.tipo == "abilita" then
 		local centro = centroReggimento(e.reggimento)
