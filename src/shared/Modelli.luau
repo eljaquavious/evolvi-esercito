@@ -390,73 +390,227 @@ function FIGURE.DeGaulle(p, colore)
 	stendardo(p, colore, -1.3)
 end
 
--- Fortezze: occupano una casella intera (10 studs); il fronte è verso -Z.
-local function muro(p, x, z, lx, lz, altezza, colore, materiale)
-	p(Vector3.new(lx, altezza, lz), x, altezza / 2, z, colore, nil, materiale)
+-- Fortezze: edifici a blocchi nello stile delle truppe, larghi circa due caselle (unità × 2.3 studs).
+-- Il fronte è verso -Z. Gli attacchi partono dagli Attachment "Tiro" (feritoie, torri), cercati da Truppe.
+local VERTICALE = CFrame.Angles(0, 0, math.rad(90)) -- i cilindri di Roblox hanno l'asse lungo X
+
+local function cilindro(p, diametro, altezza, x, y, z, colore, materiale)
+	return p(Vector3.new(altezza, diametro, diametro), x, y, z, colore, Enum.PartType.Cylinder, materiale, VERTICALE)
 end
 
-local function torre(p, x, z, altezza, colore, materiale, tetto)
-	p(Vector3.new(2.2, altezza, 2.2), x, altezza / 2, z, colore, nil, materiale)
-	for _, dx in ipairs({ -0.8, 0.8 }) do
-		for _, dz in ipairs({ -0.8, 0.8 }) do
-			p(Vector3.new(0.6, 0.6, 0.6), x + dx, altezza + 0.3, z + dz, colore, nil, materiale)
-		end
+-- Tetto a cono fatto di dischi sempre più stretti.
+local function cono(p, diametro, altezza, x, y, z, colore, materiale)
+	local strati = 5
+	for i = 0, strati - 1 do
+		local k = 1 - i / strati
+		cilindro(p, diametro * k + 0.1, altezza / strati, x, y + (i + 0.5) * altezza / strati, z, colore, materiale)
 	end
-	if tetto then
-		p(Vector3.new(2.4, 0.4, 2.4), x, altezza + 0.9, z, tetto, nil, Enum.Material.WoodPlanks)
+	p(Vector3.new(0.12, 0.6, 0.12), x, y + altezza + 0.25, z, colore:Lerp(Color3.new(0, 0, 0), 0.3))
+end
+
+local function tiro(pezzo, nome, locale)
+	local a = Instance.new("Attachment")
+	a.Name = "Tiro"
+	a:SetAttribute("Nome", nome)
+	a.Position = locale or Vector3.new(0, pezzo.Size.Y / 2, 0)
+	a.Parent = pezzo
+end
+
+local function bandiera(p, colore, x, y, z, alta)
+	p(Vector3.new(0.12, alta, 0.12), x, y + alta / 2, z, LEGNO:Lerp(SCURO, 0.3), nil, Enum.Material.Wood)
+	p(Vector3.new(0.06, 1.0, 1.6), x, y + alta - 0.55, z + 0.82, colore, nil, Enum.Material.Fabric)
+	p(Vector3.new(0.07, 0.25, 1.6), x, y + alta - 0.95, z + 0.82, ORO, nil, Enum.Material.Fabric)
+end
+
+-- Merli su un tratto di muro da (x0, z0) a (x1, z1), in cima a "y".
+local function merli(p, x0, z0, x1, z1, y, spessore, colore, materiale)
+	local lunghezza = math.max(math.abs(x1 - x0), math.abs(z1 - z0))
+	local n = math.max(2, math.floor(lunghezza / 0.9))
+	for i = 0, n - 1, 2 do
+		local t = (i + 0.5) / n
+		local x, z = x0 + (x1 - x0) * t, z0 + (z1 - z0) * t
+		local lungo = lunghezza / n
+		local misura = math.abs(x1 - x0) > math.abs(z1 - z0) and Vector3.new(lungo, 0.6, spessore) or Vector3.new(spessore, 0.6, lungo)
+		p(misura, x, y + 0.3, z, colore, nil, materiale)
 	end
 end
 
+-- Antichità: oppidum sulla collina. Terrapieno, palizzata di pali appuntiti, porta con due torri di legno,
+-- due torri di guardia col tetto di paglia, capanne rotonde dentro e lo stendardo.
 function FIGURE.FortezzaAntica(p, colore)
-	local legno = Color3.fromRGB(122, 86, 52)
-	for i = -4, 4 do
-		p(Vector3.new(0.9, 3.4, 0.9), i * 0.95, 1.7, -3.6, legno, Enum.PartType.Block, Enum.Material.Wood) -- palizzata
-		p(Vector3.new(0.9, 3.4, 0.9), i * 0.95, 1.7, 3.6, legno, Enum.PartType.Block, Enum.Material.Wood)
+	local legno = Color3.fromRGB(128, 88, 52)
+	local legnoScuro = legno:Lerp(SCURO, 0.35)
+	local paglia = Color3.fromRGB(196, 160, 86)
+	local terra = Color3.fromRGB(116, 96, 66)
+	local R = 3.7
+	-- Terrapieno basso tutto attorno.
+	for _, lato in ipairs({ { 0, -R, 2 * R + 1.4, 1.6 }, { 0, R, 2 * R + 1.4, 1.6 }, { -R, 0, 1.6, 2 * R }, { R, 0, 1.6, 2 * R } }) do
+		p(Vector3.new(lato[3], 0.7, lato[4]), lato[1], 0.35, lato[2], terra, nil, Enum.Material.Ground)
 	end
-	for i = -3, 3 do
-		p(Vector3.new(0.9, 3.4, 0.9), -3.8, 1.7, i * 0.95, legno, nil, Enum.Material.Wood)
-		p(Vector3.new(0.9, 3.4, 0.9), 3.8, 1.7, i * 0.95, legno, nil, Enum.Material.Wood)
+	-- Palizzata: pali con la punta, un po' irregolari; davanti lascia il varco della porta.
+	local function palo(x, z, k)
+		local alto = 2.6 + (k % 3) * 0.18
+		p(Vector3.new(0.5, alto, 0.5), x, 0.7 + alto / 2, z, (k % 2 == 0) and legno or legno:Lerp(paglia, 0.15), nil, Enum.Material.Wood)
+		p(Vector3.new(0.36, 0.36, 0.36), x, 0.7 + alto + 0.1, z, legnoScuro, nil, Enum.Material.Wood, CFrame.Angles(math.rad(45), math.rad(45), 0))
 	end
-	torre(p, -3.6, -3.6, 5, legno, Enum.Material.WoodPlanks, legno:Lerp(SCURO, 0.3))
-	torre(p, 3.6, -3.6, 5, legno, Enum.Material.WoodPlanks, legno:Lerp(SCURO, 0.3))
-	p(Vector3.new(4, 2.5, 3), 0, 1.25, 0.5, Color3.fromRGB(200, 180, 140), nil, Enum.Material.Fabric) -- tenda
-	p(Vector3.new(0.14, 7, 0.14), 0, 3.5, 0.5, LEGNO)
-	p(Vector3.new(0.08, 1.4, 2), 0, 6.2, 1.5, colore, nil, Enum.Material.Fabric)
+	local k = 0
+	for i = -R, R + 0.01, 0.52 do
+		k += 1
+		if math.abs(i) > 1.1 then
+			palo(i, -R, k)
+		end
+		palo(i, R, k + 1)
+	end
+	for i = -R + 0.52, R - 0.5, 0.52 do
+		k += 1
+		palo(-R, i, k)
+		palo(R, i, k + 1)
+	end
+	-- Porta: due torri di legno ai lati del varco e il ballatoio sopra.
+	for _, x in ipairs({ -1.45, 1.45 }) do
+		p(Vector3.new(1.2, 4.6, 1.2), x, 2.3 + 0.4, -R, legno, nil, Enum.Material.WoodPlanks)
+		p(Vector3.new(1.5, 0.3, 1.5), x, 5.15, -R, legnoScuro, nil, Enum.Material.Wood)
+		cono(p, 2.1, 1.3, x, 5.3, -R, paglia, Enum.Material.Fabric)
+	end
+	local ballatoio = p(Vector3.new(4.1, 0.4, 1.4), 0, 3.9, -R, legnoScuro, nil, Enum.Material.WoodPlanks)
+	tiro(ballatoio, "porta")
+	p(Vector3.new(4.1, 0.7, 0.2), 0, 4.45, -R - 0.65, legno, nil, Enum.Material.WoodPlanks)
+	p(Vector3.new(2.2, 2.6, 0.25), 0, 1.3 + 0.4, -R + 0.2, legnoScuro, nil, Enum.Material.WoodPlanks) -- battenti
+	-- Torri di guardia agli angoli dietro, su quattro pali, con il tetto di paglia.
+	for _, x in ipairs({ -R + 0.3, R - 0.3 }) do
+		for _, dx in ipairs({ -0.5, 0.5 }) do
+			for _, dz in ipairs({ -0.5, 0.5 }) do
+				p(Vector3.new(0.25, 4.4, 0.25), x + dx, 2.2 + 0.4, R - 0.3 + dz, legnoScuro, nil, Enum.Material.Wood)
+			end
+		end
+		local piano = p(Vector3.new(1.6, 0.25, 1.6), x, 4.7, R - 0.3, legno, nil, Enum.Material.WoodPlanks)
+		tiro(piano, "torre")
+		p(Vector3.new(1.6, 0.6, 0.15), x, 5.1, R - 1.05, legno, nil, Enum.Material.WoodPlanks)
+		cono(p, 2.2, 1.5, x, 5.4, R - 0.3, paglia, Enum.Material.Fabric)
+	end
+	-- Capanne rotonde con il tetto di paglia.
+	for _, c in ipairs({ { -1.6, 0.8, 1.9 }, { 1.4, 1.5, 1.7 }, { 0.1, -0.9, 1.5 } }) do
+		cilindro(p, c[3], 1.2, c[1], 0.6 + 0.4, c[2], Color3.fromRGB(176, 150, 112), Enum.Material.Sand)
+		cono(p, c[3] + 0.5, 1.4, c[1], 1.6, c[2], paglia, Enum.Material.Fabric)
+	end
+	bandiera(p, colore, 0, 0.4, 1.6, 6)
 end
 
+-- Medioevo: castello di pietra. Cortine merlate, quattro torri tonde col tetto a cono d'ardesia, il
+-- castelletto della porta con la saracinesca, il mastio quadrato con lo stendardo e drappi della squadra.
 function FIGURE.FortezzaMedievale(p, colore)
-	muro(p, 0, -3.6, 7.2, 1.2, 4, PIETRA, Enum.Material.Cobblestone)
-	muro(p, 0, 3.6, 7.2, 1.2, 4, PIETRA, Enum.Material.Cobblestone)
-	muro(p, -3.6, 0, 1.2, 7.2, 4, PIETRA, Enum.Material.Cobblestone)
-	muro(p, 3.6, 0, 1.2, 7.2, 4, PIETRA, Enum.Material.Cobblestone)
-	for i = -3, 3, 2 do
-		p(Vector3.new(0.8, 0.7, 1.2), i, 4.35, -3.6, PIETRA, nil, Enum.Material.Cobblestone) -- merli
+	local pietra = Color3.fromRGB(170, 162, 148)
+	local pietraScura = pietra:Lerp(SCURO, 0.25)
+	local ardesia = Color3.fromRGB(70, 78, 100)
+	local L = 3.4
+	local ALTO = 3.4
+	-- Zoccolo e cortine.
+	p(Vector3.new(2 * L + 1.6, 0.4, 2 * L + 1.6), 0, 0.2, 0, pietraScura, nil, Enum.Material.Slate)
+	for _, m in ipairs({ { 0, -L, 2 * L, 0.8 }, { 0, L, 2 * L, 0.8 }, { -L, 0, 0.8, 2 * L }, { L, 0, 0.8, 2 * L } }) do
+		p(Vector3.new(m[3], ALTO, m[4]), m[1], 0.4 + ALTO / 2, m[2], pietra, nil, Enum.Material.Cobblestone)
+		-- Fascia scura in cima (il camminamento).
+		p(Vector3.new(m[3] + 0.06, 0.25, m[4] + 0.06), m[1], 0.4 + ALTO - 0.12, m[2], pietraScura, nil, Enum.Material.Slate)
 	end
-	p(Vector3.new(1.8, 2.6, 0.3), 0, 1.3, -4.25, LEGNO:Lerp(SCURO, 0.3), nil, Enum.Material.Wood) -- portone
-	for _, x in ipairs({ -3.6, 3.6 }) do
-		for _, z in ipairs({ -3.6, 3.6 }) do
-			torre(p, x, z, 6, PIETRA:Lerp(SCURO, 0.1), Enum.Material.Cobblestone)
+	merli(p, -L, -L - 0.25, L, -L - 0.25, 0.4 + ALTO, 0.35, pietra, Enum.Material.Cobblestone)
+	merli(p, -L, L + 0.25, L, L + 0.25, 0.4 + ALTO, 0.35, pietra, Enum.Material.Cobblestone)
+	merli(p, -L - 0.25, -L, -L - 0.25, L, 0.4 + ALTO, 0.35, pietra, Enum.Material.Cobblestone)
+	merli(p, L + 0.25, -L, L + 0.25, L, 0.4 + ALTO, 0.35, pietra, Enum.Material.Cobblestone)
+	-- Torri d'angolo tonde con il tetto a cono.
+	for _, x in ipairs({ -L, L }) do
+		for _, z in ipairs({ -L, L }) do
+			cilindro(p, 2.0, ALTO + 1.6, x, 0.4 + (ALTO + 1.6) / 2, z, pietra:Lerp(SCURO, 0.08), Enum.Material.Cobblestone)
+			local ballatoio = cilindro(p, 2.3, 0.4, x, 0.4 + ALTO + 1.6, z, pietraScura, Enum.Material.Slate)
+			tiro(ballatoio, "torre")
+			cono(p, 2.5, 2.2, x, 0.6 + ALTO + 1.6, z, ardesia, Enum.Material.Slate)
+			p(Vector3.new(0.2, 0.7, 0.1), x, 0.4 + ALTO, z - 1.0, SCURO) -- feritoia
 		end
 	end
-	torre(p, 0, 0.8, 8, PIETRA:Lerp(SCURO, 0.15), Enum.Material.Cobblestone) -- mastio
-	p(Vector3.new(0.14, 3, 0.14), 0, 9.6, 0.8, LEGNO)
-	p(Vector3.new(0.08, 1.2, 1.8), 0, 10.4, 1.7, colore, nil, Enum.Material.Fabric)
+	-- Castelletto della porta: due torrette, l'arco buio, la saracinesca e il drappo della squadra.
+	for _, x in ipairs({ -1.15, 1.15 }) do
+		p(Vector3.new(1.1, ALTO + 1.2, 1.4), x, 0.4 + (ALTO + 1.2) / 2, -L - 0.2, pietra, nil, Enum.Material.Cobblestone)
+		merli(p, x - 0.5, -L - 0.85, x + 0.5, -L - 0.85, 0.4 + ALTO + 1.2, 0.3, pietra, Enum.Material.Cobblestone)
+	end
+	p(Vector3.new(1.3, 2.3, 0.3), 0, 0.4 + 1.15, -L - 0.42, Color3.fromRGB(26, 22, 22)) -- arco buio
+	for i = -2, 2 do
+		p(Vector3.new(0.08, 2.1, 0.08), i * 0.25, 0.4 + 1.25, -L - 0.6, SCURO, nil, Enum.Material.Metal) -- saracinesca
+	end
+	p(Vector3.new(1.3, 0.08, 0.08), 0, 0.4 + 1.6, -L - 0.6, SCURO, nil, Enum.Material.Metal)
+	local sopraPorta = p(Vector3.new(2.3, 0.5, 1.4), 0, 0.4 + ALTO + 0.25, -L - 0.2, pietraScura, nil, Enum.Material.Slate)
+	tiro(sopraPorta, "porta")
+	p(Vector3.new(0.9, 1.6, 0.06), 0, 0.4 + ALTO - 0.6, -L - 0.94, colore, nil, Enum.Material.Fabric)
+	p(Vector3.new(0.9, 0.16, 0.07), 0, 0.4 + ALTO + 0.12, -L - 0.94, ORO, nil, Enum.Material.Fabric)
+	-- Drappi della squadra sulle cortine laterali.
+	for _, x in ipairs({ -L - 0.43, L + 0.43 }) do
+		p(Vector3.new(0.06, 1.6, 0.8), x, 0.4 + ALTO - 1, 0, colore, nil, Enum.Material.Fabric)
+	end
+	-- Mastio quadrato con le finestre, i merli e lo stendardo.
+	local MX, MZ, MA = 0, 0.9, ALTO + 3.2
+	p(Vector3.new(2.6, MA, 2.6), MX, 0.4 + MA / 2, MZ, pietra:Lerp(Color3.new(1, 1, 1), 0.05), nil, Enum.Material.Cobblestone)
+	for _, y in ipairs({ 2.6, 4.6 }) do
+		p(Vector3.new(0.35, 0.8, 0.1), MX, 0.4 + y, MZ - 1.32, Color3.fromRGB(40, 34, 30))
+	end
+	merli(p, MX - 1.3, MZ - 1.45, MX + 1.3, MZ - 1.45, 0.4 + MA, 0.35, pietra, Enum.Material.Cobblestone)
+	merli(p, MX - 1.3, MZ + 1.45, MX + 1.3, MZ + 1.45, 0.4 + MA, 0.35, pietra, Enum.Material.Cobblestone)
+	merli(p, MX - 1.45, MZ - 1.3, MX - 1.45, MZ + 1.3, 0.4 + MA, 0.35, pietra, Enum.Material.Cobblestone)
+	merli(p, MX + 1.45, MZ - 1.3, MX + 1.45, MZ + 1.3, 0.4 + MA, 0.35, pietra, Enum.Material.Cobblestone)
+	local cima = p(Vector3.new(2.7, 0.2, 2.7), MX, 0.4 + MA + 0.1, MZ, pietraScura, nil, Enum.Material.Slate)
+	tiro(cima, "mastio")
+	bandiera(p, colore, MX, 0.4 + MA + 0.2, MZ, 2.6)
 end
 
+-- Novecento: casamatta di cemento con gli spigoli smussati, feritoia con due mitragliatrici, mezzo cerchio
+-- di sacchetti di sabbia, rete mimetica, filo spinato, cavalli di frisia, antenna e bandiera.
 function FIGURE.FortezzaNovecento(p, colore)
-	p(Vector3.new(7, 2.6, 6), 0, 1.3, 0.4, CEMENTO, nil, Enum.Material.Concrete) -- bunker
-	p(Vector3.new(7.6, 0.6, 6.6), 0, 2.9, 0.4, CEMENTO:Lerp(SCURO, 0.15), nil, Enum.Material.Concrete)
-	p(Vector3.new(4.5, 0.5, 0.3), 0, 1.7, -2.65, SCURO) -- feritoia
-	p(Vector3.new(0.22, 0.22, 1.6), 1.2, 1.7, -3.3, SCURO, nil, Enum.Material.Metal) -- mitragliatrice
-	p(Vector3.new(0.22, 0.22, 1.6), -1.2, 1.7, -3.3, SCURO, nil, Enum.Material.Metal)
+	local cemento = Color3.fromRGB(150, 148, 136)
+	local cementoScuro = cemento:Lerp(SCURO, 0.3)
+	local sacchi = Color3.fromRGB(182, 162, 116)
+	local rete = Color3.fromRGB(92, 104, 62)
+	local metallo = Color3.fromRGB(70, 72, 74)
+	-- Corpo: blocco largo, tetto spesso, angoli smussati davanti.
+	p(Vector3.new(6.2, 2.4, 4.6), 0, 1.2, 0.6, cemento, nil, Enum.Material.Concrete)
+	p(Vector3.new(6.8, 0.7, 5.2), 0, 2.75, 0.6, cementoScuro, nil, Enum.Material.Concrete)
+	for _, x in ipairs({ -3.0, 3.0 }) do
+		p(Vector3.new(0.8, 2.4, 1.3), x, 1.2, -1.45, cemento, nil, Enum.Material.Concrete, CFrame.Angles(0, math.rad(x > 0 and 35 or -35), 0))
+	end
+	-- Feritoia buia con le due mitragliatrici.
+	p(Vector3.new(4.2, 0.55, 0.3), 0, 1.75, -1.68, Color3.fromRGB(20, 20, 22))
+	for _, x in ipairs({ -1.1, 1.1 }) do
+		local canna = p(Vector3.new(0.18, 0.18, 1.5), x, 1.75, -2.3, metallo, nil, Enum.Material.Metal)
+		tiro(canna, "feritoia", Vector3.new(0, 0, -0.75))
+		p(Vector3.new(0.32, 0.32, 0.4), x, 1.75, -1.75, SCURO, nil, Enum.Material.Metal)
+	end
+	-- Rete mimetica sul tetto, con qualche ciuffo.
+	p(Vector3.new(5.6, 0.12, 4.4), 0, 3.16, 0.7, rete, nil, Enum.Material.Fabric)
+	for _, c in ipairs({ { -2, 0 }, { 1.6, 1.8 }, { 0.4, -0.6 }, { -0.9, 2.1 } }) do
+		p(Vector3.new(1.1, 0.35, 0.9), c[1], 3.33, c[2], rete:Lerp(Color3.fromRGB(60, 80, 40), 0.4), nil, Enum.Material.Grass)
+	end
+	-- Porta corazzata sul retro e periscopio.
+	p(Vector3.new(1.2, 1.8, 0.15), 1.6, 0.9, 2.95, metallo, nil, Enum.Material.DiamondPlate)
+	local periscopio = p(Vector3.new(0.25, 0.9, 0.25), -1.8, 3.5, 1.4, metallo, nil, Enum.Material.Metal)
+	tiro(periscopio, "tetto")
+	-- Sacchetti di sabbia a semicerchio davanti, su due file sfalsate.
+	for fila = 0, 1 do
+		for i = -6, 6 do
+			local a = math.rad(i * 13 + fila * 6.5)
+			local x, z = math.sin(a) * 4.1, -math.cos(a) * 4.1 + 0.3
+			p(Vector3.new(0.9, 0.42, 0.55), x, 0.21 + fila * 0.42, z, sacchi:Lerp(SCURO, (i + fila) % 3 * 0.06), nil, Enum.Material.Fabric, CFrame.Angles(0, -a, 0))
+		end
+	end
+	-- Cavalli di frisia e filo spinato.
+	for _, x in ipairs({ -3.6, 0, 3.6 }) do
+		for _, giro in ipairs({ 45, -45 }) do
+			p(Vector3.new(0.12, 1.6, 0.12), x, 0.55, -5.1, metallo, nil, Enum.Material.Metal, CFrame.Angles(0, 0, math.rad(giro)))
+		end
+		p(Vector3.new(1.4, 0.1, 0.1), x, 0.55, -5.1, metallo, nil, Enum.Material.Metal)
+	end
 	for i = -4, 4 do
-		p(Vector3.new(0.9, 0.8, 1.1), i * 0.9, 0.4, -4.2, Color3.fromRGB(176, 158, 110), nil, Enum.Material.Fabric) -- sacchetti
+		p(Vector3.new(0.08, 0.8, 0.08), i * 1.05, 0.4, -5.7, CUOIO, nil, Enum.Material.Wood)
 	end
-	for _, x in ipairs({ -3.4, 3.4 }) do
-		p(Vector3.new(0.15, 1.2, 1.2), x, 0.6, -3.9, SCURO, nil, Enum.Material.Metal, CFrame.Angles(math.rad(45), 0, 0)) -- cavalli di frisia
-	end
-	p(Vector3.new(0.14, 4, 0.14), 2.8, 5, 2.4, SCURO)
-	p(Vector3.new(0.08, 1.2, 1.8), 2.8, 6.4, 3.3, colore, nil, Enum.Material.Fabric)
+	p(Vector3.new(8.6, 0.04, 0.04), 0, 0.65, -5.7, metallo, nil, Enum.Material.Metal)
+	p(Vector3.new(8.6, 0.04, 0.04), 0, 0.3, -5.7, metallo, nil, Enum.Material.Metal)
+	-- Antenna e bandiera.
+	p(Vector3.new(0.06, 2.6, 0.06), 2.6, 4.4, 2.2, metallo, nil, Enum.Material.Metal)
+	bandiera(p, colore, -2.6, 3.1, 2.4, 3)
 end
 
 -- Come è fatto ogni tipo. scheletro = articolazioni delle figure a parti; scala = studs per unità della

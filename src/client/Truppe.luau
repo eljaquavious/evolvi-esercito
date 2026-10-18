@@ -116,6 +116,8 @@ local function nuovoSoldato(tipo, squadra, posizione, angolo)
 		angoloObiettivo = angolo,
 		altezza = math.min(dimensione.Y, 12),
 		vivo = true,
+		-- Le fortezze sono edifici: non si spostano e non si girano verso il bersaglio.
+		fisso = def.fortezza == true,
 	}
 	s.altezzaColpo = ALTEZZA_COLPO[s.animatore.stile] or 2.4
 	return s
@@ -279,14 +281,16 @@ local function tiro(attaccante, bersaglio, evento)
 			Effetti.freccia(da, a, volo)
 			Suoni.effetto("freccia", da)
 		elseif stile == "fortezza" then
-			-- Le fortezze Blender hanno i punti di tiro (torri, feritoie) come ossa "tiro1", "tiro2"...
-			local tiri = {}
-			for i = 1, 8 do
-				local osso = attaccante.animatore.giunti["tiro" .. i]
-				if osso then
-					table.insert(tiri, osso)
+			-- Le fortezze hanno i punti di tiro (torri, feritoie) come Attachment "Tiro" (Modelli).
+			if not attaccante.tiri then
+				attaccante.tiri = {}
+				for _, d in ipairs(attaccante.modello:GetDescendants()) do
+					if d:IsA("Attachment") and d.Name == "Tiro" then
+						table.insert(attaccante.tiri, d)
+					end
 				end
 			end
+			local tiri = attaccante.tiri
 			local cima = #tiri > 0 and tiri[math.random(#tiri)].WorldPosition
 				or attaccante.posizione + Vector3.new(math.random() * 8 - 4, attaccante.altezza * 0.8, math.random() * 8 - 4)
 			if attaccante.tipo == "FortezzaNovecento" then
@@ -323,10 +327,21 @@ local function evento(e)
 					local punto = attaccante.posizione:Lerp(bersaglio.posizione, 0.6) + Vector3.new(0, 2.2, 0)
 					Effetti.scintille(punto)
 					Suoni.effetto("spada", punto)
+					-- Grida durante la mischia: qualche soldato urla colpendo, ogni tanto tutto il reparto.
+					local caso = math.random()
+					if caso < 0.18 then
+						Suoni.effetto("urlo", attaccante.posizione)
+					elseif caso < 0.24 then
+						Suoni.effetto("grido", attaccante.posizione)
+					end
 				end
 			end)
 		else
 			tiro(attaccante, bersaglio, e)
+			-- Anche i fanti che sparano o lanciano gridano, ogni tanto.
+			if attaccante.def.classe == "Fanteria" and math.random() < 0.08 then
+				Suoni.effetto("urlo", attaccante.posizione)
+			end
 		end
 		if e.carica then
 			Effetti.scritta(puntoColpo(bersaglio) + Vector3.new(0, 3, 0), "CHARGE!", Color3.fromRGB(255, 200, 60), true)
@@ -378,6 +393,12 @@ local function evento(e)
 		if s and s.vivo then
 			s.vivo = false
 			s.animatore:muori()
+			-- Uomini che cadono: un grido; carri e fortezze esplodono.
+			if s.fisso or s.animatore.stile == "carro" then
+				Suoni.effetto("esplosione", s.posizione)
+			else
+				Suoni.effetto("morte", s.posizione + Vector3.new(0, 2, 0))
+			end
 			if s.barra then
 				s.barra.Enabled = false
 			end
@@ -398,7 +419,7 @@ local function passo(dati)
 	for i = 0, n - 1 do
 		local o = 2 + i * 7
 		local s = soldati[buffer.readu16(b, o)]
-		if s and s.vivo then
+		if s and s.vivo and not s.fisso then
 			s.obiettivo = punto(buffer.readu16(b, o + 2) / 1000, buffer.readu16(b, o + 4) / 1000)
 			s.angoloObiettivo = buffer.readu8(b, o + 6) / 256 * 2 * math.pi
 		end
@@ -460,7 +481,7 @@ function Truppe.ritirata(squadra, durata)
 	task.spawn(function()
 		while os.clock() - inizio < durata and numero == numeroBattaglia do
 			for _, s in pairs(soldati) do
-				if s.vivo and s.squadra == squadra then
+				if s.vivo and s.squadra == squadra and not s.fisso then
 					s.obiettivo = s.obiettivo + Vector3.new(0, 0, indietro * CASELLA * 0.035)
 					s.obiettivo = Vector3.new(s.obiettivo.X, quota(s.obiettivo.X, s.obiettivo.Z), s.obiettivo.Z)
 					s.angoloObiettivo = indietro > 0 and 0 or math.pi
