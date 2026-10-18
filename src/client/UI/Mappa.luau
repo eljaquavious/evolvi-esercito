@@ -465,6 +465,9 @@ local function seleziona(numero, istantanea)
 	aggiornaCamera(istantanea)
 end
 
+-- Aria limpida sulla mappa, per vedere tutta l'Europa.
+local DENSITA_MAPPA = 0.12
+
 local function impostaAmbiente()
 	Cielo.campo()
 	local atmosfera = Lighting:FindFirstChildOfClass("Atmosphere")
@@ -474,7 +477,7 @@ local function impostaAmbiente()
 		profondita = profondita and profondita.Enabled,
 	}
 	if atmosfera then
-		atmosfera.Density = 0.12
+		atmosfera.Density = DENSITA_MAPPA
 		atmosfera.Haze = 0.3
 	end
 	if profondita then
@@ -488,7 +491,9 @@ local function ripristinaAmbiente()
 	end
 	local atmosfera = Lighting:FindFirstChildOfClass("Atmosphere")
 	local profondita = Lighting:FindFirstChildOfClass("DepthOfFieldEffect")
-	if atmosfera and ambienteSalvato.atmosfera then
+	-- Solo se l'aria è ancora quella della mappa: se nel frattempo è partita una battaglia, il suo meteo
+	-- (nebbia, pioggia...) è già al suo posto e non va sovrascritto.
+	if atmosfera and ambienteSalvato.atmosfera and math.abs(atmosfera.Density - DENSITA_MAPPA) < 0.001 then
 		atmosfera.Density, atmosfera.Haze = ambienteSalvato.atmosfera[1], ambienteSalvato.atmosfera[2]
 	end
 	if profondita and ambienteSalvato.profondita ~= nil then

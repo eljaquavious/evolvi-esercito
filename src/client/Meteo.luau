@@ -10,15 +10,17 @@ local TIPI = {
 	pioggia = {
 		altezza = 40,
 		lato = 70,
+		-- Roblox limita le gocce di un singolo emettitore: con uno solo la pioggia sembra rada.
+		emettitori = 4,
 		proprieta = {
 			Rate = 2000,
 			Lifetime = NumberRange.new(0.7, 0.9),
 			Speed = NumberRange.new(70, 85),
-			Size = NumberSequence.new(0.22),
+			Size = NumberSequence.new(0.34),
 			-- Negativo: la goccia si allunga lungo la caduta (positivo la allargherebbe).
-			Squash = NumberSequence.new(-2.5),
+			Squash = NumberSequence.new(-3),
 			Color = ColorSequence.new(Color3.fromRGB(222, 230, 242)),
-			Transparency = NumberSequence.new(0.2),
+			Transparency = NumberSequence.new(0.3),
 			LightEmission = 0.1,
 			Orientation = Enum.ParticleOrientation.VelocityParallel,
 			Acceleration = Vector3.new(2, -10, 0),
@@ -78,6 +80,9 @@ function Meteo.imposta(tipo)
 		emettitore[k] = v
 	end
 	emettitore.Parent = blocco
+	for _ = 2, conf.emettitori or 1 do
+		emettitore:Clone().Parent = blocco
+	end
 	blocco.Parent = workspace
 	connessione = RunService.RenderStepped:Connect(function()
 		local camera = workspace.CurrentCamera
