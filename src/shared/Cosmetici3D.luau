@@ -630,14 +630,28 @@ local COLORI_MESH = {
 	Piuma = { hex("#E9E4D6"), STOFFA }, PiumaRossa = { ROSSO, STOFFA }, Corda = { hex("#D9D2BE"), STOFFA },
 	Targa = { ROSSO, STOFFA },
 }
-local TEXTURE_MESH = { Maglia = "rbxassetid://106565714513572" } -- anelli della cotta di maglia
--- Metalli splendenti (richiesta di Mattia): SurfaceAppearance con metallicità piena e poca ruvidezza, che
--- riflette il cielo (serve Lighting.EnvironmentSpecularScale alto, Config/Luci). Le mappe da script non si
--- possono scrivere: lo stampo è CosmeticiMesh._Superfici.Metallo, qui si copia e si tinge.
-local METALLI = {
-	Ferro = hex("#7C838E"), FerroScuro = hex("#4A5059"), Acciaio = hex("#9AA1AB"),
-	Ottone = hex("#B8862A"), Oro = hex("#D9A93A"), OroScuro = hex("#A07A26"),
+-- Texture che hanno già il loro colore (la parte resta SmoothPlastic sotto): ciocche del crine e pelo d'ermellino.
+local TEXTURE_MESH = {
+	Crine = "rbxassetid://76896273696498",
+	Ermellino = "rbxassetid://135148699216148",
 }
+-- Superfici PBR (SurfaceAppearance): le mappe da script non si possono scrivere, quindi gli stampi sono in
+-- CosmeticiMesh._Superfici e qui si copiano e si tingono. Metallo = metallo splendente (richiesta di Mattia),
+-- Lucido = vetro e vernice, Satinato = avorio e smalto, MagliaMetallo = anelli d'acciaio della cotta.
+-- Per riflettere serve Lighting.EnvironmentSpecularScale alto (Config/Luci).
+local SUPERFICI = {
+	Ferro = { "Metallo", hex("#7C838E") }, FerroScuro = { "Metallo", hex("#4A5059") },
+	Acciaio = { "Metallo", hex("#9AA1AB") }, Ottone = { "Metallo", hex("#B8862A") },
+	Oro = { "Metallo", hex("#D9A93A") }, OroScuro = { "Metallo", hex("#A07A26") },
+	Maglia = { "MagliaMetallo", hex("#B4BAC4") },
+	Rubino = { "Lucido", hex("#B3182E") }, Zaffiro = { "Lucido", hex("#1F5FB8") }, Perla = { "Lucido", hex("#F2EEE4") },
+	Avorio = { "Satinato", hex("#E6DCC2") }, CornoPunta = { "Satinato", hex("#4A3A2A") },
+	BluOrizzonte = { "Satinato", hex("#6F8296") }, BluOrizzonteScuro = { "Satinato", hex("#5A6B7E") },
+	Alloro = { "Satinato", VERDE_ALLORO }, AlloroChiaro = { "Satinato", hex("#6E9A48") },
+}
+-- Eccezioni per un solo cosmetico: la visiera del kepì è di cuoio verniciato.
+local SUPERFICI_DI = { Kepi = { Nero = { "Lucido", hex("#15141A") } } }
+
 -- Cerniere del mantello: il punto in cima al centro di ogni fascia (mantello_punto in cosmetici.py).
 local CERNIERE_MESH = {
 	Mantello = { Vector3.new(0, 0.85, 0.56), Vector3.new(0, -0.1, 0.7), Vector3.new(0, -1.05, 0.84) },
@@ -650,7 +664,6 @@ local function daBlender(id)
 		return nil
 	end
 	local superfici = cartella:FindFirstChild("_Superfici")
-	local metallo = superfici and superfici:FindFirstChild("Metallo")
 	local modello = stampo:Clone()
 	for _, p in ipairs(modello:GetDescendants()) do
 		if p:IsA("MeshPart") then
@@ -662,13 +675,18 @@ local function daBlender(id)
 			end
 			if TEXTURE_MESH[colore] then
 				p.TextureID = TEXTURE_MESH[colore]
+				p.Material = Enum.Material.SmoothPlastic
 			end
-			if metallo and METALLI[colore] then
-				local s = metallo:Clone()
-				s.Color = METALLI[colore]
+			local sup = (SUPERFICI_DI[id] or {})[colore] or SUPERFICI[colore]
+			local stampoSup = sup and superfici and superfici:FindFirstChild(sup[1])
+			if stampoSup then
+				local s = stampoSup:Clone()
+				s.Color = sup[2]
 				s.Parent = p
-				p.Color = METALLI[colore]
-				p.Material = Enum.Material.Metal
+				p.Color = sup[2]
+				if sup[1] == "Metallo" or sup[1] == "MagliaMetallo" then
+					p.Material = Enum.Material.Metal
+				end
 			end
 			if fascia and fascia ~= "" then
 				p:SetAttribute("Fascia", tonumber(fascia))
