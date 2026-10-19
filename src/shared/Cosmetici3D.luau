@@ -92,6 +92,24 @@ local function anello(modello, n, raggio, y, misura, colore, materiale, inclina,
 	end
 end
 
+-- La scritta d'oro SPQR sul retro (+Z) della targa dell'aquila.
+local function scrittaSPQR(targa)
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Back
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 100
+	gui.LightInfluence = 1
+	local scritta = Instance.new("TextLabel")
+	scritta.Size = UDim2.fromScale(1, 1)
+	scritta.BackgroundTransparency = 1
+	scritta.Text = "SPQR"
+	scritta.TextScaled = true
+	scritta.Font = Enum.Font.Garamond
+	scritta.TextColor3 = ORO
+	scritta.Parent = gui
+	gui.Parent = targa
+end
+
 local Costruttori = {}
 
 -- ===================================================================== TESTA
@@ -437,21 +455,7 @@ function Costruttori.Aquila(m)
 		local a = i / 14 * math.pi * 2
 		parte(m, "blocco", Vector3.new(0.12, 0.06, 0.06), base * C(0, -0.22, 0) * CFrame.Angles(0, 0, a) * C(0, 0.2, 0), VERDE_ALLORO, STOFFA)
 	end
-	local targa = parte(m, "blocco", Vector3.new(0.7, 0.42, 0.06), base * C(0, -0.62, 0), ROSSO, STOFFA)
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Back
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 100
-	gui.LightInfluence = 1
-	local scritta = Instance.new("TextLabel")
-	scritta.Size = UDim2.fromScale(1, 1)
-	scritta.BackgroundTransparency = 1
-	scritta.Text = "SPQR"
-	scritta.TextScaled = true
-	scritta.Font = Enum.Font.Garamond
-	scritta.TextColor3 = ORO
-	scritta.Parent = gui
-	gui.Parent = targa
+	scrittaSPQR(parte(m, "blocco", Vector3.new(0.7, 0.42, 0.06), base * C(0, -0.62, 0), ROSSO, STOFFA))
 	parte(m, "blocco", Vector3.new(0.12, 2.0, 0.06), C(0, 0.1, 0.58) * CFrame.Angles(0, 0, rad(-40)), CUOIO) -- cinghia
 end
 
@@ -607,14 +611,76 @@ end
 
 -- Modello del cosmetico alle misure standard, attorno all'origine. Restituisce il Model
 -- e la parte del corpo che lo porta ("Testa" o "Busto").
-function Cosmetici3D.costruisci(id, slot)
-	local costruttore = Costruttori[id]
-	if not costruttore then
+-- ===================================================================== MODELLI DI BLENDER
+-- I cosmetici rifatti in Blender (assets-foto/cosmetici.py) sono in ReplicatedStorage.CosmeticiMesh: un Model per
+-- cosmetico, con le MeshPart alle misure standard attorno all'origine. Ogni MeshPart si chiama
+-- "<Cosmetico>_<Colore>" (le fasce del mantello "<Cosmetico>_<Colore>_F<n>"): il colore e il materiale li dà
+-- questa tabella. Se il modello di Blender manca, si usa il costruttore a blocchi qui sopra.
+local COLORI_MESH = {
+	Ferro = { FERRO }, FerroScuro = { FERRO_SCURO }, Acciaio = { ACCIAIO }, Ottone = { OTTONE },
+	Oro = { ORO }, OroScuro = { ORO_SCURO }, Cuoio = { CUOIO, Enum.Material.Leather },
+	CuoioScuro = { CUOIO_SCURO, Enum.Material.Leather }, Legno = { LEGNO, LEGNAME }, Rosso = { ROSSO, STOFFA },
+	Cremisi = { CREMISI, STOFFA }, Bianco = { BIANCO, STOFFA }, Nero = { NERO }, Alloro = { VERDE_ALLORO },
+	AlloroChiaro = { hex("#6E9A48") }, Ramo = { hex("#5A4A2A"), LEGNAME }, Viola = { VIOLA, STOFFA },
+	BluOrizzonte = { hex("#6F8296") }, BluOrizzonteScuro = { hex("#5A6B7E") }, BluKepi = { hex("#1E2A55"), STOFFA },
+	RossoKepi = { hex("#A3202C"), STOFFA }, Avorio = { hex("#E6DCC2") }, CornoPunta = { hex("#4A3A2A") },
+	Rubino = { hex("#B3182E") }, Zaffiro = { hex("#1F5FB8") }, Perla = { hex("#F2EEE4") },
+	Velluto = { hex("#7A1426"), STOFFA }, Ermellino = { hex("#F1EEE6"), STOFFA }, Giubba = { hex("#6C7F99"), STOFFA },
+	GiubbaScura = { hex("#4B5868"), STOFFA }, Maglia = { hex("#7D838B") }, Crine = { hex("#A3242A"), STOFFA },
+	Piuma = { hex("#E9E4D6"), STOFFA }, PiumaRossa = { ROSSO, STOFFA }, Corda = { hex("#D9D2BE"), STOFFA },
+	Targa = { ROSSO, STOFFA },
+}
+local TEXTURE_MESH = { Maglia = "rbxassetid://106565714513572" } -- anelli della cotta di maglia
+-- Cerniere del mantello: il punto in cima al centro di ogni fascia (mantello_punto in cosmetici.py).
+local CERNIERE_MESH = {
+	Mantello = { Vector3.new(0, 0.85, 0.56), Vector3.new(0, -0.1, 0.7), Vector3.new(0, -1.05, 0.84) },
+}
+
+local function daBlender(id)
+	local cartella = game:GetService("ReplicatedStorage"):FindFirstChild("CosmeticiMesh")
+	local stampo = cartella and cartella:FindFirstChild(id)
+	if not stampo then
 		return nil
 	end
-	local modello = Instance.new("Model")
-	modello.Name = id
-	costruttore(modello)
+	local modello = stampo:Clone()
+	for _, p in ipairs(modello:GetDescendants()) do
+		if p:IsA("MeshPart") then
+			local colore, fascia = string.match(p.Name, "^[^_]+_([^_]+)_?F?(%d*)$")
+			local aspetto = COLORI_MESH[colore or ""]
+			if aspetto then
+				p.Color = aspetto[1]
+				p.Material = aspetto[2] or PLASTICA
+			end
+			if TEXTURE_MESH[colore] then
+				p.TextureID = TEXTURE_MESH[colore]
+			end
+			if fascia and fascia ~= "" then
+				p:SetAttribute("Fascia", tonumber(fascia))
+			end
+			if colore == "Targa" then
+				scrittaSPQR(p)
+			end
+			p.CastShadow = true
+		end
+	end
+	for i, punto in ipairs(CERNIERE_MESH[id] or {}) do
+		modello:SetAttribute("Cerniera" .. i, punto)
+	end
+	modello:SetAttribute("Blender", true)
+	return modello
+end
+
+function Cosmetici3D.costruisci(id, slot)
+	local modello = daBlender(id)
+	if not modello then
+		local costruttore = Costruttori[id]
+		if not costruttore then
+			return nil
+		end
+		modello = Instance.new("Model")
+		modello.Name = id
+		costruttore(modello)
+	end
 	modello.WorldPivot = CFrame.new()
 	for _, p in ipairs(modello:GetDescendants()) do
 		if p:IsA("BasePart") then
@@ -637,13 +703,17 @@ local function parteDelCorpo(personaggio, riferimento)
 			return nil
 		end
 		-- La testa R6 è un blocco 2x1x1 con una mesh: si vede larga circa 1.2.
-		local larghezza = testa.Size.X
+		local larghezza = math.max(testa.Size.X, testa.Size.Z)
+		local altezza = testa.Size.Y
 		local mesh = testa:FindFirstChildOfClass("SpecialMesh")
 		if mesh and mesh.MeshType == Enum.MeshType.Head then
 			larghezza = 1.2 * mesh.Scale.X / 1.25
+			altezza = larghezza
 		end
 		local k = math.clamp(larghezza / MISURA.Testa, 0.5, 2)
-		return testa, Vector3.new(k, k, k)
+		-- Teste più alte che larghe (molte teste dinamiche): il copricapo si appoggia in cima, non a metà.
+		local su = math.max(0, altezza / 2 - MISURA.Testa / 2 * k)
+		return testa, Vector3.new(k, k, k), su
 	end
 	local busto = personaggio:FindFirstChild("UpperTorso") or personaggio:FindFirstChild("Torso")
 	if not busto then
@@ -706,13 +776,14 @@ function Cosmetici3D.indossa(personaggio, id, slot)
 	if not modello then
 		return nil
 	end
-	local corpo, k = parteDelCorpo(personaggio, riferimento)
+	local corpo, k, su = parteDelCorpo(personaggio, riferimento)
 	if not corpo then
 		modello:Destroy()
 		return nil
 	end
-	if slot == "Corpo" then
-		-- Il busto vero non è una scatola: il petto sporge. L'armatura sta un po' più larga e profonda.
+	if slot == "Corpo" and not modello:GetAttribute("Blender") then
+		-- Il busto vero non è una scatola: il petto sporge. L'armatura a blocchi sta un po' più larga e profonda
+		-- (quelle di Blender sono già fatte più larghe del busto).
 		k *= Vector3.new(1.04, 1.02, 1.2)
 	end
 	scala(modello, k)
@@ -721,7 +792,7 @@ function Cosmetici3D.indossa(personaggio, id, slot)
 			modello:SetAttribute(nome, valore * k) -- nello spazio della parte del corpo, come il modello
 		end
 	end
-	modello:PivotTo(corpo.CFrame)
+	modello:PivotTo(corpo.CFrame * CFrame.new(0, su or 0, 0))
 	for _, p in ipairs(modello:GetDescendants()) do
 		if p:IsA("BasePart") then
 			if p:GetAttribute("Fascia") then
