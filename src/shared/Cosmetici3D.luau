@@ -631,6 +631,13 @@ local COLORI_MESH = {
 	Targa = { ROSSO, STOFFA },
 }
 local TEXTURE_MESH = { Maglia = "rbxassetid://106565714513572" } -- anelli della cotta di maglia
+-- Metalli splendenti (richiesta di Mattia): SurfaceAppearance con metallicità piena e poca ruvidezza, che
+-- riflette il cielo (serve Lighting.EnvironmentSpecularScale alto, Config/Luci). Le mappe da script non si
+-- possono scrivere: lo stampo è CosmeticiMesh._Superfici.Metallo, qui si copia e si tinge.
+local METALLI = {
+	Ferro = hex("#7C838E"), FerroScuro = hex("#4A5059"), Acciaio = hex("#9AA1AB"),
+	Ottone = hex("#B8862A"), Oro = hex("#D9A93A"), OroScuro = hex("#A07A26"),
+}
 -- Cerniere del mantello: il punto in cima al centro di ogni fascia (mantello_punto in cosmetici.py).
 local CERNIERE_MESH = {
 	Mantello = { Vector3.new(0, 0.85, 0.56), Vector3.new(0, -0.1, 0.7), Vector3.new(0, -1.05, 0.84) },
@@ -642,6 +649,8 @@ local function daBlender(id)
 	if not stampo then
 		return nil
 	end
+	local superfici = cartella:FindFirstChild("_Superfici")
+	local metallo = superfici and superfici:FindFirstChild("Metallo")
 	local modello = stampo:Clone()
 	for _, p in ipairs(modello:GetDescendants()) do
 		if p:IsA("MeshPart") then
@@ -653,6 +662,13 @@ local function daBlender(id)
 			end
 			if TEXTURE_MESH[colore] then
 				p.TextureID = TEXTURE_MESH[colore]
+			end
+			if metallo and METALLI[colore] then
+				local s = metallo:Clone()
+				s.Color = METALLI[colore]
+				s.Parent = p
+				p.Color = METALLI[colore]
+				p.Material = Enum.Material.Metal
 			end
 			if fascia and fascia ~= "" then
 				p:SetAttribute("Fascia", tonumber(fascia))
@@ -706,13 +722,17 @@ local function parteDelCorpo(personaggio, riferimento)
 		local larghezza = math.max(testa.Size.X, testa.Size.Z)
 		local altezza = testa.Size.Y
 		local mesh = testa:FindFirstChildOfClass("SpecialMesh")
-		if mesh and mesh.MeshType == Enum.MeshType.Head then
+		local r6 = mesh and mesh.MeshType == Enum.MeshType.Head
+		if r6 then
 			larghezza = 1.2 * mesh.Scale.X / 1.25
 			altezza = larghezza
 		end
 		local k = math.clamp(larghezza / MISURA.Testa, 0.5, 2)
 		-- Teste più alte che larghe (molte teste dinamiche): il copricapo si appoggia in cima, non a metà.
 		local su = math.max(0, altezza / 2 - MISURA.Testa / 2 * k)
+		if r6 then
+			su = 0.15 * k -- la faccia R6 ha gli occhi più in alto: il bordo degli elmi li copriva (provato in Studio)
+		end
 		return testa, Vector3.new(k, k, k), su
 	end
 	local busto = personaggio:FindFirstChild("UpperTorso") or personaggio:FindFirstChild("Torso")

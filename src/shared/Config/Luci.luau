@@ -13,8 +13,9 @@ Luci.campo = {
 		Ambient = Color3.fromRGB(70, 72, 82),
 		OutdoorAmbient = Color3.fromRGB(138, 140, 150),
 		EnvironmentDiffuseScale = 1,
-		-- Poca luce speculare: superfici opache, niente effetto plastica.
-		EnvironmentSpecularScale = 0.3,
+		-- Riflessi del cielo pieni: i metalli dei cosmetici (SurfaceAppearance) splendono; i materiali opachi
+		-- quasi non cambiano (scelta di Mattia del 19/10/2026, prima era 0.3).
+		EnvironmentSpecularScale = 1,
 		ShadowSoftness = 0.12,
 		ExposureCompensation = 0.25,
 	},
@@ -121,7 +122,7 @@ Luci.lobby = {
 		Ambient = Color3.fromRGB(104, 94, 96),
 		OutdoorAmbient = Color3.fromRGB(120, 96, 92),
 		EnvironmentDiffuseScale = 0.8,
-		EnvironmentSpecularScale = 0.2,
+		EnvironmentSpecularScale = 1, -- metalli dei cosmetici splendenti (prima 0.2)
 		ShadowSoftness = 0.2,
 		ExposureCompensation = 0.35,
 	},
