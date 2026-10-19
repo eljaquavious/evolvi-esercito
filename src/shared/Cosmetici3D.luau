@@ -301,17 +301,6 @@ function Costruttori.Cartucciera(m)
 	end
 end
 
-function Costruttori.Maglia(m)
-	local maglia = hex("#7D838B")
-	parte(m, "blocco", Vector3.new(2.08, 1.62, 1.1), C(0, 0, 0), maglia, STOFFA)
-	parte(m, "blocco", Vector3.new(2.12, 0.5, 1.14), C(0, -1.06, 0), maglia, STOFFA) -- orlo lungo sui fianchi
-	parte(m, "palla", Vector3.new(1.3, 0.42, 1.16), C(0, 0.78, 0), hex("#6A7078"), STOFFA) -- collo
-	for _, s in ipairs({ -1, 1 }) do -- spalle arrotondate che scendono sulle braccia
-		parte(m, "palla", Vector3.new(1.0, 0.7, 1.2), C(s * 0.92, 0.62, 0), maglia, STOFFA)
-	end
-	cintura(m, CUOIO, -0.78, OTTONE)
-end
-
 function Costruttori.CorazzaOro(m)
 	-- Corazza muscolare da generale romano, d'oro opaco, con gonnellino viola.
 	parte(m, "blocco", Vector3.new(2.08, 1.6, 1.1), C(0, 0, 0), ORO_SCURO)
@@ -626,7 +615,7 @@ local COLORI_MESH = {
 	RossoKepi = { hex("#A3202C"), STOFFA }, Avorio = { hex("#E6DCC2") }, CornoPunta = { hex("#4A3A2A") },
 	Rubino = { hex("#B3182E") }, Zaffiro = { hex("#1F5FB8") }, Perla = { hex("#F2EEE4") },
 	Velluto = { hex("#7A1426"), STOFFA }, Ermellino = { hex("#F1EEE6"), STOFFA }, Giubba = { hex("#6C7F99"), STOFFA },
-	GiubbaScura = { hex("#4B5868"), STOFFA }, Maglia = { hex("#7D838B") }, Crine = { hex("#A3242A"), STOFFA },
+	GiubbaScura = { hex("#4B5868"), STOFFA }, Crine = { hex("#A3242A"), STOFFA },
 	Piuma = { hex("#E9E4D6"), STOFFA }, PiumaRossa = { ROSSO, STOFFA }, Corda = { hex("#D9D2BE"), STOFFA },
 	Targa = { ROSSO, STOFFA },
 }
@@ -637,13 +626,12 @@ local TEXTURE_MESH = {
 }
 -- Superfici PBR (SurfaceAppearance): le mappe da script non si possono scrivere, quindi gli stampi sono in
 -- CosmeticiMesh._Superfici e qui si copiano e si tingono. Metallo = metallo splendente (richiesta di Mattia),
--- Lucido = vetro e vernice, Satinato = avorio e smalto, MagliaMetallo = anelli d'acciaio della cotta.
+-- Lucido = vetro e vernice, Satinato = avorio e smalto.
 -- Per riflettere serve Lighting.EnvironmentSpecularScale alto (Config/Luci).
 local SUPERFICI = {
 	Ferro = { "Metallo", hex("#7C838E") }, FerroScuro = { "Metallo", hex("#4A5059") },
 	Acciaio = { "Metallo", hex("#9AA1AB") }, Ottone = { "Metallo", hex("#B8862A") },
 	Oro = { "Metallo", hex("#D9A93A") }, OroScuro = { "Metallo", hex("#A07A26") },
-	Maglia = { "MagliaMetallo", hex("#F0F2F5") }, -- la texture ha già il suo colore (Chainmail004 di ambientCG)
 	Rubino = { "Lucido", hex("#B3182E") }, Zaffiro = { "Lucido", hex("#1F5FB8") }, Perla = { "Lucido", hex("#F2EEE4") },
 	Avorio = { "Satinato", hex("#E6DCC2") }, CornoPunta = { "Satinato", hex("#4A3A2A") },
 	BluOrizzonte = { "Satinato", hex("#6F8296") }, BluOrizzonteScuro = { "Satinato", hex("#5A6B7E") },
@@ -684,7 +672,7 @@ local function daBlender(id)
 				s.Color = sup[2]
 				s.Parent = p
 				p.Color = sup[2]
-				if sup[1] == "Metallo" or sup[1] == "MagliaMetallo" then
+				if sup[1] == "Metallo" then
 					p.Material = Enum.Material.Metal
 				end
 			end

@@ -69,7 +69,6 @@ Ricompense.Cosmetici = {
 	{ id = "Lorica", nome = "Lorica Segmentata", slot = "Corpo", rarita = "epico", condizione = { "battaglia", 6 }, epoca = 1 },
 	{ id = "Piastre", nome = "Knight's Plate", slot = "Corpo", rarita = "epico", condizione = { "battaglia", 12 }, epoca = 2 },
 	{ id = "Cartucciera", nome = "Bandolier", slot = "Corpo", rarita = "epico", condizione = { "battaglia", 24 }, epoca = 4 },
-	{ id = "Maglia", nome = "Chainmail", slot = "Corpo", rarita = "raro", monete = 1500 },
 	{ id = "CorazzaOro", nome = "Golden Cuirass", slot = "Corpo", rarita = "leggendario", robux = { prezzo = 149, prodotto = 0 } },
 	-- Schiena
 	{ id = "Scudo", nome = "Roman Scutum", slot = "Schiena", rarita = "raro", condizione = { "battaglia", 3 }, epoca = 1 },
