@@ -42,9 +42,9 @@ local EFFETTI = {
 	-- Il colpo di partenza di un cannone o di un carro: la stessa esplosione, più bassa.
 	cannonata = { ids = { 9114086657 }, volume = 0.3, pausa = 0.3, massimo = 2 },
 	-- "Excited Foreign Crowd" 5 e 3 (Pro Sound Effects): uomini che gridano. Bassi.
-	grido = { ids = { 9114360647, 9114360486 }, volume = 0.16, pausa = 3.5, massimo = 1 },
+	grido = { ids = { 9114360647, 9114360486 }, volume = 0.08, pausa = 3.5, massimo = 1 },
 	-- Un soldato che urla mentre colpisce: "Male Scream Short Yelling Bursts" 2, 6, 7, 11 (Pro Sound Effects).
-	urlo = { ids = { 9125651079, 9125651083, 9125651408, 9125652676 }, volume = 0.17, pausa = 0.7, massimo = 2 },
+	urlo = { ids = { 9125651079, 9125651083, 9125651408, 9125652676 }, volume = 0.08, pausa = 0.7, massimo = 2 },
 	-- Un soldato che cade: le versioni brevi degli stessi (1, 4, 5, 8, 9, 16).
 	morte = { ids = { 9125650883, 9125652443, 9125652432, 9125652675, 9125651364, 9125652949 }, volume = 0.26, pausa = 0.12, massimo = 4 },
 }
