@@ -527,9 +527,9 @@ end
 local function montagne()
 	-- Il picco sotto la cittadella. La cima resta a y = -4, una cella sotto i pavimenti: il terreno
 	-- è a celle di 4 e arrotonda, più in alto spunterebbe sopra pavimenti e tappeti.
-	terrain:FillCylinder(CFrame.new(0, -64, 0), 120, 190 * SCALA, Enum.Material.Rock)
-	terrain:FillCylinder(CFrame.new(0, -150, 0), 80, 300 * SCALA, Enum.Material.Rock)
-	terrain:FillCylinder(CFrame.new(0, -6, 0), 4, 185 * SCALA, Enum.Material.Slate)
+	terrain:FillCylinder(CFrame.new(0, -64, 0), 120, 260 * SCALA, Enum.Material.Rock)
+	terrain:FillCylinder(CFrame.new(0, -150, 0), 80, 360 * SCALA, Enum.Material.Rock)
+	terrain:FillCylinder(CFrame.new(0, -6, 0), 4, 280 * SCALA, Enum.Material.Slate)
 	local rng = Random.new(7)
 	for i = 1, 26 do
 		local a = i / 26 * math.pi * 2 + rng:NextNumber(-0.1, 0.1)
@@ -811,140 +811,129 @@ end
 ---------------------------------------------------------------------------------------------------------
 -- Galleria delle Epoche (nord) e portale della campagna
 
+-- Stile delle sale della Galleria, una per epoca nell'ordine di Epoche.Lista.
+local SALE_EPOCHE = {
+	Antica = {
+		nome = "ANTIQUITY", pavimento = MARMO, materiale = Enum.Material.Marble,
+		muri = Color3.fromRGB(214, 196, 162), materialeMuri = Enum.Material.Limestone, drappo = ROSSO_ROMANO, decoro = "colonne",
+	},
+	Medievale = {
+		nome = "MIDDLE AGES", pavimento = Color3.fromRGB(120, 112, 104), materiale = Enum.Material.Cobblestone,
+		muri = Color3.fromRGB(128, 120, 110), materialeMuri = Enum.Material.Cobblestone, drappo = BLU_REALE, decoro = "vetrate",
+	},
+	Polvere = {
+		nome = "AGE OF GUNPOWDER", pavimento = Color3.fromRGB(128, 92, 60), materiale = Enum.Material.WoodPlanks,
+		muri = Color3.fromRGB(190, 160, 128), materialeMuri = Enum.Material.Brick, drappo = Color3.fromRGB(150, 60, 50), decoro = "lampadari",
+	},
+	Novecento = {
+		nome = "20TH CENTURY", pavimento = CEMENTO, materiale = Enum.Material.Concrete,
+		muri = Color3.fromRGB(116, 114, 108), materialeMuri = Enum.Material.Concrete, drappo = OLIVA, decoro = "travi",
+	},
+}
+local PASSO_FILA = 10 -- profondità di una fila di piedistalli
+local POSTI_X = { -16, -7, 7, 16 } -- quattro piedistalli per fila, due per lato del tappeto
+local SPAZIO_SALA = 12 -- spazio libero all'inizio e alla fine di ogni sala
+
+-- Quanti soldati e quanto grandi su un piedistallo: fanti e tiratori a gruppi di quattro, cavalieri e
+-- mitraglieri da soli, veicoli ed elefanti rimpiccioliti, la fortezza in piccolo.
+local function comeEsporre(tipo)
+	local def = Epoche.Truppe[tipo]
+	if def.fortezza then
+		return 1, 1, 0.42
+	elseif def.veicolo then
+		return 1, 1, def.classe == "Cavalleria" and def.soldati == 1 and 0.55 or 0.75
+	elseif def.classe == "Cavalleria" or def.soldati < 8 then
+		return 1, 1, 1
+	end
+	return 2, 2, 1
+end
+
+-- Galleria delle Epoche (nord, -Z): una sala per epoca con un piedistallo per ogni reggimento che si può avere
+-- (anche quelli delle armate nemiche) e la fortezza dell'epoca, poi il portale della campagna.
 local function galleria(lobby, callback)
 	local m = Instance.new("Model")
 	m.Name = "Galleria"
 	local X = 22 -- mezza larghezza interna
-	local Z0, Z1 = -40, -150 -- inizio (dentro il muro della Rotonda) e fondo
 	local ALTO = 30
-	local SALE = {
-		{ z0 = -48, z1 = -82, nome = "ANTIQUITY", pavimento = MARMO, materiale = Enum.Material.Marble, muri = Color3.fromRGB(214, 196, 162), materialeMuri = Enum.Material.Limestone },
-		{ z0 = -82, z1 = -116, nome = "MIDDLE AGES", pavimento = Color3.fromRGB(120, 112, 104), materiale = Enum.Material.Cobblestone, muri = Color3.fromRGB(128, 120, 110), materialeMuri = Enum.Material.Cobblestone },
-		{ z0 = -116, z1 = Z1, nome = "20TH CENTURY", pavimento = CEMENTO, materiale = Enum.Material.Concrete, muri = Color3.fromRGB(116, 114, 108), materialeMuri = Enum.Material.Concrete },
-	}
-	for i, sala in ipairs(SALE) do
+	local Z0 = -40 -- inizio (dentro il muro della Rotonda)
+	local sale = {}
+	local z = -48
+	for _, epoca in ipairs(Epoche.Lista) do
+		local pezzi = table.clone(epoca.truppe)
+		table.insert(pezzi, epoca.fortezza)
+		local file = math.ceil(#pezzi / #POSTI_X)
+		local lunghezza = file * PASSO_FILA + SPAZIO_SALA * 2
+		table.insert(sale, { epoca = epoca, stile = SALE_EPOCHE[epoca.id] or SALE_EPOCHE.Antica, z0 = z, z1 = z - lunghezza, pezzi = pezzi })
+		z -= lunghezza
+	end
+	local Z1 = z
+	for i, sala in ipairs(sale) do
+		local st = sala.stile
 		local z0 = i == 1 and Z0 or sala.z0
 		local lunghezza = z0 - sala.z1
-		scatola(m, Vector3.new(X * 2 + 8, 1, lunghezza), Vector3.new(0, PAVIMENTO - 0.5, (z0 + sala.z1) / 2), sala.pavimento, sala.materiale)
-		-- Muri laterali con due finestroni per lato: da lì si vedono le montagne e il tramonto.
-		-- Nell'Antichità stanno a z = -60 e -72, tra una colonna e l'altra (se no le colonne le coprono).
-		local centri = i == 1 and { 20, 32 } or { lunghezza * 0.3, lunghezza * 0.72 }
-		for lato = -1, 1, 2 do
-			muro(m, Vector3.new(lato * (X + 2), 0, z0), Vector3.new(lato * (X + 2), 0, sala.z1), PAVIMENTO, PAVIMENTO + ALTO, 4, sala.muri, sala.materialeMuri, finestre(centri, i == 3 and 4 or 7, 9, i == 3 and 20 or 24))
+		scatola(m, Vector3.new(X * 2 + 8, 1, lunghezza), Vector3.new(0, PAVIMENTO - 0.5, (z0 + sala.z1) / 2), st.pavimento, st.materiale)
+		-- Muri laterali con un finestrone ogni due file: da lì si vedono le montagne e il tramonto.
+		local centri = {}
+		for c = 18, lunghezza - 10, 20 do
+			table.insert(centri, c)
 		end
-		-- Soffitto: la prima sala comincia dietro il muro della Rotonda, altrimenti soffitto e travi
-		-- spuntano dentro la Rotonda davanti all'insegna della porta.
-		local zTetto = i == 1 and -45 or sala.z0
-		scatola(m, Vector3.new(X * 2 + 8, 2, zTetto - sala.z1), Vector3.new(0, PAVIMENTO + ALTO + 1, (zTetto + sala.z1) / 2), sala.muri:Lerp(Color3.new(0, 0, 0), 0.35), sala.materialeMuri)
-		for k = 0, math.floor((sala.z0 - sala.z1) / 8) do
-			scatola(m, Vector3.new(X * 2, 1.6, 1.4), Vector3.new(0, PAVIMENTO + ALTO - 0.6, sala.z0 - 2 - k * 8), i == 3 and FERRO or LEGNO_SCURO, i == 3 and Enum.Material.Metal or Enum.Material.Wood)
-		end
-	end
-	-- Muro di fondo.
-	scatola(m, Vector3.new(X * 2 + 8, ALTO + 2, 4), Vector3.new(0, PAVIMENTO + ALTO / 2, Z1 - 2), SALE[3].muri, Enum.Material.Concrete)
-	-- Tappeto veloce al centro fino al portale.
-	tappeto(m, Vector3.new(0, 0, -48), Vector3.new(0, 0, Z1 + 12), 7, BLU, "a")
-
-	-- Archi tra le sale con il nome della sala che si apre dietro.
-	for i, sala in ipairs(SALE) do
-		local z = sala.z0 - 0.5
 		for lato = -1, 1, 2 do
-			scatola(m, Vector3.new(4, ALTO, 3), Vector3.new(lato * (X - 2), PAVIMENTO + ALTO / 2, z), sala.muri:Lerp(Color3.new(0, 0, 0), 0.15), sala.materialeMuri)
+			muro(m, Vector3.new(lato * (X + 2), 0, z0), Vector3.new(lato * (X + 2), 0, sala.z1), PAVIMENTO, PAVIMENTO + ALTO, 4, st.muri, st.materialeMuri,
+				finestre(centri, st.decoro == "travi" and 4 or 6, 9, st.decoro == "travi" and 20 or 24))
 		end
-		scatola(m, Vector3.new(X * 2, 5, 3), Vector3.new(0, PAVIMENTO + ALTO - 2.5, z), sala.muri:Lerp(Color3.new(0, 0, 0), 0.15), sala.materialeMuri)
-		cartello(m, Vector3.new(0, PAVIMENTO + ALTO - 7.6, z + 1.8), Vector3.new(0, 0, 1), 20, 3.4, sala.nome, ORO)
-	end
-
-	-- Antichità: colonne di marmo, stendardi rossi, bracieri; legionari, arcieri cretesi, cavalleria
-	-- e la fortezza antica.
-	for _, z in ipairs({ -54, -66, -78 }) do
-		for lato = -1, 1, 2 do
-			colonna(m, ALTO - 2, 3.2, Vector3.new(lato * (X - 2.5), PAVIMENTO + (ALTO - 2) / 2, z), MARMO, Enum.Material.Marble)
-			scatola(m, Vector3.new(4.6, 1.2, 4.6), Vector3.new(lato * (X - 2.5), PAVIMENTO + ALTO - 2.6, z), MARMO, Enum.Material.Marble)
-			scatola(m, Vector3.new(4.6, 1.2, 4.6), Vector3.new(lato * (X - 2.5), PAVIMENTO + 0.6, z), MARMO, Enum.Material.Marble)
+		-- Soffitto (la prima sala comincia dietro il muro della Rotonda) e travi.
+		local zTetto = i == 1 and -45 or z0
+		scatola(m, Vector3.new(X * 2 + 8, 2, zTetto - sala.z1), Vector3.new(0, PAVIMENTO + ALTO + 1, (zTetto + sala.z1) / 2), st.muri:Lerp(Color3.new(0, 0, 0), 0.35), st.materialeMuri)
+		for k = 0, math.floor((z0 - sala.z1) / 8) do
+			scatola(m, Vector3.new(X * 2, 1.6, 1.4), Vector3.new(0, PAVIMENTO + ALTO - 0.6, z0 - 2 - k * 8), st.decoro == "travi" and FERRO or LEGNO_SCURO,
+				st.decoro == "travi" and Enum.Material.Metal or Enum.Material.Wood)
 		end
-	end
-	-- Stendardi stretti appesi davanti alle colonne: sui muri coprirebbero le finestre.
-	for _, z in ipairs({ -54, -78 }) do
+		-- Arco d'ingresso con il nome dell'epoca.
+		local za = sala.z0 - 0.5
 		for lato = -1, 1, 2 do
-			stendardo(m, Vector3.new(lato * (X - 4.4), PAVIMENTO + 18, z), Vector3.new(-lato, 0, 0), ROSSO_ROMANO, 3, 11)
+			scatola(m, Vector3.new(4, ALTO, 3), Vector3.new(lato * (X - 2), PAVIMENTO + ALTO / 2, za), st.muri:Lerp(Color3.new(0, 0, 0), 0.15), st.materialeMuri)
 		end
-	end
-	braciere(m, Vector3.new(-7, PAVIMENTO, -50), 0.9)
-	braciere(m, Vector3.new(7, PAVIMENTO, -50), 0.9)
-	esposizione(m, Vector3.new(-11.5, 0, -57), Vector3.new(1, 0, 0.35).Unit, "Legionario", 2, 4, 1, 12, 10, ROSSO_ROMANO, "ROMAN LEGIONARIES")
-	esposizione(m, Vector3.new(11.5, 0, -57), Vector3.new(-1, 0, 0.35).Unit, "ArciereCretese", 2, 3, 1, 12, 10, ROSSO_ROMANO, "CRETAN ARCHERS")
-	esposizione(m, Vector3.new(-11.5, 0, -73), Vector3.new(1, 0, 0.35).Unit, "Compagno", 1, 2, 1, 12, 10, ROSSO_ROMANO, "COMPANION CAVALRY")
-	esposizione(m, Vector3.new(11.5, 0, -73), Vector3.new(-1, 0, 0.35).Unit, "FortezzaAntica", 1, 1, 0.55, 12, 10, ROSSO_ROMANO, "HILL FORT")
-
-	-- Medioevo: vetrate colorate, scudi e torce; huscarl, arcieri inglesi, cavalieri normanni, il castello.
-	for _, z in ipairs({ -82 - 34 * 0.3, -82 - 34 * 0.72 }) do
-		for lato = -1, 1, 2 do
-			local colori = { Color3.fromRGB(180, 40, 40), Color3.fromRGB(40, 70, 170), Color3.fromRGB(220, 170, 40), Color3.fromRGB(40, 130, 70) }
-			for r = 0, 4 do
-				for c = 0, 1 do
-					local vetro = scatola(m, Vector3.new(0.3, 2.8, 3.3), Vector3.new(lato * (X + 2), PAVIMENTO + 10.5 + r * 2.9, z - 1.7 + c * 3.4), colori[(r + c + (lato > 0 and 1 or 0)) % 4 + 1], Enum.Material.Neon, { Transparency = 0.25, CastShadow = false })
-					if r == 2 and c == 0 then
-						luce(vetro, vetro.Color, 18, 0.8, false)
+		scatola(m, Vector3.new(X * 2, 5, 3), Vector3.new(0, PAVIMENTO + ALTO - 2.5, za), st.muri:Lerp(Color3.new(0, 0, 0), 0.15), st.materialeMuri)
+		cartello(m, Vector3.new(0, PAVIMENTO + ALTO - 7.6, za + 1.8), Vector3.new(0, 0, 1), 26, 3.4, st.nome, ORO)
+		braciere(m, Vector3.new(-6, PAVIMENTO, sala.z0 - 4), 0.85)
+		braciere(m, Vector3.new(6, PAVIMENTO, sala.z0 - 4), 0.85)
+		-- Decori della sala.
+		for k = 0, math.floor((lunghezza - SPAZIO_SALA) / PASSO_FILA) do
+			local zk = sala.z0 - SPAZIO_SALA + 2 - k * PASSO_FILA
+			if zk > sala.z1 + 4 then
+				for lato = -1, 1, 2 do
+					if st.decoro == "colonne" then
+						colonna(m, ALTO - 2, 2.6, Vector3.new(lato * (X - 1.6), PAVIMENTO + (ALTO - 2) / 2, zk), MARMO, Enum.Material.Marble)
+					elseif st.decoro == "travi" then
+						scatola(m, Vector3.new(1.6, ALTO, 1.6), Vector3.new(lato * (X - 1), PAVIMENTO + ALTO / 2, zk), FERRO, Enum.Material.Metal)
+					elseif k % 2 == 0 then
+						torcia(m, Vector3.new(lato * X, PAVIMENTO + 13, zk), Vector3.new(-lato, 0, 0))
 					end
 				end
+				if st.decoro == "lampadari" or st.decoro == "travi" then
+					local lampada = scatola(m, Vector3.new(st.decoro == "travi" and 1.4 or 3, 0.5, st.decoro == "travi" and 1.4 or 3),
+						Vector3.new(0, PAVIMENTO + ALTO - 4, zk), st.decoro == "travi" and Color3.fromRGB(255, 236, 190) or ORO, Enum.Material.Neon, { CastShadow = false })
+					faretto(lampada, Color3.fromRGB(255, 226, 180), 40, 2.2, 70)
+				end
 			end
-			-- Piombi delle vetrate.
-			for r = 0, 5 do
-				scatola(m, Vector3.new(0.5, 0.25, 7), Vector3.new(lato * (X + 2), PAVIMENTO + 9.05 + r * 2.9, z), FERRO, Enum.Material.Metal)
-			end
-			scatola(m, Vector3.new(0.5, 15, 0.25), Vector3.new(lato * (X + 2), PAVIMENTO + 16.3, z), FERRO, Enum.Material.Metal)
 		end
-	end
-	for _, z in ipairs({ -88, -99, -110 }) do
 		for lato = -1, 1, 2 do
-			local verso = Vector3.new(-lato, 0, 0)
-			local pos = Vector3.new(lato * (X - 0.2), PAVIMENTO + 7, z)
-			disco(m, 0.5, 4.2, CFrame.lookAt(pos, pos + verso), z == -99 and BLU_REALE or Color3.fromRGB(150, 30, 30), Enum.Material.Wood)
-			scatola(m, Vector3.new(0.6, 3.6, 0.7), CFrame.lookAt(pos + verso * 0.3, pos + verso * 2), ORO, Enum.Material.Fabric)
-			scatola(m, Vector3.new(3.6, 0.6, 0.7), CFrame.lookAt(pos + verso * 0.3, pos + verso * 2), ORO, Enum.Material.Fabric)
+			stendardo(m, Vector3.new(lato * (X - 0.4), PAVIMENTO + 20, sala.z0 - 6), Vector3.new(-lato, 0, 0), st.drappo, 3, 10)
+		end
+		-- I piedistalli: quattro per fila, rivolti al tappeto e un po' verso chi arriva.
+		for j, tipo in ipairs(sala.pezzi) do
+			local fila = math.floor((j - 1) / #POSTI_X)
+			local x = POSTI_X[(j - 1) % #POSTI_X + 1]
+			local zp = sala.z0 - SPAZIO_SALA - fila * PASSO_FILA - PASSO_FILA / 2
+			local verso = Vector3.new(x < 0 and 1 or -1, 0, 0.45).Unit
+			local righe, colonne, scala = comeEsporre(tipo)
+			local def = Epoche.Truppe[tipo]
+			esposizione(m, Vector3.new(x, 0, zp), verso, tipo, righe, colonne, scala, 7.5, 8, st.drappo, string.upper(def.nome))
 		end
 	end
-	-- Torce sul muro pieno tra le due vetrate, sopra lo scudo (a -93 e -105 finivano dentro le vetrate).
-	for lato = -1, 1, 2 do
-		torcia(m, Vector3.new(lato * X, PAVIMENTO + 13, -99), Vector3.new(-lato, 0, 0))
-	end
-	esposizione(m, Vector3.new(-11.5, 0, -91), Vector3.new(1, 0, 0.35).Unit, "Spadaccino", 2, 4, 1, 12, 10, BLU_REALE, "SAXON HUSCARLS")
-	esposizione(m, Vector3.new(11.5, 0, -91), Vector3.new(-1, 0, 0.35).Unit, "Arciere", 2, 3, 1, 12, 10, BLU_REALE, "ENGLISH LONGBOWMEN")
-	esposizione(m, Vector3.new(-11.5, 0, -107), Vector3.new(1, 0, 0.35).Unit, "Cavaliere", 1, 2, 1, 12, 10, BLU_REALE, "NORMAN KNIGHTS")
-	esposizione(m, Vector3.new(11.5, 0, -107), Vector3.new(-1, 0, 0.35).Unit, "FortezzaMedievale", 1, 1, 0.55, 12, 10, BLU_REALE, "CASTLE")
-
-	-- Novecento: travi d'acciaio, sacchetti di sabbia, filo spinato, lampade industriali; fanti,
-	-- mitraglieri, lo Sherman e il bunker.
-	for _, z in ipairs({ -122, -134, -146 }) do
-		for lato = -1, 1, 2 do
-			scatola(m, Vector3.new(1.6, ALTO, 1.6), Vector3.new(lato * (X - 1), PAVIMENTO + ALTO / 2, z), FERRO, Enum.Material.Metal)
-			scatola(m, Vector3.new(3, ALTO, 0.5), Vector3.new(lato * (X - 1), PAVIMENTO + ALTO / 2, z), FERRO, Enum.Material.Metal)
-		end
-	end
-	for lato = -1, 1, 2 do
-		for k = 0, 7 do
-			for fila = 0, 1 do
-				local z = -119 - k * 3.6 - fila * 1.8
-				local sacco = sfera(m, 1, Vector3.new(lato * (X - 3.2), PAVIMENTO + 0.6 + fila * 1, z), SACCHI, Enum.Material.Fabric)
-				sacco.Shape = Enum.PartType.Block
-				sacco.Size = Vector3.new(2.2, 1.1, 3.4)
-			end
-		end
-	end
-	for _, z in ipairs({ -124, -136 }) do
-		-- Appese corte: più in basso coprono l'insegna del portale a chi arriva dal tappeto.
-		scatola(m, Vector3.new(3, 1.2, 3), Vector3.new(0, PAVIMENTO + ALTO - 3, z), OLIVA, Enum.Material.Metal)
-		scatola(m, Vector3.new(0.2, 2.4, 0.2), Vector3.new(0, PAVIMENTO + ALTO - 1.2, z), FERRO, Enum.Material.Metal)
-		local bulbo = scatola(m, Vector3.new(1.4, 0.4, 1.4), Vector3.new(0, PAVIMENTO + ALTO - 3.8, z), Color3.fromRGB(255, 236, 190), Enum.Material.Neon, { CastShadow = false })
-		faretto(bulbo, Color3.fromRGB(255, 226, 180), 40, 2.4, 70)
-	end
-	esposizione(m, Vector3.new(-11.5, 0, -124), Vector3.new(1, 0, 0.35).Unit, "Fante", 2, 4, 1, 12, 10, OLIVA, "FRENCH POILUS")
-	esposizione(m, Vector3.new(11.5, 0, -124), Vector3.new(-1, 0, 0.35).Unit, "Mitragliere", 1, 2, 1, 12, 10, OLIVA, "MACHINE GUN CREW")
-	esposizione(m, Vector3.new(-11.5, 0, -138), Vector3.new(1, 0, 0.35).Unit, "CarroArmato", 1, 1, 1, 12, 11, OLIVA, "SHERMAN TANK")
-	esposizione(m, Vector3.new(11.5, 0, -138), Vector3.new(-1, 0, 0.35).Unit, "FortezzaNovecento", 1, 1, 0.55, 12, 10, OLIVA, "BUNKER")
-
-	-- Il portale della campagna in fondo.
+	-- Muro di fondo, tappeto veloce al centro fino al portale e il portale della campagna.
+	scatola(m, Vector3.new(X * 2 + 8, ALTO + 2, 4), Vector3.new(0, PAVIMENTO + ALTO / 2, Z1 - 2), sale[#sale].stile.muri, Enum.Material.Concrete)
+	tappeto(m, Vector3.new(0, 0, -48), Vector3.new(0, 0, Z1 + 12), 7, BLU, "a")
 	portale(m, "PortaleCampagna", CFrame.lookAt(Vector3.new(0, 0, Z1 + 6), Vector3.new(0, 0, 0)), BLU, "CAMPAIGN", "Conquer history", callback)
 	m.Parent = lobby
 end
@@ -1190,12 +1179,12 @@ end
 local function eroi(lobby, callback)
 	local m = Instance.new("Model")
 	m.Name = "SalaEroi"
-	local Z0, Z1 = 44, 124
+	local Z0, Z1 = 44, 164
 	local X = 26
 	local ALTO = 32
 	scatola(m, Vector3.new(X * 2 + 8, 1, Z1 - Z0), Vector3.new(0, PAVIMENTO - 0.5, (Z0 + Z1) / 2), MARMO, Enum.Material.Marble)
 	for lato = -1, 1, 2 do
-		muro(m, Vector3.new(lato * (X + 2), 0, Z0), Vector3.new(lato * (X + 2), 0, Z1), PAVIMENTO, PAVIMENTO + ALTO, 4, PIETRA_CHIARA, Enum.Material.Limestone, finestre({ 18, 38, 58 }, 6, 10, 27))
+		muro(m, Vector3.new(lato * (X + 2), 0, Z0), Vector3.new(lato * (X + 2), 0, Z1), PAVIMENTO, PAVIMENTO + ALTO, 4, PIETRA_CHIARA, Enum.Material.Limestone, finestre({ 18, 38, 58, 78, 98 }, 6, 10, 27))
 	end
 	scatola(m, Vector3.new(X * 2 + 8, ALTO + 2, 4), Vector3.new(0, PAVIMENTO + ALTO / 2, Z1 + 2), PIETRA_CHIARA, Enum.Material.Limestone)
 	-- Il soffitto comincia dietro il muro della Rotonda (a 45), per non coprire l'insegna della porta.
@@ -1203,13 +1192,18 @@ local function eroi(lobby, callback)
 	for z = Z0 + 6, Z1 - 2, 10 do
 		scatola(m, Vector3.new(X * 2, 2, 1.6), Vector3.new(0, PAVIMENTO + ALTO - 1, z), ORO, Enum.Material.Slate)
 	end
-	tappeto(m, Vector3.new(0, 0, 48), Vector3.new(0, 0, 108), 7, VERDE, "a")
+	tappeto(m, Vector3.new(0, 0, 48), Vector3.new(0, 0, 148), 7, VERDE, "a")
 
-	-- Le statue: tre per lato, rivolte al tappeto, nell'ordine delle epoche.
-	local comandanti = { "Annibale", "Cesare", "Guglielmo", "Giovanna", "Foch", "DeGaulle" }
+	-- Le statue: tutti i comandanti, nell'ordine delle epoche, alternati a destra e a sinistra del tappeto.
+	local comandanti = {}
+	for _, epoca in ipairs(Epoche.Lista) do
+		for _, id in ipairs(epoca.comandanti) do
+			table.insert(comandanti, id)
+		end
+	end
 	for i, id in ipairs(comandanti) do
 		local lato = i % 2 == 1 and -1 or 1
-		local z = 60 + math.floor((i - 1) / 2) * 20
+		local z = 58 + math.floor((i - 1) / 2) * 18
 		local pos = Vector3.new(lato * 15, 0, z)
 		local verso = Vector3.new(-lato, 0, -0.25).Unit
 		colonna(m, 1.2, 10, pos + Vector3.new(0, PAVIMENTO + 0.6, 0), PIETRA_SCURA, Enum.Material.Slate)
@@ -1233,14 +1227,14 @@ local function eroi(lobby, callback)
 	end
 
 	-- Tavolo dell'esercito in fondo, con le carte del mazzo sparse e l'insegna ARMY.
-	local tavolo = scatola(m, Vector3.new(18, 3.6, 7), Vector3.new(0, PAVIMENTO + 1.8, 112), LEGNO_SCURO, Enum.Material.Wood)
-	scatola(m, Vector3.new(19, 0.5, 8), Vector3.new(0, PAVIMENTO + 3.85, 112), Color3.fromRGB(40, 90, 50), Enum.Material.Fabric)
+	local tavolo = scatola(m, Vector3.new(18, 3.6, 7), Vector3.new(0, PAVIMENTO + 1.8, 152), LEGNO_SCURO, Enum.Material.Wood)
+	scatola(m, Vector3.new(19, 0.5, 8), Vector3.new(0, PAVIMENTO + 3.85, 152), Color3.fromRGB(40, 90, 50), Enum.Material.Fabric)
 	local rng = Random.new(3)
 	for i = 1, 6 do
-		scatola(m, Vector3.new(1.6, 0.08, 2.3), CFrame.new(-6 + i * 1.9, PAVIMENTO + 4.15, 112 + rng:NextNumber(-1, 1)) * CFrame.Angles(0, rng:NextNumber(-0.4, 0.4), 0), i <= 2 and Color3.fromRGB(240, 196, 70) or i <= 4 and Color3.fromRGB(200, 206, 214) or Color3.fromRGB(206, 140, 80), Enum.Material.SmoothPlastic)
+		scatola(m, Vector3.new(1.6, 0.08, 2.3), CFrame.new(-6 + i * 1.9, PAVIMENTO + 4.15, 152 + rng:NextNumber(-1, 1)) * CFrame.Angles(0, rng:NextNumber(-0.4, 0.4), 0), i <= 2 and Color3.fromRGB(240, 196, 70) or i <= 4 and Color3.fromRGB(200, 206, 214) or Color3.fromRGB(206, 140, 80), Enum.Material.SmoothPlastic)
 	end
 	for _, x in ipairs({ -7, 7 }) do
-		local candela = scatola(m, Vector3.new(0.6, 1.4, 0.6), Vector3.new(x, PAVIMENTO + 4.8, 113.5), Color3.fromRGB(236, 226, 200), Enum.Material.SmoothPlastic)
+		local candela = scatola(m, Vector3.new(0.6, 1.4, 0.6), Vector3.new(x, PAVIMENTO + 4.8, 153.5), Color3.fromRGB(236, 226, 200), Enum.Material.SmoothPlastic)
 		fuoco(m, candela.Position + Vector3.new(0, 1, 0), 0.8, Color3.fromRGB(255, 190, 120), 16, true)
 	end
 	cartello(m, Vector3.new(0, PAVIMENTO + 18, Z1 - 0.4), Vector3.new(0, 0, -1), 26, 7, "ARMY", VERDE, "Build your deck")
@@ -1248,7 +1242,7 @@ local function eroi(lobby, callback)
 		stendardo(m, Vector3.new(lato * 18, PAVIMENTO + 17, Z1 - 0.3), Vector3.new(0, 0, -1), Color3.fromRGB(40, 110, 50), 7, 18)
 	end
 	prompt(tavolo, "Manage army", "ARMY", callback, 16)
-	soglia(m, Vector3.new(18, 8, 5), CFrame.new(0, PAVIMENTO + 4, 106.5), callback)
+	soglia(m, Vector3.new(18, 8, 5), CFrame.new(0, PAVIMENTO + 4, 146.5), callback)
 	m.Parent = lobby
 end
 

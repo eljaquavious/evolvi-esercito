@@ -63,7 +63,7 @@ def _stringa_luau(testo, pezzo=60000):
     return "table.concat({\n" + "".join('\t\t"%s",\n' % p for p in parti) + "\t})"
 
 
-def scrivi(nome, m, nota):
+def scrivi(nome, m, nota, radice=CARTELLA):
     pos = np.asarray(m["pos"], dtype=np.float64)
     minimo, massimo = pos.min(0), pos.max(0)
     estensione = np.maximum(massimo - minimo, 1e-6)
@@ -88,7 +88,7 @@ def scrivi(nome, m, nota):
     texture = img.tobytes()
     comp = lambda b: base64.b64encode(zstandard.ZstdCompressor(level=19).compress(b)).decode()
     g64, t64 = comp(geometria), comp(texture)
-    cartella = os.path.join(CARTELLA, nome)
+    cartella = os.path.join(radice, nome)
     os.makedirs(cartella, exist_ok=True)
     for vecchia in os.listdir(cartella):
         os.remove(os.path.join(cartella, vecchia))

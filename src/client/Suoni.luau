@@ -39,6 +39,8 @@ local EFFETTI = {
 	freccia = { ids = { 9113166206 }, volume = 0.2, pausa = 0.18, massimo = 4 },
 	-- "Dirt Explosion 1" (Pro Sound Effects).
 	esplosione = { ids = { 9114086657 }, volume = 0.45, pausa = 0.25, massimo = 3 },
+	-- Il colpo di partenza di un cannone o di un carro: la stessa esplosione, più bassa.
+	cannonata = { ids = { 9114086657 }, volume = 0.3, pausa = 0.3, massimo = 2 },
 	-- "Excited Foreign Crowd" 5 e 3 (Pro Sound Effects): uomini che gridano. Bassi.
 	grido = { ids = { 9114360647, 9114360486 }, volume = 0.16, pausa = 3.5, massimo = 1 },
 	-- Un soldato che urla mentre colpisce: "Male Scream Short Yelling Bursts" 2, 6, 7, 11 (Pro Sound Effects).

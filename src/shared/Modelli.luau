@@ -579,6 +579,51 @@ function FIGURE.FortezzaMedievale(p, colore)
 	bandiera(p, colore, MX, 0.4 + MA + 0.2, MZ, 2.6)
 end
 
+-- Età della polvere da sparo: forte bastionato a stella. Spalto di terra, cortine basse di mattoni con la
+-- cordonatura di pietra, quattro bastioni a punta di freccia con i cannoni, garitte agli spigoli, porta e bandiera.
+function FIGURE.FortezzaModerna(p, colore)
+	local mattoni = Color3.fromRGB(150, 92, 70)
+	local pietra = Color3.fromRGB(196, 186, 166)
+	local erba = Color3.fromRGB(92, 120, 64)
+	local bronzo = Color3.fromRGB(176, 128, 66)
+	local L, ALTO = 2.6, 1.9
+	-- Spalto erboso tutto attorno e piazza d'armi.
+	p(Vector3.new(2 * L + 3.2, 0.35, 2 * L + 3.2), 0, 0.17, 0, erba, nil, Enum.Material.Grass)
+	p(Vector3.new(2 * L, 0.5, 2 * L), 0, 0.25, 0, Color3.fromRGB(150, 130, 100), nil, Enum.Material.Ground)
+	for _, m in ipairs({ { 0, -L, 2 * L, 0.7 }, { 0, L, 2 * L, 0.7 }, { -L, 0, 0.7, 2 * L }, { L, 0, 0.7, 2 * L } }) do
+		p(Vector3.new(m[3], ALTO, m[4]), m[1], ALTO / 2, m[2], mattoni, nil, Enum.Material.Brick)
+		p(Vector3.new(m[3] + 0.1, 0.18, m[4] + 0.1), m[1], ALTO + 0.05, m[2], pietra, nil, Enum.Material.Slate)
+	end
+	-- Bastioni agli spigoli: un rombo (blocco ruotato di 45°) che sporge a punta, con il parapetto e il cannone.
+	for _, x in ipairs({ -L, L }) do
+		for _, z in ipairs({ -L, L }) do
+			p(Vector3.new(2.2, ALTO + 0.2, 2.2), x, (ALTO + 0.2) / 2, z, mattoni, nil, Enum.Material.Brick, CFrame.Angles(0, math.rad(45), 0))
+			p(Vector3.new(2.3, 0.2, 2.3), x, ALTO + 0.25, z, pietra, nil, Enum.Material.Slate, CFrame.Angles(0, math.rad(45), 0))
+			local fuori = Vector3.new(x, 0, z).Unit
+			local canna = p(Vector3.new(1.3, 0.32, 0.32), x + fuori.X * 0.5, ALTO + 0.55, z + fuori.Z * 0.5, bronzo, Enum.PartType.Cylinder,
+				Enum.Material.Metal, CFrame.Angles(0, math.atan2(-fuori.Z, fuori.X), 0))
+			local a = Instance.new("Attachment")
+			a.Name = "Tiro"
+			a.Position = Vector3.new(canna.Size.X / 2, 0, 0)
+			a.Parent = canna
+			p(Vector3.new(0.7, 0.35, 0.7), x - fuori.X * 0.2, ALTO + 0.45, z - fuori.Z * 0.2, Color3.fromRGB(96, 70, 44), nil, Enum.Material.Wood)
+			-- garitta sulla punta
+			local punta = Vector3.new(x, 0, z) + fuori * 1.45
+			p(Vector3.new(0.5, 0.8, 0.5), punta.X, ALTO + 0.6, punta.Z, pietra, Enum.PartType.Cylinder, Enum.Material.Slate, CFrame.Angles(0, 0, math.rad(90)))
+			p(Vector3.new(0.3, 0.6, 0.6), punta.X, ALTO + 1.15, punta.Z, Color3.fromRGB(80, 80, 92), Enum.PartType.Ball, Enum.Material.Slate)
+		end
+	end
+	-- Porta col frontone di pietra e il ponte di legno sul fossato.
+	p(Vector3.new(1.4, 1.6, 0.4), 0, 0.8, -L - 0.3, pietra, nil, Enum.Material.Slate)
+	p(Vector3.new(0.8, 1.1, 0.1), 0, 0.55, -L - 0.52, Color3.fromRGB(70, 46, 30), nil, Enum.Material.WoodPlanks)
+	p(Vector3.new(1.6, 0.3, 0.3), 0, 1.75, -L - 0.3, pietra, nil, Enum.Material.Slate)
+	p(Vector3.new(1.0, 0.12, 1.4), 0, 0.3, -L - 1.2, Color3.fromRGB(110, 78, 48), nil, Enum.Material.WoodPlanks)
+	-- Caserma al centro e bandiera.
+	p(Vector3.new(2.2, 1.4, 1.4), 0, 0.5 + 0.7, 0.8, Color3.fromRGB(206, 196, 176), nil, Enum.Material.Plaster)
+	p(Vector3.new(2.4, 0.5, 1.6), 0, 2.15, 0.8, Color3.fromRGB(130, 64, 50), nil, Enum.Material.Slate)
+	bandiera(p, colore, 0, 2.4, 0.8, 2.6)
+end
+
 -- Novecento: casamatta di cemento con gli spigoli smussati, feritoia con due mitragliatrici, mezzo cerchio
 -- di sacchetti di sabbia, rete mimetica, filo spinato, cavalli di frisia, antenna e bandiera.
 function FIGURE.FortezzaNovecento(p, colore)
@@ -657,6 +702,7 @@ local TIPI = {
 	FortezzaAntica = { scheletro = "rigido", scala = 2.3, metri = 2.34 },
 	FortezzaMedievale = { scheletro = "rigido", scala = 2.3, metri = 2.34 },
 	FortezzaNovecento = { scheletro = "rigido", scala = 2.3, metri = 2.34 },
+	FortezzaModerna = { scheletro = "rigido", scala = 2.3, metri = 2.34 },
 }
 
 -- Cerchio a terra del colore della squadra (oro per i comandanti), per riconoscere i soldati da lontano.

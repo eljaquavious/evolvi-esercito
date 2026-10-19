@@ -395,6 +395,21 @@ local function combattiRound(player, sessione)
 end
 
 -- Fine del livello: stelle, monete, esperienza, carta premio, avanzamento.
+-- Rigiocando una battaglia vinta, probabilità che cada una carta della sua armata.
+local PROBABILITA_BOTTINO = 0.4
+
+-- Una carta dell'armata di una battaglia: prima quelle che il giocatore non ha ancora.
+local function cartaDellArmata(dati, armata)
+	local mancanti = {}
+	for _, tipo in ipairs(armata) do
+		if (dati.collezione[tipo] or 0) == 0 then
+			table.insert(mancanti, tipo)
+		end
+	end
+	local scelta = #mancanti > 0 and mancanti or armata
+	return scelta[math.random(#scelta)]
+end
+
 local function fineLivello(player, sessione)
 	local livello = sessione.livello
 	local vittoria = sessione.vinti >= Campagna.ROUND_PER_VINCERE
@@ -427,8 +442,13 @@ local function fineLivello(player, sessione)
 		if stelle > stellePrima then
 			d.stelle[tostring(livello.numero)] = stelle
 		end
+		if vittoria and livello.numero ~= d.livello and math.random() < PROBABILITA_BOTTINO then
+			-- Rigiocando una battaglia già vinta a volte cade una carta della sua armata: così si ottengono tutte.
+			premio = cartaDellArmata(d, livello.armata)
+			Dati.aggiungiCarta(d, premio)
+		end
 		if vittoria and livello.numero == d.livello then
-			premio = livello.cartaPremio
+			premio = livello.comandante or livello.premio or cartaDellArmata(d, livello.armata)
 			Dati.aggiungiCarta(d, premio)
 			if d.livello < Campagna.TOTALE then
 				d.livello += 1
@@ -503,6 +523,8 @@ local function round(player, sessione)
 		assedio = sessione.assedio,
 		finita = finita,
 		nemico = sessione.livello.nemico,
+		-- Nei livelli con un boss la scena tra i round lo segue da vicino (Client/Intermezzo).
+		comandante = sessione.livello.comandante,
 		superstiti = sessione.superstiti,
 		durata = PAUSA_TRA_ROUND - 0.5,
 	})

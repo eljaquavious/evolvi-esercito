@@ -25,6 +25,8 @@ RADICE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 # Studs per metro di ogni tipo, come Modelli.TIPI (metri): i comandanti sono più grandi, il carro compresso.
 METRI = {
     "Annibale": 2.8, "Cesare": 2.8, "Guglielmo": 2.8, "Giovanna": 2.8, "Foch": 2.8, "DeGaulle": 2.8,
+    "Saladino": 2.8, "GustavoAdolfo": 2.8, "Napoleone": 2.8, "Rommel": 2.8,
+    "T34": 1.6, "Panzer": 1.6, "CarroMarkV": 1.6, "Elefante": 2.6,
     "CarroArmato": 1.6,
 }
 
@@ -60,7 +62,9 @@ def pulisci():
 
 def esporta(nome, metri, uscita):
     pulisci()
-    m = meshdati.leggi(nome)
+    # Le truppe nuove stanno in assets-truppe/_dati (generate da nuove.py), le vecchie anche in src/shared/MeshDati.
+    dati_nuovi = os.path.join(uscita, "_dati")
+    m = meshdati.leggi(nome, dati_nuovi) if os.path.isdir(os.path.join(dati_nuovi, nome)) else meshdati.leggi(nome)
     cartella = os.path.join(uscita, nome)
     os.makedirs(cartella, exist_ok=True)
     png = os.path.join(cartella, nome + ".png")

@@ -27,14 +27,14 @@ local APPOGGIO_MINIMO = 5 -- ingombro (studs) da cui un oggetto si appoggia al p
 -- "piano" = restano orizzontali. Gli altri oggetti delle linee (lampioni, pali, cartelli) sono solo distanziati.
 local PEZZI_LUNGHI = {
 	palizzata = true, muretto = true, muroScudi = true, siepe = true, filoSpinato = true, paliArcieri = true,
-	pavesi = true, staccionata = true, sacchetti = true, mura = "piano", palazzo = "piano",
+	pavesi = true, staccionata = true, sacchetti = true, mura = "piano", palazzo = "piano", muraBizantine = "piano",
 }
 -- Erba e fiori in ciuffi singoli: anche fotografati da vicino restano fili sottili e da lontano sembrano
 -- macchie finte (Mattia non li vuole). L'erba la fa il terreno; ne resta solo una parte, i fiori spariscono.
 local QUOTA = { ciuffo = 0.3, fiori = 0 }
 local NATURALI = { quercia = true, tronco = true } -- larghi ma con il piede stretto: stanno dove sono
 -- Oggetti che non vogliono il terreno spianato sotto: seguono il terreno, sono lunghi o galleggiano.
-local SENZA_SPIANATA = { mura = true, nave = true, campo = true, tumulo = true }
+local SENZA_SPIANATA = { mura = true, muraBizantine = true, nave = true, campo = true, tumulo = true }
 
 -- Vegetazione di base per bioma: { oggetto, quanti, scala minima, scala massima }.
 local FLORA = {
@@ -517,6 +517,140 @@ S["Orleans"] = {
 	bastie = { { -160, -150, 40 }, { 170, -170, 40 }, { -200, 60, 36 } },
 	resti = 16,
 	ostacolo = { "botti", "cespuglio" },
+}
+
+-- Età della polvere da sparo
+
+local OTTOMANI = { C(214, 44, 44), C(40, 120, 70) }
+local SVEDESI = { C(40, 70, 150), C(230, 196, 50) }
+local FRANCESI = { C(40, 60, 150), C(236, 236, 236) }
+
+S["Constantinople"] = {
+	-- 29 maggio 1453, dentro la città presso la porta di San Romano: le mura teodosiane aperte dalla breccia
+	-- delle bombarde, le case di legno e pietra, i cipressi, Santa Sofia alle tue spalle. Gli Ottomani entrano.
+	cornice = { { "casaBianca", 40, 0.9, 1.3 }, { "cipresso", 24, 1.0, 1.4 } },
+	-- Dentro la città: tutto lastricato (piazza di pietra e strade di ciottoli), quasi piano.
+	terreno = { base = M.Pavement, campo = M.Cobblestone, chiazze = M.Pavement, alto = M.Pavement, sponda = M.Cobblestone, ondulazione = 1.5 },
+	flora = { { "cipresso", 16, 0.9, 1.3 }, { "ulivo", 8, 0.9, 1.2 }, { "cespuglio", 24, 0.8, 1.2 }, { "sassi", 30, 0.8, 1.2 } },
+	linee = {
+		{ "muraBizantine", { -270, 150 }, { -36, 150 }, 58, ctx = { lunghezza = 58 } },
+		{ "muraBizantine", { 36, 150 }, { 270, 150 }, 58, ctx = { lunghezza = 58 } },
+	},
+	gruppi = {
+		{ "casaBianca", 16, { -270, -120, -230, 120 }, 0.9, 1.3, verso = 90, ctx = { colore = C(222, 204, 172) } },
+		{ "casaBianca", 16, { 120, 270, -230, 120 }, 0.9, 1.3, verso = -90, ctx = { colore = C(206, 176, 140) } },
+		{ "casaBianca", 8, { -220, 220, -260, -150 }, 0.9, 1.2, verso = "campo" },
+		{ "fuoco", 8, { -230, 230, 110, 175 }, 1.0, 1.5 },
+		{ "botti", 4, { -200, 200, -150, 110 }, 0.9, 1.1 },
+		{ "rovina", 4, { -60, 60, 130, 170 }, 0.8, 1.0 }, -- le macerie della breccia
+		{ "cannoneAntico", 3, { -200, 200, 180, 230 }, 1.4, 1.6, verso = 180, ctx = { colore = C(96, 70, 44) } },
+	},
+	pezzi = { { "cupola", 0, -250, 0, 1.2 }, { "pozzo", -60, -150, nil, 1.0 } },
+	case = { "casaBianca" },
+	rottami = { "botti", "carro", "casse" },
+	resti = 14,
+	ostacolo = { "casaBianca", "botti" },
+}
+
+S["Lutzen"] = {
+	-- 16 novembre 1632 nella nebbia: la strada per Lipsia coi fossi, i mulini a vento dove si piazzarono i
+	-- cannoni imperiali, Lützen in fiamme sullo sfondo, i carri dei bagagli svedesi.
+	flora = { { "quercia", 16, 0.9, 1.4 }, { "betulla", 8, 0.9, 1.3 }, { "cespuglio", 40, 0.8, 1.3 }, { "ciuffo", 110, 0.8, 1.2 }, { "sassi", 20, 0.8, 1.2 } },
+	linee = {
+		{ "staccionata", { -260, 100 }, { -80, 100 }, 24, ctx = { lunghezza = 24 } },
+		{ "staccionata", { 80, 100 }, { 260, 100 }, 24, ctx = { lunghezza = 24 } },
+	},
+	gruppi = {
+		{ "casa", 10, { -250, 250, -270, -180 }, 0.8, 1.1, verso = "campo" },
+		{ "fuoco", 6, { -250, 250, -270, -180 }, 1.2, 1.6 },
+		{ "cannoneAntico", 4, { -160, 160, 110, 140 }, 1.0, 1.2, verso = 180 },
+		{ "padiglione", 4, { -200, 200, 180, 250 }, 0.9, 1.1, ctx = { colori = SVEDESI }, verso = 180 },
+		{ "campo", 5, { -270, 270, -270, 270 }, 0.9, 1.2, verso = 0 },
+		{ "pagliaio", 5, { -260, 260, -260, 260 }, 0.9, 1.1 },
+	},
+	pezzi = unisci({ { "mulino", -120, 150, "campo", 1.0 }, { "mulino", 120, 160, "campo", 1.0 }, { "chiesa", 0, -240, "campo", 0.9 } }, cerchioCarri(-180, -140, 26, 7, math.pi)),
+	resti = 18,
+	ostacolo = { "pagliaio", "quercia" },
+}
+
+S["Vienna"] = {
+	-- 12 settembre 1683 dal Kahlenberg: l'immenso campo ottomano coi padiglioni, le batterie che battono la
+	-- città, il Danubio; i vigneti e le colline dietro di te, da dove scendono gli ussari alati.
+	versanti = { { asse = "z", segno = -1, inizio = 80, altezza = 22, largo = 90, mosso = 8 } },
+	flora = { { "quercia", 24, 0.9, 1.5 }, { "pino", 10, 0.9, 1.4 }, { "cespuglio", 50, 0.8, 1.3 }, { "ciuffo", 100, 0.8, 1.2 }, { "roccia", 12, 0.8, 1.5 }, { "sassi", 30, 0.8, 1.2 } },
+	riva = { { "canne", 24, 0.9, 1.3 } },
+	ponti = { { "ponte", 130 } },
+	gruppi = {
+		{ "padiglione", 18, { -250, 250, 160, 270 }, 0.9, 1.3, ctx = { colori = OTTOMANI }, verso = "campo" },
+		{ "insegna", 4, { -150, 150, 140, 160 }, 1.1, 1.3, ctx = { drappo = C(214, 44, 44) }, verso = "campo" },
+		{ "fuoco", 8, { -250, 250, 160, 270 }, 1, 1.4 },
+		{ "cannoneAntico", 5, { -200, 200, 105, 135 }, 1.0, 1.2, verso = 180, ctx = { colore = C(96, 70, 44) } },
+		{ "carro", 4, { -220, 220, 170, 250 }, 0.9, 1.0 },
+		{ "staccionata", 6, { -260, 260, -260, -120 }, 1, 1, ctx = { lunghezza = 20 } }, -- vigneti
+	},
+	pezzi = { { "chiesa", -150, -250, "campo", 0.9 } },
+	resti = 18,
+	ostacolo = { "quercia", "roccia" },
+}
+
+S["Austerlitz"] = {
+	-- 2 dicembre 1805, il sole di Austerlitz: l'altopiano del Pratzen, gli stagni gelati a sud, i villaggi
+	-- moravi con la chiesa, le batterie francesi sul colle del Santon.
+	colli = { { 0, 170, 110, 16 }, { -180, 60, 45, 10 } },
+	laghi = { { 200, -40, 50, 70, ghiaccio = true } }, -- gli stagni di Satschan
+	flora = { { "quercia", 18, 0.9, 1.4 }, { "betulla", 14, 0.9, 1.3 }, { "cespuglio", 40, 0.8, 1.3 }, { "ciuffo", 100, 0.8, 1.2 }, { "sassi", 24, 0.8, 1.2 } },
+	gruppi = {
+		{ "casa", 8, { -260, -130, -260, -150 }, 0.8, 1.1, verso = "campo" },
+		{ "cannoneAntico", 5, { -150, 150, 120, 150 }, 1.0, 1.2, verso = 180 },
+		{ "insegna", 3, { -80, 80, 160, 180 }, 1.1, 1.3, ctx = { drappo = C(40, 60, 150) }, verso = "campo" },
+		{ "pagliaio", 4, { -260, 260, -260, 260 }, 0.9, 1.1 },
+		{ "campo", 4, { -270, 270, -270, 270 }, 0.9, 1.1, verso = 0, ctx = { colori = { C(170, 160, 110), C(150, 140, 100) } } },
+	},
+	pezzi = { { "chiesa", -200, -220, "campo", 0.9 }, { "mulino", 150, -220, "campo", 0.9 } },
+	resti = 18,
+	ostacolo = { "betulla", "pagliaio" },
+}
+
+S["Borodino"] = {
+	-- 7 settembre 1812: la Grande Ridotta coi suoi cannoni, le frecce di Bagration, il villaggio bruciato,
+	-- la chiesa bianca, i boschi di betulle e il fiume Kolocha.
+	flora = { { "betulla", 34, 0.9, 1.4 }, { "pino", 14, 0.9, 1.4 }, { "cespuglio", 40, 0.8, 1.3 }, { "ciuffo", 100, 0.8, 1.2 }, { "sassi", 24, 0.8, 1.2 } },
+	riva = { { "canne", 24, 0.9, 1.3 } },
+	ponti = { { "ponte", -140 } },
+	gruppi = {
+		{ "casaDiroccata", 8, { -260, 260, -270, -160 }, 0.8, 1.0, verso = "campo", ctx = { pietra = C(150, 120, 90) } },
+		{ "fuoco", 6, { -260, 260, -270, -160 }, 1.2, 1.6 },
+		{ "cannoneAntico", 5, { -160, 160, 110, 140 }, 1.0, 1.2, verso = 180 },
+		{ "padiglione", 6, { -200, 200, 190, 260 }, 0.9, 1.1, ctx = { colori = FRANCESI }, verso = 180 },
+		{ "pagliaio", 4, { -260, 260, -260, 260 }, 0.9, 1.1 },
+	},
+	pezzi = { { "ridotta", 0, 165, 180, 1.2 }, { "ridotta", -170, 130, 160, 0.8 }, { "chiesa", 160, -230, "campo", 0.9 } },
+	resti = 22,
+	ostacolo = { "betulla", "pagliaio" },
+}
+
+S["Waterloo"] = {
+	-- 18 giugno 1815: il crinale di Mont-Saint-Jean, la fattoria fortificata di Hougoumont col suo muro, La
+	-- Haye Sainte, i campi di grano calpestati e il fango della notte di pioggia; le batterie di Napoleone.
+	colli = { { 0, -170, 120, 10 } },
+	terreno = { chiazze = M.Mud },
+	flora = { { "quercia", 14, 0.9, 1.4 }, { "cespuglio", 40, 0.8, 1.3 }, { "ciuffo", 100, 0.8, 1.2 }, { "sassi", 20, 0.8, 1.2 } },
+	linee = {
+		{ "muretto", { -260, 120 }, { -150, 120 }, 22, ctx = { lunghezza = 22 } },
+		{ "muretto", { -260, 220 }, { -150, 220 }, 22, ctx = { lunghezza = 22 } },
+		{ "siepe", { -100, -110 }, { 100, -110 }, 34, ctx = { lunghezza = 34 } },
+	},
+	gruppi = {
+		{ "casa", 4, { -250, -160, 130, 210 }, 0.9, 1.1, verso = "campo" }, -- Hougoumont
+		{ "casa", 3, { 120, 200, -60, 0 }, 0.8, 1.0, verso = 90 }, -- La Haye Sainte
+		{ "cannoneAntico", 6, { -180, 180, 110, 140 }, 1.0, 1.2, verso = 180 },
+		{ "insegna", 3, { -60, 60, 150, 170 }, 1.1, 1.3, ctx = { drappo = C(40, 60, 150) }, verso = "campo" },
+		{ "campo", 6, { -270, 270, -270, 270 }, 0.9, 1.2, verso = 0, ctx = { colori = { C(176, 156, 92), C(150, 130, 80) } } },
+		{ "pagliaio", 4, { -260, 260, -260, 260 }, 0.9, 1.1 },
+	},
+	pezzi = { { "quercia", -205, 170, nil, 1.5 }, { "chiesa", 0, -250, "campo", 0.8 } },
+	resti = 22,
+	ostacolo = { "pagliaio", "quercia" },
 }
 
 -- Novecento
@@ -1225,17 +1359,20 @@ end
 local CASE = {
 	Antica = { "capanna", "tendaRomana" },
 	Medievale = { "casa", "capanna" },
+	Polvere = { "casa", "pagliaio" },
 	Novecento = { "casaDiroccata" },
 }
 local ROTTAMI = {
 	Antica = { "carro", "carroFalcato", "anfore", "palizzata" },
 	Medievale = { "carro", "botti", "pavesi", "staccionata" },
+	Polvere = { "cannoneAntico", "carro", "botti", "casse" },
 	Novecento = { "relitto", "barricata", "casse", "riccio", "cannone" },
 }
 -- Pezzi piccoli sparsi attorno a quello grande, per epoca.
 local CONTORNO = {
 	Antica = { "anfore", "sassi", "resti" },
 	Medievale = { "botti", "resti", "sassi" },
+	Polvere = { "botti", "resti", "casse" },
 	Novecento = { "casse", "sacchetti", "resti" },
 }
 

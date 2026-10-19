@@ -263,6 +263,13 @@ local function puntoColpo(s)
 end
 
 -- Proiettile del tipo giusto, che parte alla fine del gesto.
+-- Proiettili diversi da quelli dello stile di animazione: fionde e balestre (che mirano come un fucile).
+local PROIETTILI = {
+	FrombolieroBaleare = "sasso",
+	BalestriereTeutonico = "dardo",
+	BalestriereGenovese = "dardo",
+}
+
 local function tiro(attaccante, bersaglio, evento)
 	local gesto = evento.gesto / velocitaBattaglia
 	local volo = math.max(0.05, (evento.ritardo - evento.gesto) / velocitaBattaglia)
@@ -300,8 +307,18 @@ local function tiro(attaccante, bersaglio, evento)
 				Effetti.freccia(cima, a, volo)
 				Suoni.effetto("freccia", cima)
 			end
+		elseif PROIETTILI[attaccante.tipo] == "sasso" then
+			Effetti.sasso(da, a, volo)
+			Suoni.effetto("freccia", da)
+		elseif PROIETTILI[attaccante.tipo] == "dardo" then
+			Effetti.freccia(da, a, volo)
+			Suoni.effetto("freccia", da)
 		elseif stile == "carro" then
-			Effetti.granata(attaccante.posizione + direzione(attaccante.angolo) * 6 + Vector3.new(0, 4, 0), bersaglio.posizione, volo)
+			-- Carri e cannoni: dalla bocca del cannone (osso "canna"), con il colpo che rimbomba.
+			local bocca = attaccante.animatore.giunti.canna and da
+				or attaccante.posizione + direzione(attaccante.angolo) * 6 + Vector3.new(0, 4, 0)
+			Effetti.granata(bocca, bersaglio.posizione, volo)
+			Suoni.effetto("cannonata", bocca)
 		elseif stile == "mitragliatrice" then
 			for i = 0, 2 do
 				task.delay(i * 0.06, Effetti.sparo, da, a + Vector3.new(math.random() - 0.5, 0, math.random() - 0.5), volo)
@@ -468,9 +485,24 @@ function Truppe.centro(squadra)
 	return centroSquadra(squadra)
 end
 
+-- Il soldato di un tipo (il boss) in campo: posizione, angolo e se è vivo; nil se non c'è (ancora) o è già
+-- stato tolto. Serve alla cinematica tra i round dei livelli con un comandante.
+function Truppe.soldato(tipo, squadra)
+	local trovato
+	for _, s in pairs(soldati) do
+		if s.tipo == tipo and s.squadra == squadra and (not trovato or (s.vivo and not trovato.vivo)) then
+			trovato = s
+		end
+	end
+	if not trovato then
+		return nil
+	end
+	return { posizione = trovato.posizione, angolo = trovato.angolo, vivo = trovato.vivo, altezza = trovato.altezza }
+end
+
 -- Cinematica tra i round: i superstiti della squadra sconfitta ripiegano verso le loro retrovie, gli altri
--- restano e li guardano andare via.
-function Truppe.ritirata(squadra, durata)
+-- restano e li guardano andare via. tipoFermo = un tipo (il boss in primo piano) che resta dov'è.
+function Truppe.ritirata(squadra, durata, tipoFermo)
 	if not campo then
 		return
 	end
@@ -481,12 +513,17 @@ function Truppe.ritirata(squadra, durata)
 		if s.barra then
 			s.barra.Enabled = false
 		end
+		if tipoFermo and s.tipo == tipoFermo and s.vivo then
+			s.obiettivo = s.posizione
+			s.angoloObiettivo = s.angolo
+			s.fermoIntermezzo = true
+		end
 	end
 	local inizio = os.clock()
 	task.spawn(function()
 		while os.clock() - inizio < durata and numero == numeroBattaglia do
 			for _, s in pairs(soldati) do
-				if s.vivo and s.squadra == squadra and not s.fisso then
+				if s.vivo and s.squadra == squadra and not s.fisso and not s.fermoIntermezzo then
 					s.obiettivo = s.obiettivo + Vector3.new(0, 0, indietro * CASELLA * 0.035)
 					s.obiettivo = Vector3.new(s.obiettivo.X, quota(s.obiettivo.X, s.obiettivo.Z), s.obiettivo.Z)
 					s.angoloObiettivo = indietro > 0 and 0 or math.pi

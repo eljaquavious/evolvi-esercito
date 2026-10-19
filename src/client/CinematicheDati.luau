@@ -1003,4 +1003,68 @@ Dati["Paris"] = {
 	titolo = { t = 27, testo = "PARIS", sotto = "1944", motto = SCRIVI },
 }
 
+-- Armate fedeli alla storia (Mattia, 18/10/2026): nelle scene non si vedono più le carte del giocatore usate per
+-- tutti, ma le truppe vere di ogni esercito (Config/Epoche). Qui si cambia solo il tipo dei reparti delle
+-- sceneggiature qui sopra (id del reparto -> tipo); posizioni e movimenti restano quelli.
+-- passo = distanza tra i soldati, per i reparti di modelli grandi (gli elefanti).
+local FEDELI = {
+	Gaugamela = {
+		falangeS = "Oplita", falangeC = "Oplita", falangeD = "Oplita", arcieri = "ArcierePersiano",
+		persianiS = "Immortale", persianiC = "Immortale", cavalleriaPersiana = "CavalleriaPersiana", guardia = "CavalleriaPersiana",
+	},
+	Thermopylae = {
+		greciS = "Oplita", greciC = "Oplita", greciD = "Oplita", arcieri = "ArcierePersiano",
+		ondataS = "Immortale", ondataC = "Immortale", ondataD = "Immortale", immortaliS = "Immortale", immortaliD = "Immortale",
+	},
+	Zama = {
+		cavalleriaS = "CavalleriaNumidica", cavalleriaD = "CavalleriaNumidica", -- i Numidi di Massinissa, alleati di Roma
+		cartaginesiS = "LanciereLibico", cartaginesiC = { tipo = "Elefante", passo = 7 }, cartaginesiD = "LanciereLibico",
+		numidiS = "CavalleriaNumidica", numidiD = "CavalleriaNumidica",
+	},
+	Gergovia = { galliS = "GuerrieroGallico", galliC = "GuerrieroGallico", galliD = "GuerrieroGallico", arcieri = "ArciereGallico" },
+	Alesia = { galliS = "GuerrieroGallico", galliC = "GuerrieroGallico", galliD = "GuerrieroGallico", riserva = "CavalleriaGermanica" },
+	Tours = { franchiS = "FanteNormanno", franchiC = "FanteNormanno", franchiD = "FanteNormanno", cavS = "CavalleriaAraba", cavD = "CavalleriaAraba", arcieri = "ArciereArabo" },
+	Hastings = { arcieri = "ArciereNormanno", cavalieriS = "CavaliereNormanno", cavalieriD = "CavaliereNormanno" },
+	Hattin = {
+		fantiS = "FanteNormanno", fantiD = "FanteNormanno", cavalieri = "CavaliereNormanno", saraceni = "Mamelucco",
+		arcieriS = "ArciereAyyubide", arcieriD = "ArciereAyyubide", accerchiaS = "Mamelucco", accerchiaD = "Mamelucco",
+	},
+	["Lake Peipus"] = {
+		fiancoS = "CavaliereNormanno", fiancoD = "CavaliereNormanno",
+		punta = "CavaliereTeutonico", cuneo = "CavaliereTeutonico", coda = "CavaliereTeutonico", fanti = "SergenteTeutonico",
+	},
+	Crecy = { genovesi = "BalestriereGenovese" },
+	Orleans = { colonna1 = "UomoDArme", colonna2 = "UomoDArme" },
+	Gallipoli = {
+		anzacS = "FanteBritannico", anzacC = "FanteBritannico", anzacD = "FanteBritannico", ondataS = "FanteBritannico", ondataD = "FanteBritannico",
+		turchiS = "FanteOttomano", turchiC = "FanteOttomano", turchiD = "FanteOttomano", mitragliaS = "MitraglieriOttomani", mitragliaD = "MitraglieriOttomani",
+	},
+	Verdun = { tedeschiS = "Stosstruppen", tedeschiC = "Stosstruppen", tedeschiD = "Stosstruppen" },
+	Amiens = {
+		tedeschiS = "Stosstruppen", tedeschiC = "Stosstruppen", tedeschiD = "Stosstruppen", mitragliaS = "MitraglieriTedeschi", mitragliaD = "MitraglieriTedeschi",
+		carri = "CarroMarkV", fantiS = "FanteBritannico",
+	},
+	Stalingrad = {
+		sovieticiS = "FucilieriSovietici", sovieticiC = "FucilieriSovietici", sovieticiD = "FucilieriSovietici",
+		mitragliaS = "MitraglieriSovietici", mitragliaD = "MitraglieriSovietici", rinforziS = "FucilieriSovietici", rinforziD = "FucilieriSovietici",
+		tedeschiS = "Granatieri", tedeschiC = "Granatieri", tedeschiD = "Granatieri", carro = "Panzer",
+	},
+	Normandy = {
+		alleatiS = "FanteFranciaLibera", alleatiD = "FanteFranciaLibera",
+		tedeschiS = "Granatieri", tedeschiD = "Granatieri", mitragliaS = "MG42", mitragliaD = "MG42",
+	},
+	Paris = { tedeschiS = "Granatieri", tedeschiD = "Granatieri", mitraglia = "MG42", francesiS = "FanteFranciaLibera", francesiD = "FanteFranciaLibera" },
+}
+for nome, mappa in pairs(FEDELI) do
+	for _, reparto in ipairs(Dati[nome] and Dati[nome].reparti or {}) do
+		local nuovo = mappa[reparto.id]
+		if type(nuovo) == "table" then
+			reparto.tipo = nuovo.tipo
+			reparto.passo = nuovo.passo or reparto.passo
+		elseif nuovo then
+			reparto.tipo = nuovo
+		end
+	end
+end
+
 return Dati

@@ -23,7 +23,7 @@ local mazzoCarte, mediaOvr, epocheUi, prossima, chipStelle
 local mazzoMostrato -- per non ricostruire le carte se il mazzo non cambia
 local avvisoLocker
 
-local COLORI_EPOCA = { "oro", "blu", "verde" }
+local COLORI_EPOCA = { "oro", "blu", "rosso", "verde" }
 
 local function nascondibile(oggetto)
 	table.insert(elementi, oggetto)
@@ -122,7 +122,7 @@ local function pannelloCampagna(tela)
 		Name = "Campagna",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -28, 0, 168),
-		Size = UDim2.fromOffset(404, 452),
+		Size = UDim2.fromOffset(404, 152 + 100 * #Epoche.Lista),
 		BackgroundColor3 = Color3.fromHex("#F4F6FF"),
 		Parent = tela,
 	}, { Stile.angoli(30), Stile.bordo(Stile.CONTORNO, 6) }))
@@ -199,15 +199,18 @@ local function pannelloCampagna(tela)
 			Stile.angoli(20),
 			Stile.sfumatura(Stile.PAL[COLORI_EPOCA[i] or "blu"].t, Stile.PAL[COLORI_EPOCA[i] or "blu"].b),
 		})
-		Stile.scritta({
+		local nomeEpoca = Stile.scritta({
 			Position = UDim2.fromOffset(16, 6),
-			Size = UDim2.fromOffset(220, 36),
+			Size = UDim2.fromOffset(240, 36),
 			Text = string.upper(epoca.nome),
 			TextSize = 28,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			ZIndex = 4,
 			Parent = faccia,
 		})
+		-- "AGE OF GUNPOWDER" è lungo: si rimpicciolisce per non finire sotto la stella.
+		nomeEpoca.TextScaled = true
+		Stile.crea("UITextSizeConstraint", { MaxTextSize = 28, Parent = nomeEpoca })
 		local stella = Stile.icona("star", {
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -92, 0, 4),

@@ -363,6 +363,15 @@ function P.resti(g, cf, rng, s, ctx)
 		end
 		local p = base + Vector3.new(-2 * s, 0.3, 1.5 * s)
 		cilindro(g, p, p + Vector3.new(5 * s, 0.2, 1 * s), 0.25 * s, C(130, 100, 64), M.Wood)
+	elseif epoca == "Polvere" then
+		-- Moschetto a terra, palle di cannone, un tamburo sfondato e un cappello.
+		parte(g, Vector3.new(0.25, 0.35, 4.8) * s, cf * CFrame.new(1.2 * s, 0.2, 0) * CFrame.Angles(0, rng:NextNumber(0, 3), 0), C(96, 64, 40), M.Wood)
+		for i = 1, 3 do
+			palla(g, 0.8 * s, base + Vector3.new(rng:NextNumber(-2.5, 2.5) * s, 0.35 * s, rng:NextNumber(-2.5, 2.5) * s), C(40, 40, 42), M.Metal)
+		end
+		local tamburo = parte(g, Vector3.new(1.2, 1.6, 1.6) * s, cf * CFrame.new(-1.6 * s, 0.6 * s, 1 * s) * CFrame.Angles(0.3, rng:NextNumber(0, 3), math.pi / 2), C(40, 70, 140), M.Wood)
+		tamburo.Shape = Enum.PartType.Cylinder
+		ovale(g, Vector3.new(1.6, 0.8, 1.4) * s, CFrame.new(base + Vector3.new(0.5 * s, 0.3, -1.6 * s)) * CFrame.Angles(0.3, rng:NextNumber(0, 3), 0.2), C(30, 30, 34), M.Fabric)
 	else
 		-- Elmetto, fucile a terra, bossoli e una cassetta di munizioni sfondata.
 		ovale(g, Vector3.new(1.5, 0.7, 1.7) * s, CFrame.new(base + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0.2, rng:NextNumber(0, 3), 0.3), C(84, 90, 70), M.Metal)
@@ -768,6 +777,95 @@ function P.mura(g, cf, rng, s, ctx)
 	parte(g, Vector3.new(6 * s, 9 * s, 5.4 * s), cf * CFrame.new(0, 4.5 * s - 1, 0), C(40, 32, 26), M.WoodPlanks)
 end
 ingombro("mura", 30)
+
+-- Età della polvere da sparo ----------------------------------------------------------------------
+
+-- Cannone ad avancarica di bronzo sull'affusto a due ruote, con le palle impilate e il secchio dello scovolo.
+function P.cannoneAntico(g, cf, rng, s, ctx)
+	local legno = ctx.colore or C(84, 104, 66)
+	local asse = cf * CFrame.new(0, 2.2 * s, 0)
+	for _, x in ipairs({ -2.2, 2.2 }) do
+		local ruota = parte(g, Vector3.new(0.5 * s, 4.4 * s, 4.4 * s), asse * CFrame.new(x * s, 0, 0), legno, M.Wood)
+		ruota.Shape = Enum.PartType.Cylinder
+	end
+	cilindro(g, (asse * CFrame.new(0, 0.9 * s, 2.2 * s)).Position, (asse * CFrame.new(0, 1.3 * s, -6 * s)).Position, 1.1 * s, C(176, 128, 66), M.Metal)
+	trave(g, (asse * CFrame.new(0, 0.3 * s, 0)).Position, (cf * CFrame.new(0, 0.4, 7 * s)).Position, 1.6 * s, 0.9 * s, legno, M.Wood)
+	for i = 0, 5 do
+		palla(g, 0.9 * s, (cf * CFrame.new(3.4 * s + (i % 3) * 0.95 * s, 0.45 * s + math.floor(i / 3) * 0.75 * s, 2.5 * s)).Position, C(40, 40, 42), M.Metal)
+	end
+	cilindro(g, (cf * CFrame.new(-3.5 * s, 0, 2 * s)).Position, (cf * CFrame.new(-3.5 * s, 1.4 * s, 2 * s)).Position, 1.3 * s, C(110, 80, 50), M.WoodPlanks)
+end
+ingombro("cannoneAntico", 5)
+
+-- Mura teodosiane di Costantinopoli: cortina a fasce di mattoni e pietra, torri quadrate merlate.
+function P.muraBizantine(g, cf, rng, s, ctx)
+	local l = ctx.lunghezza or 60
+	local h = 18 * s
+	local pietra = C(196, 178, 146)
+	local mattone = C(150, 82, 62)
+	parte(g, Vector3.new(l, h, 6 * s), cf * CFrame.new(0, h / 2 - 1, 0), pietra, M.Limestone)
+	for _, y in ipairs({ 0.25, 0.5, 0.75 }) do
+		parte(g, Vector3.new(l + 0.2, 1.2 * s, 6.2 * s), cf * CFrame.new(0, h * y - 1, 0), mattone, M.Brick)
+	end
+	for x = -l / 2 + 1.5, l / 2 - 1.5, 3.2 * s do
+		parte(g, Vector3.new(1.8 * s, 2.2 * s, 6 * s), cf * CFrame.new(x, h + 1.1 * s - 1, 0), pietra, M.Limestone)
+	end
+	for _, x in ipairs({ -l / 2, l / 2 }) do
+		local t = cf * CFrame.new(x, 0, 1 * s)
+		parte(g, Vector3.new(11, h * 1.35, 11) * Vector3.new(s, 1, s), t * CFrame.new(0, h * 0.675 - 1, 0), pietra, M.Limestone)
+		for _, y in ipairs({ 0.3, 0.6, 0.9 }) do
+			parte(g, Vector3.new(11.2 * s, 1.2 * s, 11.2 * s), t * CFrame.new(0, h * 1.35 * y - 1, 0), mattone, M.Brick)
+		end
+		for _, dx in ipairs({ -4, 0, 4 }) do
+			for _, dz in ipairs({ -4, 4 }) do
+				parte(g, Vector3.new(2, 2, 2) * s, t * CFrame.new(dx * s, h * 1.35 + 0.5 * s, dz * s), pietra, M.Limestone)
+			end
+		end
+	end
+end
+ingombro("muraBizantine", 30)
+
+-- Santa Sofia: la grande cupola su un corpo quadrato, le semicupole, i contrafforti, il colore rosato.
+function P.cupola(g, cf, rng, s, ctx)
+	local rosa = C(214, 170, 140)
+	local piombo = C(120, 128, 136)
+	local lato, h = 50 * s, 22 * s
+	parte(g, Vector3.new(lato, h, lato), cf * CFrame.new(0, h / 2 - 1, 0), rosa, M.Plaster)
+	-- tamburo con le finestre e la cupola
+	local tamburo = cf * CFrame.new(0, h + 3 * s, 0)
+	local cil = parte(g, Vector3.new(6 * s, 34 * s, 34 * s), tamburo * CFrame.Angles(0, 0, math.pi / 2), rosa, M.Plaster)
+	cil.Shape = Enum.PartType.Cylinder
+	for i = 0, 15 do
+		local a = i * math.pi / 8
+		parte(g, Vector3.new(1.6 * s, 3 * s, 0.4), tamburo * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, -17.1 * s), C(50, 50, 60), M.SmoothPlastic)
+	end
+	ovale(g, Vector3.new(33, 22, 33) * s, tamburo * CFrame.new(0, 3 * s, 0), piombo, M.Metal)
+	for _, lato2 in ipairs({ -1, 1 }) do
+		ovale(g, Vector3.new(30, 18, 22) * s, cf * CFrame.new(0, h, lato2 * 22 * s), piombo, M.Metal)
+		parte(g, Vector3.new(lato * 0.9, h * 0.8, 10 * s), cf * CFrame.new(0, h * 0.4 - 1, lato2 * 28 * s), rosa, M.Plaster)
+	end
+	for _, x in ipairs({ -1, 1 }) do
+		for _, z in ipairs({ -1, 1 }) do
+			parte(g, Vector3.new(8, h * 1.2, 8) * s, cf * CFrame.new(x * 24 * s, h * 0.6 - 1, z * 24 * s), rosa:Lerp(C(0, 0, 0), 0.06), M.Plaster)
+		end
+	end
+	parte(g, Vector3.new(0.6, 6 * s, 0.6), tamburo * CFrame.new(0, 17 * s, 0), C(220, 190, 90), M.Metal)
+end
+ingombro("cupola", 30)
+
+-- Ridotta di terra (Borodino): terrapieno a ferro di cavallo con il fossato, i gabbioni e i cannoni.
+function P.ridotta(g, cf, rng, s, ctx)
+	local terra = ctx.neve and C(230, 234, 240) or C(110, 92, 64)
+	for i = -2, 2 do
+		local a = i * 0.45
+		local p = cf * CFrame.Angles(0, a, 0) * CFrame.new(0, 1.5 * s, -14 * s)
+		ovale(g, Vector3.new(14, 7, 8) * s, p, terra, ctx.neve and M.Snow or M.Ground)
+		for k = -1, 1 do
+			cilindro(g, (p * CFrame.new(k * 3.5 * s, 2 * s, 1.5 * s)).Position, (p * CFrame.new(k * 3.5 * s, 5 * s, 1.5 * s)).Position, 2 * s, C(130, 104, 66), M.Wood)
+		end
+	end
+end
+ingombro("ridotta", 16)
 
 -- Novecento ---------------------------------------------------------------------------------------
 

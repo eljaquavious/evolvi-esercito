@@ -50,6 +50,35 @@ Battaglia.TEMPI = {
 	FortezzaAntica = { gesto = 0.3, volo = 3.6 },
 	FortezzaMedievale = { gesto = 0.3, volo = 4 },
 	FortezzaNovecento = { gesto = 0.05, volo = 40 },
+	FortezzaModerna = { gesto = 0.3, volo = 7 },
+	-- Armate nemiche: archi, fionde, balestre, moschetti, cannoni, fucili, mitragliatrici, carri.
+	ArcierePersiano = { gesto = 0.45, volo = 3.6 },
+	ArciereGallico = { gesto = 0.5, volo = 3.8 },
+	ArciereArabo = { gesto = 0.45, volo = 3.8 },
+	ArciereNormanno = { gesto = 0.5, volo = 3.8 },
+	ArciereAyyubide = { gesto = 0.45, volo = 3.8 },
+	FrombolieroBaleare = { gesto = 0.4, volo = 4.5 },
+	BalestriereTeutonico = { gesto = 0.3, volo = 6 },
+	BalestriereGenovese = { gesto = 0.3, volo = 6 },
+	Giannizzero = { gesto = 0.25, volo = 30 },
+	MoschettiereSvedese = { gesto = 0.25, volo = 30 },
+	FanteriaDiLinea = { gesto = 0.25, volo = 30 },
+	CannoneOttomano = { gesto = 0.4, volo = 7 },
+	Artiglieria = { gesto = 0.35, volo = 8 },
+	FanteOttomano = { gesto = 0.2, volo = 40 },
+	Stosstruppen = { gesto = 0.2, volo = 40 },
+	FanteBritannico = { gesto = 0.2, volo = 40 },
+	FucilieriSovietici = { gesto = 0.2, volo = 40 },
+	Granatieri = { gesto = 0.2, volo = 40 },
+	FanteFranciaLibera = { gesto = 0.2, volo = 40 },
+	Rommel = { gesto = 0.2, volo = 40 },
+	MitraglieriOttomani = { gesto = 0.05, volo = 40 },
+	MitraglieriTedeschi = { gesto = 0.05, volo = 40 },
+	MitraglieriSovietici = { gesto = 0.05, volo = 40 },
+	MG42 = { gesto = 0.05, volo = 40 },
+	CarroMarkV = { gesto = 0.35, volo = 9 },
+	T34 = { gesto = 0.35, volo = 9 },
+	Panzer = { gesto = 0.35, volo = 9 },
 }
 local GESTO_MISCHIA = 0.3
 -- Lancio del pilum: una volta sola, prima della mischia.
@@ -107,7 +136,7 @@ end
 function Battaglia.raggio(def)
 	if def.fortezza then
 		return RAGGI.fortezza
-	elseif def.id == "CarroArmato" then
+	elseif def.veicolo then -- carri armati, cannoni, elefanti
 		return RAGGI.carro
 	elseif def.classe == "Cavalleria" then
 		return RAGGI.cavallo

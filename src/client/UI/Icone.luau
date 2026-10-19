@@ -62,7 +62,7 @@ end
 
 -- Nome dell'icona della carta di una truppa: "Roman Legionaries" -> "card_roman_legionaries".
 function Icone.carta(def)
-	return "card_" .. string.lower(def.nome):gsub("%s+", "_")
+	return def.icona or (string.lower(def.nome):gsub("[^%w%s]", ""):gsub("%s+", "_"):gsub("^", "card_"))
 end
 
 -- Crea l'icona come ImageLabel (o TextLabel con emoji se l'immagine manca).

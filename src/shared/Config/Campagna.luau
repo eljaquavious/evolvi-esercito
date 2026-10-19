@@ -19,32 +19,65 @@ Campagna.MAX_REGGIMENTI = 6
 Campagna.ROUND_PER_VINCERE = 3
 Campagna.STELLE_MASSIME = 3
 
--- Battaglie, in ordine. lat/lon servono a metterle sulla mappa (spostate di poco nell'entroterra se cadono sul mare); fiume = un fiume attraversa il campo.
+-- Battaglie, in ordine cronologico (scelta di Mattia: l'esercito evolve con la storia). lat/lon servono a metterle
+-- sulla mappa (spostate di poco nell'entroterra se cadono sul mare); fiume = un fiume attraversa il campo.
 -- comandante = il boss del livello (deve stare nei comandanti dell'epoca). trincee = tratti di trincea sulle prime linee.
 -- meteo = cielo e tempo del campo (Config/Luci.meteo). nemico = come chiamare l'esercito nemico nelle scritte (inglese).
--- L'ordine segue un sentiero sulla mappa, senza salti avanti e indietro: per questo non è sempre cronologico.
+-- armata = i reggimenti dell'esercito nemico, fedeli alla storia (Config/Epoche): si ottengono vincendo la battaglia.
+-- citta = il campo è dentro una città (Server/Scenari).
 Campagna.Battaglie = {
-	-- Antichità: dalla Mesopotamia alla Grecia, poi Italia, Africa e Gallia.
-	{ nome = "Gaugamela", anno = "331 BC", lat = 36.36, lon = 43.25, bioma = "Desertico", meteo = "polvere", nemico = "the Persians" },
-	{ nome = "Thermopylae", anno = "480 BC", lat = 38.8, lon = 22.53, bioma = "Montagnoso", meteo = "caldo", nemico = "the Persians" },
-	{ nome = "Cannae", anno = "216 BC", lat = 41.14, lon = 15.89, bioma = "Pianeggiante", fiume = true, comandante = "Annibale", meteo = "caldo", nemico = "the Carthaginians" },
-	{ nome = "Zama", anno = "202 BC", lat = 36.3, lon = 9.4, bioma = "Desertico", meteo = "polvere", nemico = "the Carthaginians" },
-	{ nome = "Gergovia", anno = "52 BC", lat = 45.71, lon = 3.13, bioma = "Collinoso", meteo = "nuvoloso", nemico = "the Gauls" },
-	{ nome = "Alesia", anno = "52 BC", lat = 47.54, lon = 4.5, bioma = "Collinoso", comandante = "Cesare", meteo = "alba", nemico = "the Romans" },
-	-- Medioevo: dalla Terrasanta al Baltico, poi Inghilterra e Francia.
-	{ nome = "Hattin", anno = "1187", lat = 32.8, lon = 35.45, bioma = "Desertico", meteo = "caldo", nemico = "Saladin's army" },
-	{ nome = "Lake Peipus", anno = "1242", lat = 58.7, lon = 27.5, bioma = "Innevato", meteo = "neve", nemico = "the Teutonic Knights" },
-	{ nome = "Hastings", anno = "1066", lat = 50.91, lon = 0.49, bioma = "Collinoso", comandante = "Guglielmo", meteo = "nuvoloso", nemico = "the Normans" },
-	{ nome = "Crecy", anno = "1346", lat = 50.25, lon = 1.9, bioma = "Pianeggiante", meteo = "pioggia", nemico = "the French" },
-	{ nome = "Tours", anno = "732", lat = 47.0, lon = 0.6, bioma = "Pianeggiante", fiume = true, meteo = "tramonto", nemico = "the Umayyads" },
-	{ nome = "Orleans", anno = "1429", lat = 47.9, lon = 1.9, bioma = "Pianeggiante", fiume = true, comandante = "Giovanna", meteo = "sereno", nemico = "the French" },
-	-- Novecento: la Grande Guerra da Gallipoli ad Amiens, poi la Seconda da Stalingrado a Parigi.
-	{ nome = "Gallipoli", trincee = true, anno = "1915", lat = 40.13, lon = 26.78, bioma = "Collinoso", meteo = "caldo", nemico = "the Ottomans" },
-	{ nome = "Verdun", trincee = true, anno = "1916", lat = 49.16, lon = 5.38, bioma = "Collinoso", fiume = true, meteo = "pioggia", nemico = "the Germans" },
-	{ nome = "Amiens", trincee = true, anno = "1918", lat = 49.9, lon = 2.3, bioma = "Pianeggiante", comandante = "Foch", meteo = "nebbia", nemico = "the Allies" },
-	{ nome = "Stalingrad", anno = "1942", lat = 48.7, lon = 44.5, bioma = "Innevato", fiume = true, meteo = "neve", nemico = "the Soviets" },
-	{ nome = "Normandy", anno = "1944", lat = 49.34, lon = -0.6, bioma = "Pianeggiante", meteo = "nuvoloso", nemico = "the Germans" },
-	{ nome = "Paris", anno = "1944", lat = 48.86, lon = 2.35, bioma = "Pianeggiante", fiume = true, comandante = "DeGaulle", meteo = "tramonto", nemico = "the Free French" },
+	-- Antichità
+	{ nome = "Thermopylae", anno = "480 BC", lat = 38.8, lon = 22.53, bioma = "Montagnoso", meteo = "caldo", nemico = "the Persians", premio = "Oplita",
+		armata = { "Immortale", "ArcierePersiano" } },
+	{ nome = "Gaugamela", anno = "331 BC", lat = 36.36, lon = 43.25, bioma = "Desertico", meteo = "polvere", nemico = "the Persians",
+		armata = { "Immortale", "ArcierePersiano", "CavalleriaPersiana" } },
+	{ nome = "Cannae", anno = "216 BC", lat = 41.14, lon = 15.89, bioma = "Pianeggiante", fiume = true, comandante = "Annibale", meteo = "caldo", nemico = "the Carthaginians",
+		armata = { "LanciereLibico", "FrombolieroBaleare", "CavalleriaNumidica" } },
+	{ nome = "Zama", anno = "202 BC", lat = 36.3, lon = 9.4, bioma = "Desertico", meteo = "polvere", nemico = "the Carthaginians",
+		armata = { "LanciereLibico", "FrombolieroBaleare", "CavalleriaNumidica", "Elefante" } },
+	{ nome = "Gergovia", anno = "52 BC", lat = 45.71, lon = 3.13, bioma = "Collinoso", meteo = "nuvoloso", nemico = "the Gauls",
+		armata = { "GuerrieroGallico", "ArciereGallico", "CavalleriaGallica" } },
+	{ nome = "Alesia", anno = "52 BC", lat = 47.54, lon = 4.5, bioma = "Collinoso", comandante = "Cesare", meteo = "alba", nemico = "the Romans",
+		armata = { "Legionario", "ArciereCretese", "CavalleriaGermanica" } },
+	-- Medioevo
+	{ nome = "Tours", anno = "732", lat = 47.0, lon = 0.6, bioma = "Pianeggiante", fiume = true, meteo = "tramonto", nemico = "the Umayyads",
+		armata = { "FanteUmayyade", "ArciereArabo", "CavalleriaAraba" } },
+	{ nome = "Hastings", anno = "1066", lat = 50.91, lon = 0.49, bioma = "Collinoso", comandante = "Guglielmo", meteo = "nuvoloso", nemico = "the Normans",
+		armata = { "FanteNormanno", "ArciereNormanno", "CavaliereNormanno" } },
+	{ nome = "Hattin", anno = "1187", lat = 32.8, lon = 35.45, bioma = "Desertico", comandante = "Saladino", meteo = "caldo", nemico = "Saladin's army",
+		armata = { "FanteAyyubide", "ArciereAyyubide", "Mamelucco" } },
+	{ nome = "Lake Peipus", anno = "1242", lat = 58.7, lon = 27.5, bioma = "Innevato", meteo = "neve", nemico = "the Teutonic Knights",
+		armata = { "SergenteTeutonico", "BalestriereTeutonico", "CavaliereTeutonico" } },
+	{ nome = "Crecy", anno = "1346", lat = 50.25, lon = 1.9, bioma = "Pianeggiante", meteo = "pioggia", nemico = "the French",
+		armata = { "UomoDArme", "BalestriereGenovese", "Cavaliere" } },
+	{ nome = "Orleans", anno = "1429", lat = 47.9, lon = 1.9, bioma = "Pianeggiante", fiume = true, comandante = "Giovanna", meteo = "sereno", nemico = "the French",
+		armata = { "UomoDArme", "BalestriereGenovese", "Cavaliere" } },
+	-- Età della polvere da sparo
+	{ nome = "Constantinople", anno = "1453", lat = 41.05, lon = 28.85, bioma = "Pianeggiante", citta = true, meteo = "alba", nemico = "the Ottomans",
+		armata = { "Giannizzero", "CannoneOttomano", "Sipahi" } },
+	{ nome = "Lutzen", anno = "1632", lat = 51.25, lon = 12.14, bioma = "Pianeggiante", comandante = "GustavoAdolfo", meteo = "nebbia", nemico = "the Swedes",
+		armata = { "PicchiereSvedese", "MoschettiereSvedese", "CorazziereSvedese" } },
+	{ nome = "Vienna", anno = "1683", lat = 48.25, lon = 16.3, bioma = "Collinoso", fiume = true, meteo = "sereno", nemico = "the Ottomans",
+		armata = { "Giannizzero", "CannoneOttomano", "Sipahi" } },
+	{ nome = "Austerlitz", anno = "1805", lat = 49.13, lon = 16.76, bioma = "Collinoso", meteo = "alba", nemico = "the French",
+		armata = { "FanteriaDiLinea", "Artiglieria", "Corazziere" } },
+	{ nome = "Borodino", anno = "1812", lat = 55.52, lon = 35.82, bioma = "Pianeggiante", fiume = true, meteo = "nuvoloso", nemico = "the French",
+		armata = { "FanteriaDiLinea", "Artiglieria", "Corazziere" } },
+	{ nome = "Waterloo", anno = "1815", lat = 50.68, lon = 4.41, bioma = "Pianeggiante", comandante = "Napoleone", meteo = "nuvoloso", nemico = "the French",
+		armata = { "FanteriaDiLinea", "Artiglieria", "Corazziere" } },
+	-- Novecento: la Grande Guerra, poi la Seconda
+	{ nome = "Gallipoli", trincee = true, anno = "1915", lat = 40.13, lon = 26.78, bioma = "Collinoso", meteo = "caldo", nemico = "the Ottomans",
+		armata = { "FanteOttomano", "MitraglieriOttomani" } },
+	{ nome = "Verdun", trincee = true, anno = "1916", lat = 49.16, lon = 5.38, bioma = "Collinoso", fiume = true, meteo = "pioggia", nemico = "the Germans",
+		armata = { "Stosstruppen", "MitraglieriTedeschi" } },
+	{ nome = "Amiens", trincee = true, anno = "1918", lat = 49.9, lon = 2.3, bioma = "Pianeggiante", comandante = "Foch", meteo = "nebbia", nemico = "the Allies",
+		armata = { "FanteBritannico", "Fante", "CarroMarkV" } },
+	{ nome = "Stalingrad", anno = "1942", lat = 48.7, lon = 44.5, bioma = "Innevato", fiume = true, meteo = "neve", nemico = "the Soviets",
+		armata = { "FucilieriSovietici", "MitraglieriSovietici", "T34" } },
+	{ nome = "Normandy", anno = "1944", lat = 49.34, lon = -0.6, bioma = "Pianeggiante", comandante = "Rommel", meteo = "nuvoloso", nemico = "the Germans",
+		armata = { "Granatieri", "MG42", "Panzer" } },
+	{ nome = "Paris", anno = "1944", lat = 48.86, lon = 2.35, bioma = "Pianeggiante", fiume = true, comandante = "DeGaulle", meteo = "tramonto", nemico = "the Free French",
+		armata = { "FanteFranciaLibera", "Mitragliere", "CarroArmato" } },
 }
 -- Battaglie tolte quando i livelli sono scesi da 10 a 6 per epoca (i loro scenari restano in Scenari.luau,
 -- pronti per tornare): Marathon, Heraclea, Carthage, Aquae Sextiae, Manzikert, Lechfeld, Stamford Bridge,
@@ -179,13 +212,17 @@ function Campagna.livello(numero)
 		comandante = battaglia.comandante,
 		meteo = battaglia.meteo or "sereno",
 		nemico = battaglia.nemico or "the enemy",
+		armata = battaglia.armata or epoca.truppe,
+		citta = battaglia.citta,
 		terreno = generaTerreno(numero, locale, battaglia),
 		numeroNemici = numeroNemici,
 		maxReggimenti = math.min(numeroNemici + 1, Campagna.MAX_REGGIMENTI),
 		forzaNemici = 1 + 0.025 * (grado - 1),
 		ricompensa = math.floor(40 + 15 * grado + 60 * (indiceEpoca - 1)),
 		-- Prima vittoria: il comandante del livello, oppure una carta dell'epoca a rotazione.
-		cartaPremio = battaglia.comandante or epoca.truppe[(locale - 1) % #epoca.truppe + 1],
+		-- premio = la carta della prima vittoria quando non è né il boss né una dell'armata (gli Spartani alle Termopili).
+		premio = battaglia.premio,
+		cartaPremio = battaglia.comandante or battaglia.premio or (battaglia.armata or epoca.truppe)[1],
 		ultimoDellEpoca = locale == Campagna.LIVELLI_PER_EPOCA,
 	}
 end
@@ -230,7 +267,7 @@ function Campagna.armata(livello, round, assedio)
 		end
 		occupate[chiave(col, Campagna.RIGHE)] = true
 		table.insert(armata, { tipo = epoca.fortezza, col = col, riga = Campagna.RIGHE })
-		piazza(livello.comandante or epoca.truppe[rng:NextInteger(1, #epoca.truppe)], Campagna.RIGHE - 1, Campagna.RIGHE - 1)
+		piazza(livello.comandante or livello.armata[rng:NextInteger(1, #livello.armata)], Campagna.RIGHE - 1, Campagna.RIGHE - 1)
 		return armata
 	end
 
@@ -241,7 +278,7 @@ function Campagna.armata(livello, round, assedio)
 		numero -= 1
 	end
 	for _ = 1, numero do
-		piazzaReggimento(epoca.truppe[rng:NextInteger(1, #epoca.truppe)])
+		piazzaReggimento(livello.armata[rng:NextInteger(1, #livello.armata)])
 	end
 	return armata
 end

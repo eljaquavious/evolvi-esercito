@@ -100,6 +100,16 @@ function Effetti.pilum(da, a, durata)
 	vola(asta(3.6, 0.08, 0.6, false), da, a, durata, math.clamp(distanza * 0.14, 1.5, 9), true)
 end
 
+-- Sasso (o ghianda di piombo) della fionda: piccolo, ad arco basso, non resta piantato.
+function Effetti.sasso(da, a, durata)
+	local modello = Instance.new("Model")
+	local palla = parte({ Size = Vector3.one * 0.25, Shape = Enum.PartType.Ball, Color = Color3.fromRGB(120, 116, 108), Material = Enum.Material.Slate })
+	palla.Parent = modello
+	modello.PrimaryPart = palla
+	local distanza = (a - da).Magnitude
+	vola(modello, da, a, durata, math.clamp(distanza * 0.1, 1, 6), false)
+end
+
 local function vampata(posizione, colore, dimensione)
 	local p = parte({ Size = Vector3.one * dimensione, Shape = Enum.PartType.Ball, Color = colore, Material = Enum.Material.Neon, Position = posizione })
 	local luce = Instance.new("PointLight")
