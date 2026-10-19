@@ -1665,47 +1665,296 @@ def CarroMarkV():
     return m
 
 
-def cannone_su_affusto(m, c_canna, c_affusto, lunga=2.0, ruote=True, bocca_r=0.16):
+# -- Cannoni dell'età della polvere da sparo ------------------------------------------------------------
+# Tutto a scatole come il resto: le canne "tonde" sono due prismi quadrati uno dentro l'altro, girati di 45°
+# (sezione a otto lati); le ruote hanno il cerchione a dodici pezzi, il cerchio di ferro e i raggi.
+# Accanto al pezzo ci sono i serventi, costruiti a parte come i fanti e uniti al modello (legati al bacino).
+
+ALTEZZA_PEZZO = 320  # righe dell'atlante per il cannone; sotto, la striscia dei serventi
+BANDA_SERVENTI = LATO_SERVENTI = 192
+
+
+def _perpendicolare(asse, preferito=(0.0, 1.0, 0.0)):
+    rif = np.array(preferito, float)
+    if abs(asse @ rif) > 0.9:
+        rif = np.array([1.0, 0, 0])
+    rif = rif - asse * (asse @ rif)
+    return rif / np.linalg.norm(rif)
+
+
+def prisma(m, osso, da, a, lato, pittori):
+    """Cilindro a blocchi da "da" a "a", di diametro "lato": sezione a otto lati fatta da quattro tavole
+    (larghe quanto il diametro, spesse 0,41 volte) girate di 45° l'una. Due quadrati girati farebbero una
+    stella; le tavole invece riempiono l'ottagono giusto. Ognuna è appena più corta della precedente, così
+    le facce in fondo non si sovrappongono."""
+    da, a = np.array(da, float), np.array(a, float)
+    asse = (da - a) / np.linalg.norm(da - a)
+    rif = _perpendicolare(asse)
+    altro = np.cross(asse, rif)
+    for k in range(4):
+        t = k * np.pi / 4
+        verso = rif * np.cos(t) + altro * np.sin(t)
+        m.segmento(osso, da - asse * 0.003 * k, a + asse * 0.003 * k, lato * 0.414, lato, pittori, alto=tuple(verso))
+
+
+def palla_blocchi(m, osso, centro, d, pittori):
+    """Palla (di pietra o di ferro): tre dischi a otto lati impilati, quasi tonda."""
+    c = np.array(centro, float)
+    su = np.array([0, 1.0, 0])
+    prisma(m, osso, c + su * d * 0.2, c - su * d * 0.2, d, pittori)
+    prisma(m, osso, c + su * d * 0.42, c - su * d * 0.42, d * 0.72, pittori)
+
+
+def ruota_raggi(m, osso, centro, r, larghezza, legno, ferro, raggi=12):
+    """Ruota di legno con l'asse lungo x: cerchione a pezzi, cerchio di ferro, raggi e mozzo."""
+    c = np.array(centro, float)
+    lg, fe = tinta(legno, "legno"), tinta(ferro, "metallo")
+    for k in range(raggi):
+        a0, a1 = 2 * np.pi * k / raggi, 2 * np.pi * (k + 1) / raggi
+        for raggio, spessore, largo, colore in ((r - 0.05, 0.09, larghezza, lg), (r - 0.005, 0.025, larghezza + 0.012, fe)):
+            p0 = c + np.array([0, raggio * np.cos(a0), raggio * np.sin(a0)])
+            p1 = c + np.array([0, raggio * np.cos(a1), raggio * np.sin(a1)])
+            m.segmento(osso, p0, p1, spessore, largo, {"tutte": colore}, oltre=(0.015, 0.015), alto=(1, 0, 0))
+        am = (a0 + a1) / 2
+        punta = c + np.array([0, (r - 0.08) * np.cos(am), (r - 0.08) * np.sin(am)])
+        m.segmento(osso, punta, c, 0.045, 0.04, {"tutte": lg}, alto=(1, 0, 0))
+    prisma(m, osso, c + np.array([0.13, 0, 0]), c - np.array([0.13, 0, 0]), 0.2, {"tutte": lg})
+    prisma(m, osso, c + np.array([0.17, 0, 0]), c + np.array([0.12, 0, 0]), 0.13, {"tutte": fe})
+    prisma(m, osso, c - np.array([0.12, 0, 0]), c - np.array([0.17, 0, 0]), 0.13, {"tutte": fe})
+
+
+def bocca(m, osso, punto, diametro, colore, foro=0.62):
+    """Il foro della bocca: una lastra sottile appena davanti alla canna (verso -z), col cerchio nero dipinto.
+    Sta dentro l'ottagono della canna (lato 0,74 del diametro), così gli angoli non sporgono."""
+    def p(pen):
+        pen.riempi(scuro(colore, 0.12), "metallo")
+        k = (1 - foro / 0.74) / 2
+        pen.ellisse(k, k, 1 - k, 1 - k, "#141210")
+    lato = diametro * 0.74
+    m.scatola(osso, np.array(punto, float) + np.array([0, 0, -0.006]), (lato, lato, 0.01), {"fronte": p, "tutte": tinta(scuro(colore, 0.12), "metallo")})
+
+
+def ossa_pezzo(m, cannone_y, cannone_z, canna_z):
     m.osso("bacino", None, (0, 0.6, 0))
     m.osso("torretta", "bacino", (0, 0.9, 0))
-    m.osso("cannone", "torretta", (0, 1.0, -0.2))
-    m.osso("canna", "cannone", (0, 1.05, -0.2 - lunga))
-    legno = tinta(c_affusto, "legno")
-    if ruote:
-        for x in (-0.65, 0.65):
-            def ruota(pen):
-                pen.riempi(c_affusto, "legno")
-                pen.ellisse(0.05, 0.05, 0.95, 0.95, scuro(c_affusto, 0.25))
-                pen.ellisse(0.15, 0.15, 0.85, 0.85, c_affusto)
-                for k in range(6):
-                    a = k * np.pi / 3
-                    pen.linea([(0.5, 0.5), (0.5 + 0.4 * np.cos(a), 0.5 + 0.4 * np.sin(a))], scuro(c_affusto, 0.3), 0.03)
-                pen.ellisse(0.42, 0.42, 0.58, 0.58, "#3A3A3A")
-            m.scatola("bacino", (x, 0.7, 0.0), (0.1, 1.4, 1.4), {"destra": ruota, "sinistra": ruota, "tutte": legno})
-        m.segmento("bacino", (0, 0.85, 0.1), (0, 0.1, 2.1), 0.32, 0.22, {"tutte": legno})  # coda dell'affusto
-    else:
-        m.scatola("bacino", (0, 0.35, 0.3), (1.2, 0.5, 2.6), {"tutte": legno})  # letto di travi
-        for z in (-0.6, 0.4, 1.4):
-            m.scatola("bacino", (0, 0.62, z), (1.3, 0.12, 0.2), {"tutte": tinta(scuro(c_affusto, 0.3), "legno")})
-    m.segmento("cannone", (0, 1.05, -0.2 - lunga), (0, 1.0, 0.6), bocca_r * 2.2, bocca_r * 2.2, {"tutte": tinta(c_canna, "metallo")}, alto=(0, 1, 0))
-    m.scatola("cannone", (0, 1.05, -0.2 - lunga), (bocca_r * 3, bocca_r * 3, 0.15), {"tutte": tinta(scuro(c_canna, 0.15), "metallo")})
-    m.scatola("cannone", (0, 1.0, 0.65), (0.25, 0.25, 0.15), {"tutte": tinta(scuro(c_canna, 0.2), "metallo")})
+    m.osso("cannone", "torretta", (0, cannone_y, cannone_z))
+    m.osso("canna", "cannone", (0, cannone_y, canna_z))
 
 
-@speciale
-def CannoneOttomano():
-    """Bombarda ottomana di Costantinopoli: enorme canna di bronzo su un letto di travi."""
+def con_serventi(dati, figura, posti, seme):
+    """Unisce al cannone i serventi: "figura" è un Modello di soldato (con altezza_utile = BANDA_SERVENTI),
+    "posti" una lista di (x, z, gradi) dove metterlo. La sua texture va nella striscia in basso dell'atlante."""
+    fd = figura.costruisci(seme=seme)
+    lato = dati["texture"].size[1]
+    y0 = ALTEZZA_PEZZO
+    dati["texture"].paste(fd["texture"].crop((0, 0, lato, BANDA_SERVENTI)), (0, y0))
+    for x, z, gradi in posti:
+        t = np.radians(gradi)
+        R = np.array([[np.cos(t), 0, np.sin(t)], [0, 1, 0], [-np.sin(t), 0, np.cos(t)]])
+        n = len(fd["pos"])
+        parte = {
+            "pos": fd["pos"] @ R.T + np.array([x, 0, z]), "normali": fd["normali"] @ R.T,
+            "triangoli": fd["triangoli"], "uv": fd["uv"] + np.array([0, y0 / lato]),
+            "ossa_v": np.zeros((n, 4), dtype=int), "pesi": np.tile([1.0, 0, 0, 0], (n, 1)),
+        }
+        dati = unisci(dati, parte)
+    return dati
+
+
+def servente(nome, abito, cappello, attrezzo, mano_r, mano_l):
+    """Un artigliere in piedi con il suo attrezzo (scovolo, calcatoio o buttafuoco)."""
+    m = Modello(nome)
+    m.altezza_utile = BANDA_SERVENTI
+    scheletro(m, mano_r=mano_r, mano_l=mano_l)
+    corpo(m, abito)
+    cappello(m)
+    attrezzo(m)
+    return m
+
+
+def scovolo(c_testa="#2A2420", lungo=1.9):
+    """Asta lunga tenuta di traverso con le due mani, con la testa di setole (o il calcatoio) in cima."""
+    def f(m):
+        pugno_r, _ = punto_mano(m, "R")
+        pugno_l, _ = punto_mano(m, "L")
+        d = pugno_l - pugno_r
+        d = d / np.linalg.norm(d)
+        cima = pugno_r + d * (lungo * 0.62)
+        fondo = pugno_r - d * (lungo * 0.38)
+        asta(m, "mano.R", cima, fondo, 0.04, LEGNO)
+        prisma(m, "mano.R", cima + d * 0.22, cima - d * 0.02, 0.13, {"tutte": tinta(c_testa)})
+    return f
+
+
+def buttafuoco(lungo=1.3):
+    """Asta del buttafuoco ritta nella mano destra, con la miccia accesa in cima."""
+    def f(m):
+        pugno_r, _ = punto_mano(m, "R")
+        cima = pugno_r + np.array([0.02, lungo * 0.7, -0.08])
+        asta(m, "mano.R", cima, pugno_r - np.array([0, lungo * 0.3, 0]), 0.035, LEGNO)
+        m.segmento("mano.R", cima + np.array([0.12, 0.05, 0]), cima, 0.03, 0.03, {"tutte": tinta("#3A2A1A", "cuoio")})
+        m.scatola("mano.R", cima + np.array([0.13, 0.06, 0]), (0.05, 0.05, 0.05), {"tutte": tinta("#FF8A2A", "liscio")})
+    return f
+
+
+def pallottola(m):
+    """Una palla di ferro tenuta davanti con due mani (per caricare)."""
+    pugno_r, _ = punto_mano(m, "R")
+    pugno_l, _ = punto_mano(m, "L")
+    palla_blocchi(m, "mano.R", (pugno_r + pugno_l) / 2 + np.array([0, 0.05, -0.04]), 0.15, {"tutte": tinta("#2A2A2C", "metallo")})
+
+
+# -- Bombarda ottomana di Costantinopoli ------------------------------------------------------------------
+
+BRONZO_OTTOMANO = "#B4843E"
+
+
+def _bombarda():
     m = Modello("CannoneOttomano")
-    cannone_su_affusto(m, "#B88A44", "#6A4A2A", lunga=2.6, ruote=False, bocca_r=0.32)
-    return m
+    m.altezza_utile = ALTEZZA_PEZZO
+    Y = 0.8
+    ossa_pezzo(m, Y, 0.2, -2.2)
+    br = BRONZO_OTTOMANO
+    bronzo = tinta(br, "metallo")
+    scuro_b = tinta(scuro(br, 0.22), "metallo")
+
+    def scritta(pen):
+        # fascia con l'iscrizione incisa (segni corti, come una riga di scrittura)
+        pen.riempi(br, "metallo")
+        pen.rett(0, 0.25, 1, 0.75, scuro(br, 0.12))
+        for k in range(22):
+            u = 0.03 + k * 0.044
+            pen.rett(u, 0.38, u + 0.025, 0.62 if k % 3 else 0.5, scuro(br, 0.45))
+
+    # Camera della polvere (dietro, più stretta) e tromba (davanti, larga per la palla di pietra).
+    prisma(m, "cannone", (0, Y, 0.3), (0, Y, 1.45), 0.62, {"tutte": bronzo})
+    prisma(m, "cannone", (0, Y, 1.45), (0, Y, 1.6), 0.5, {"tutte": scuro_b})
+    prisma(m, "cannone", (0, Y, -2.0), (0, Y, 0.3), 0.86, {"tutte": bronzo})
+    prisma(m, "cannone", (0, Y, -2.2), (0, Y, -1.95), 0.98, {"tutte": scuro_b})
+    bocca(m, "cannone", (0, Y, -2.2), 0.98, br, 0.72)
+    # Il manicotto della vite che univa le due metà, con le prese per girarle.
+    prisma(m, "cannone", (0, Y, 0.48), (0, Y, 0.18), 0.84, {"tutte": scuro_b})
+    for k in range(8):
+        a = k * np.pi / 4
+        m.scatola("cannone", (0.43 * np.cos(a), Y + 0.43 * np.sin(a), 0.33), (0.12, 0.12, 0.26), {"tutte": scuro_b},
+                  assi=np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]]))
+    # Anelli e la fascia con l'iscrizione.
+    for z in (-1.55, -0.65, -0.15):
+        prisma(m, "cannone", (0, Y, z - 0.05), (0, Y, z + 0.05), 0.91, {"tutte": scuro_b})
+    prisma(m, "cannone", (0, Y, -1.4), (0, Y, -0.8), 0.875, {"tutte": scritta})
+
+    # Il letto di travi: due longheroni, le traverse sotto, le sponde che tengono la canna, i cunei.
+    legno = "#6A4A2A"
+    lg, lg_s = tinta(legno, "legno"), tinta(scuro(legno, 0.25), "legno")
+    for x in (-0.42, 0.42):
+        m.scatola("bacino", (x, 0.17, -0.2), (0.3, 0.32, 3.9), {"tutte": lg})
+        m.scatola("bacino", (x * 1.15, 0.52, -0.2), (0.12, 0.4, 3.2), {"tutte": lg})
+    for z in (-1.9, -0.8, 0.4, 1.5):
+        m.scatola("bacino", (0, 0.06, z), (1.5, 0.12, 0.26), {"tutte": lg_s})
+    for z in (-1.6, 0.9):
+        m.scatola("bacino", (0, 0.36, z), (0.75, 0.16, 0.5), {"tutte": lg_s})
+    m.scatola("bacino", (0, 0.42, -1.6), (0.45, 0.1, 0.42), {"tutte": lg}, assi=np.array([[1, 0, 0], [0, 0.97, 0.24], [0, -0.24, 0.97]]))
+    # Dietro, la palizzata di pali e il terrapieno che reggevano il rinculo.
+    for x in (-0.55, -0.18, 0.18, 0.55):
+        m.scatola("bacino", (x, 0.65, 1.95), (0.26, 1.3, 0.26), {"tutte": lg})
+    m.scatola("bacino", (0, 1.15, 1.85), (1.5, 0.22, 0.2), {"tutte": lg_s})
+    m.scatola("bacino", (0, 0.3, 2.25), (1.7, 0.6, 0.5), {"tutte": tinta("#7A6448", "cuoio")})
+    # Le palle di pietra pronte, a mucchio sul lato.
+    pietra = {"tutte": tinta("#9C968A", "liscio")}
+    for x, y, z in ((1.05, 0.3, -0.4), (1.05, 0.3, 0.25), (1.05, 0.82, -0.08), (-1.05, 0.3, 0.6)):
+        palla_blocchi(m, "bacino", (x, y, z), 0.56, pietra)
+
+    pelle = PELLI[2]
+    rosso, blu = "#A02828", "#2A4E8A"
+    abito = {
+        "busto": tinta(rosso), "busto_retro": tinta(rosso), "busto_lati": tinta(rosso),
+        "omero": tinta(rosso), "avambraccio": tinta(rosso), "mano": tinta(pelle, "pelle"),
+        "coscia": tinta(blu), "stinco": pantaloni(blu, stivali="#C8A030", altezza_stivale=0.4)[1], "piede": tinta("#C8A030", "cuoio"),
+        "testa": viso(pelle, bocca="decisa", baffi="#1A1410"), "testa_lati": capelli_lati(pelle, "#1A1410", 0.3),
+        "testa_retro": capelli_retro("#1A1410", pelle, 0.5),
+    }
+
+    def cappello(f):
+        turbante(f, "#ECE6D6", altezza=0.18)
+        H = f.posizione_osso("testa")[1]
+        f.scatola("testa", (0, H + TESTA * 0.82 + 0.22, 0.01), (TESTA * 0.5, 0.12, TESTA * 0.5), {"tutte": tinta(rosso)})
+        f.scatola("busto" if "busto" in f.indice_ossa else "torace", (0, GAMBE + 0.05, 0), (BUSTO_L + 0.03, 0.09, BUSTO_P + 0.03), {"tutte": tinta("#D8A830")})
+
+    topci = servente("Topci", abito, cappello, scovolo("#3A2E24", lungo=2.2), mano_r=(-0.5, -0.2, -1), mano_l=(0.5, 0.1, -1))
+    dati = m.costruisci(seme=sum(map(ord, "CannoneOttomano")) % 1000)
+    return con_serventi(dati, topci, [(1.4, -1.6, 35), (-1.25, -0.6, -20)], seme=77)
 
 
-@speciale
-def Artiglieria():
-    """Cannone da 12 libbre dell'artiglieria di Napoleone: canna di bronzo, affusto verde con due grandi ruote."""
+# -- Cannone da 12 libbre di Gribeauval (Austerlitz, Borodino, Waterloo) -----------------------------------
+
+def _gribeauval():
     m = Modello("Artiglieria")
-    cannone_su_affusto(m, "#B88A44", "#4E6A3A", lunga=1.9, ruote=True, bocca_r=0.12)
-    return m
+    m.altezza_utile = ALTEZZA_PEZZO
+    Y = 1.02
+    ossa_pezzo(m, Y, -0.25, -2.0)
+    br = "#B88A44"
+    bronzo, scuro_b = tinta(br, "metallo"), tinta(scuro(br, 0.2), "metallo")
+    # Canna: culatta e primo rinforzo, secondo rinforzo, volata, gioia della bocca.
+    prisma(m, "cannone", (0, Y, -0.35), (0, Y, 0.45), 0.27, {"tutte": bronzo})
+    prisma(m, "cannone", (0, Y, -0.95), (0, Y, -0.35), 0.235, {"tutte": bronzo})
+    prisma(m, "cannone", (0, Y, -1.78), (0, Y, -0.95), 0.2, {"tutte": bronzo})
+    prisma(m, "cannone", (0, Y, -2.0), (0, Y, -1.78), 0.26, {"tutte": scuro_b})
+    bocca(m, "cannone", (0, Y, -2.0), 0.26, br, 0.55)
+    for z in (0.45, -0.35, -0.95):
+        prisma(m, "cannone", (0, Y, z - 0.03), (0, Y, z + 0.03), 0.29 if z > 0 else 0.255, {"tutte": scuro_b})
+    prisma(m, "cannone", (0, Y, 0.62), (0, Y, 0.45), 0.12, {"tutte": scuro_b})  # bottone di culatta
+    palla_blocchi(m, "cannone", (0, Y, 0.68), 0.13, {"tutte": scuro_b})
+    # Orecchioni e i due "delfini" (maniglie) sopra.
+    prisma(m, "cannone", (0.24, Y, -0.25), (-0.24, Y, -0.25), 0.09, {"tutte": scuro_b})
+    for x in (-0.07, 0.07):
+        m.scatola("cannone", (x, Y + 0.17, -0.45), (0.04, 0.05, 0.22), {"tutte": scuro_b})
+        m.scatola("cannone", (x, Y + 0.13, -0.36), (0.04, 0.07, 0.04), {"tutte": scuro_b})
+        m.scatola("cannone", (x, Y + 0.13, -0.54), (0.04, 0.07, 0.04), {"tutte": scuro_b})
+
+    # Affusto verde: le due cosce dalla sala fino alla coda a terra, le traverse, le ferramenta nere.
+    verde, ferro = "#4E6A3A", "#26282A"
+    vd, fe = tinta(verde, "legno"), tinta(ferro, "metallo")
+    for x in (-0.2, 0.2):
+        m.segmento("bacino", (x, 0.98, -0.32), (x * 0.7, 0.16, 2.15), 0.3, 0.1, {"tutte": vd}, alto=(1, 0, 0))
+        for t in (0.15, 0.45, 0.75):
+            p = np.array([x, 0.98, -0.32]) + t * (np.array([x * 0.7, 0.16, 2.15]) - np.array([x, 0.98, -0.32]))
+            m.scatola("bacino", p, (0.115, 0.32, 0.05), {"tutte": fe})
+    m.scatola("bacino", (0, 0.72, 0), (1.26, 0.14, 0.14), {"tutte": fe})  # sala delle ruote
+    for z, y in ((0.35, 0.82), (1.2, 0.5)):
+        m.scatola("bacino", (0, y, z), (0.34, 0.12, 0.16), {"tutte": vd})
+    m.scatola("bacino", (0, 0.13, 2.18), (0.32, 0.18, 0.2), {"tutte": vd})
+    m.scatola("bacino", (0, 0.2, 2.3), (0.14, 0.14, 0.05), {"tutte": fe})  # occhione della coda
+    m.scatola("bacino", (0, 0.86, 0.32), (0.22, 0.1, 0.34), {"tutte": tinta("#5A3A22", "legno")})  # cuneo di mira
+    for x in (-0.68, 0.68):
+        ruota_raggi(m, "bacino", (x, 0.72, 0.0), 0.72, 0.09, verde, ferro)
+    # Le palle impilate dietro e il secchio.
+    for i, (x, z) in enumerate(((0.75, 1.3), (0.9, 1.3), (0.825, 1.43))):
+        palla_blocchi(m, "bacino", (x, 0.07, z), 0.14, {"tutte": tinta("#2A2A2C", "metallo")})
+    palla_blocchi(m, "bacino", (0.825, 0.19, 1.34), 0.14, {"tutte": tinta("#2A2A2C", "metallo")})
+    prisma(m, "bacino", (-0.8, 0.3, 1.4), (-0.8, 0.0, 1.4), 0.24, {"tutte": tinta("#6A4428", "legno")})
+
+    pelle = PELLI[1]
+    blu, rosso = "#22305E", "#B82820"
+    abito = {
+        "busto": giubba(blu, rosso, cintura=None), "busto_retro": tinta(blu), "busto_lati": tinta(blu),
+        "omero": tinta(blu), "avambraccio": tinta(blu), "mano": tinta(pelle, "pelle"),
+        "coscia": tinta(blu), "stinco": pantaloni(blu, stivali="#1A1A1E", altezza_stivale=0.45)[1], "piede": tinta("#1A1A1E", "cuoio"),
+        "testa": viso(pelle, bocca="decisa", baffi="#3A2A1E"), "testa_lati": capelli_lati(pelle, "#3A2A1E", 0.4),
+        "testa_retro": capelli_retro("#3A2A1E", pelle, 0.75),
+    }
+
+    def cappello(f):
+        shako(f, pennacchio=rosso)
+        for x in (-1, 1):  # spalline rosse
+            f.scatola("torace", (x * (BUSTO_L / 2 + 0.02), COLLO - 0.04, 0), (0.16, 0.05, 0.2), {"tutte": tinta(rosso)})
+
+    cannoniere = servente("Cannoniere", abito, cappello, scovolo("#2A2420", lungo=2.0), mano_r=(-0.5, -0.2, -1), mano_l=(0.5, 0.1, -1))
+    dati = m.costruisci(seme=sum(map(ord, "Artiglieria")) % 1000)
+    return con_serventi(dati, cannoniere, [(0.85, -1.35, 40), (-0.85, 1.0, -15)], seme=55)
+
+
+SPECIALI["CannoneOttomano"] = _bombarda
+SPECIALI["Artiglieria"] = _gribeauval
 
 
 # == COSTRUZIONE ===========================================================================================

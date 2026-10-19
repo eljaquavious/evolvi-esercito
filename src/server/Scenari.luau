@@ -528,7 +528,8 @@ local FRANCESI = { C(40, 60, 150), C(236, 236, 236) }
 S["Constantinople"] = {
 	-- 29 maggio 1453, dentro la città presso la porta di San Romano: le mura teodosiane aperte dalla breccia
 	-- delle bombarde, le case di legno e pietra, i cipressi, Santa Sofia alle tue spalle. Gli Ottomani entrano.
-	cornice = { { "casaBianca", 40, 0.9, 1.3 }, { "cipresso", 24, 1.0, 1.4 } },
+	-- Le case sono quelle della città (Paesaggio.casaBizantina: pietra sotto, legno colorato sopra, coppi).
+	cornice = { { "casaBizantina", 46, 0.9, 1.3 }, { "cipresso", 24, 1.0, 1.4 } },
 	-- Dentro la città: tutto lastricato (piazza di pietra e strade di ciottoli), quasi piano.
 	terreno = { base = M.Pavement, campo = M.Cobblestone, chiazze = M.Pavement, alto = M.Pavement, sponda = M.Cobblestone, ondulazione = 1.5 },
 	flora = { { "cipresso", 16, 0.9, 1.3 }, { "ulivo", 8, 0.9, 1.2 }, { "cespuglio", 24, 0.8, 1.2 }, { "sassi", 30, 0.8, 1.2 } },
@@ -537,19 +538,24 @@ S["Constantinople"] = {
 		{ "muraBizantine", { 36, 150 }, { 270, 150 }, 58, ctx = { lunghezza = 58 } },
 	},
 	gruppi = {
-		{ "casaBianca", 16, { -270, -120, -230, 120 }, 0.9, 1.3, verso = 90, ctx = { colore = C(222, 204, 172) } },
-		{ "casaBianca", 16, { 120, 270, -230, 120 }, 0.9, 1.3, verso = -90, ctx = { colore = C(206, 176, 140) } },
-		{ "casaBianca", 8, { -220, 220, -260, -150 }, 0.9, 1.2, verso = "campo" },
+		-- Due quartieri fitti ai lati del campo, le case rivolte verso la piazza.
+		{ "casaBizantina", 24, { -270, -95, -240, 125 }, 0.9, 1.3, verso = 90 },
+		{ "casaBizantina", 24, { 95, 270, -240, 125 }, 0.9, 1.3, verso = -90 },
+		{ "casaBizantina", 16, { -230, 230, -275, -150 }, 0.9, 1.2, verso = "campo" },
+		{ "chiesaBizantina", 2, { -250, -130, -200, 60 }, 0.9, 1.0, verso = 90 },
+		{ "chiesaBizantina", 2, { 130, 250, -200, 60 }, 0.9, 1.0, verso = -90 },
+		-- Il mercato abbandonato in fretta, tra la piazza e Santa Sofia.
+		{ "bancarella", 8, { -90, 90, -150, -95 }, 0.9, 1.1, verso = "campo" },
 		{ "fuoco", 8, { -230, 230, 110, 175 }, 1.0, 1.5 },
-		{ "botti", 4, { -200, 200, -150, 110 }, 0.9, 1.1 },
+		{ "botti", 6, { -200, 200, -150, 110 }, 0.9, 1.1 },
 		{ "rovina", 4, { -60, 60, 130, 170 }, 0.8, 1.0 }, -- le macerie della breccia
 		{ "cannoneAntico", 3, { -200, 200, 180, 230 }, 1.4, 1.6, verso = 180, ctx = { colore = C(96, 70, 44) } },
 	},
-	pezzi = { { "cupola", 0, -250, 0, 1.2 }, { "pozzo", -60, -150, nil, 1.0 } },
-	case = { "casaBianca" },
+	pezzi = { { "cupola", 0, -250, 180, 1.2 }, { "pozzo", -60, -150, nil, 1.0 }, { "colonnaBizantina", 95, -175, 0, 1.0 } },
+	case = { "casaBizantina" },
 	rottami = { "botti", "carro", "casse" },
 	resti = 14,
-	ostacolo = { "casaBianca", "botti" },
+	ostacolo = { "casaBizantina", "botti", "bancarella" },
 }
 
 S["Lutzen"] = {

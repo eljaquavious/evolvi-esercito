@@ -780,20 +780,89 @@ ingombro("mura", 30)
 
 -- Età della polvere da sparo ----------------------------------------------------------------------
 
--- Cannone ad avancarica di bronzo sull'affusto a due ruote, con le palle impilate e il secchio dello scovolo.
+-- Ruota di legno a raggi con l'asse lungo X (centro in cf): cerchione a pezzi, cerchio di ferro, mozzo.
+local function ruotaRaggi(g, cf, r, larga, legno, ferro, raggi)
+	raggi = raggi or 12
+	local pezzo = 2 * r * math.tan(math.pi / raggi) + 0.05
+	for i = 0, raggi - 1 do
+		local a = i * 2 * math.pi / raggi
+		local giro = cf * CFrame.Angles(a, 0, 0)
+		parte(g, Vector3.new(larga, 0.42 * r / 2.2, pezzo), giro * CFrame.new(0, r - 0.32 * r / 2.2, 0), legno, M.Wood)
+		parte(g, Vector3.new(larga + 0.08, 0.14 * r / 2.2, pezzo), giro * CFrame.new(0, r, 0), ferro, M.Metal)
+		local raggio = cf * CFrame.Angles(a + math.pi / raggi, 0, 0)
+		parte(g, Vector3.new(larga * 0.45, r * 0.8, 0.22 * r / 2.2), raggio * CFrame.new(0, r * 0.42, 0), legno, M.Wood)
+	end
+	local mozzo = parte(g, Vector3.new(larga * 2.2, r * 0.36, r * 0.36), cf, legno, M.Wood)
+	mozzo.Shape = Enum.PartType.Cylinder
+	local fascia = parte(g, Vector3.new(larga * 2.4, r * 0.2, r * 0.2), cf, ferro, M.Metal)
+	fascia.Shape = Enum.PartType.Cylinder
+end
+
+-- Cannone ad avancarica di bronzo sull'affusto a due ruote (il 12 libbre di Gribeauval, i pezzi svedesi e
+-- ottomani): canna rastremata con gli anelli e la bocca scura, le due cosce dell'affusto fino alla coda a
+-- terra, le palle impilate, il secchio e lo scovolo appoggiato alla ruota.
 function P.cannoneAntico(g, cf, rng, s, ctx)
 	local legno = ctx.colore or C(84, 104, 66)
-	local asse = cf * CFrame.new(0, 2.2 * s, 0)
-	for _, x in ipairs({ -2.2, 2.2 }) do
-		local ruota = parte(g, Vector3.new(0.5 * s, 4.4 * s, 4.4 * s), asse * CFrame.new(x * s, 0, 0), legno, M.Wood)
-		ruota.Shape = Enum.PartType.Cylinder
+	local ferro = C(38, 40, 42)
+	local bronzo = varia(C(176, 128, 66), rng, 0.04)
+	local bronzoScuro = bronzo:Lerp(C(0, 0, 0), 0.25)
+	local r = 2.2 * s
+	local asse = cf * CFrame.new(0, r, 0)
+	for _, x in ipairs({ -2.3, 2.3 }) do
+		ruotaRaggi(g, asse * CFrame.new(x * s, 0, 0), r, 0.45 * s, legno, ferro)
 	end
-	cilindro(g, (asse * CFrame.new(0, 0.9 * s, 2.2 * s)).Position, (asse * CFrame.new(0, 1.3 * s, -6 * s)).Position, 1.1 * s, C(176, 128, 66), M.Metal)
-	trave(g, (asse * CFrame.new(0, 0.3 * s, 0)).Position, (cf * CFrame.new(0, 0.4, 7 * s)).Position, 1.6 * s, 0.9 * s, legno, M.Wood)
-	for i = 0, 5 do
-		palla(g, 0.9 * s, (cf * CFrame.new(3.4 * s + (i % 3) * 0.95 * s, 0.45 * s + math.floor(i / 3) * 0.75 * s, 2.5 * s)).Position, C(40, 40, 42), M.Metal)
+	-- La sala (asse delle ruote) e le due cosce, che scendono fino alla coda appoggiata a terra.
+	local sala = parte(g, Vector3.new(4.4 * s, 0.5 * s, 0.5 * s), asse, ferro, M.Metal)
+	sala.Shape = Enum.PartType.Cylinder
+	for _, x in ipairs({ -0.75, 0.75 }) do
+		trave(g, (asse * CFrame.new(x * s, 0.6 * s, -0.6 * s)).Position, (cf * CFrame.new(x * 0.55 * s, 0.4 * s, 8 * s)).Position, 0.45 * s, 1.3 * s, legno, M.Wood)
 	end
-	cilindro(g, (cf * CFrame.new(-3.5 * s, 0, 2 * s)).Position, (cf * CFrame.new(-3.5 * s, 1.4 * s, 2 * s)).Position, 1.3 * s, C(110, 80, 50), M.WoodPlanks)
+	for _, z in ipairs({ 2.2, 5.2 }) do
+		local p = (asse * CFrame.new(0, 0, 0)).Position:Lerp((cf * CFrame.new(0, 0.4 * s, 8 * s)).Position, z / 8)
+		parte(g, Vector3.new(1.5 * s, 0.4 * s, 0.6 * s), CFrame.new(p) * (cf - cf.Position), legno:Lerp(C(0, 0, 0), 0.15), M.Wood)
+	end
+	parte(g, Vector3.new(1.1 * s, 0.6 * s, 0.8 * s), cf * CFrame.new(0, 0.3 * s, 8.1 * s), legno, M.Wood)
+	parte(g, Vector3.new(0.5 * s, 0.5 * s, 0.2 * s), cf * CFrame.new(0, 0.5 * s, 8.6 * s), ferro, M.Metal)
+	-- La canna, appena alzata: culatta col bottone, primo e secondo rinforzo, volata, gioia della bocca.
+	local culatta = asse * CFrame.new(0, 1.15 * s, 1.9 * s)
+	local bocca = asse * CFrame.new(0, 1.55 * s, -6.2 * s)
+	local function lungo(t)
+		return culatta.Position:Lerp(bocca.Position, t)
+	end
+	cilindro(g, lungo(0), lungo(0.38), 1.25 * s, bronzo, M.Metal)
+	cilindro(g, lungo(0.38), lungo(0.62), 1.08 * s, bronzo, M.Metal)
+	cilindro(g, lungo(0.62), lungo(0.93), 0.92 * s, bronzo, M.Metal)
+	cilindro(g, lungo(0.93), lungo(1), 1.2 * s, bronzoScuro, M.Metal)
+	for _, t in ipairs({ 0.05, 0.38, 0.62 }) do
+		cilindro(g, lungo(t - 0.012), lungo(t + 0.012), (t < 0.3 and 1.4 or 1.24) * s, bronzoScuro, M.Metal)
+	end
+	cilindro(g, lungo(1), lungo(1.004), 0.7 * s, C(16, 14, 12), M.SmoothPlastic) -- il foro della bocca
+	local dietro = culatta.Position + (culatta.Position - bocca.Position).Unit * 0.5 * s
+	cilindro(g, culatta.Position, dietro, 0.5 * s, bronzoScuro, M.Metal)
+	palla(g, 0.6 * s, dietro + (culatta.Position - bocca.Position).Unit * 0.25 * s, bronzoScuro, M.Metal)
+	-- Orecchioni sulla sala e i due "delfini" (maniglie) sopra il primo rinforzo.
+	cilindro(g, (asse * CFrame.new(-1.0 * s, 0.75 * s, 0)).Position, (asse * CFrame.new(1.0 * s, 0.75 * s, 0)).Position, 0.45 * s, bronzoScuro, M.Metal)
+	for _, x in ipairs({ -0.28, 0.28 }) do
+		parte(g, Vector3.new(0.18 * s, 0.4 * s, 0.9 * s), CFrame.new(lungo(0.3) + Vector3.new(0, 0.7 * s, 0)) * (cf - cf.Position) * CFrame.new(x * s, 0, 0), bronzoScuro, M.Metal)
+	end
+	-- Palle impilate a piramide, il secchio e lo scovolo.
+	local mucchio = cf * CFrame.new(3.6 * s, 0, 4.5 * s)
+	local n = 0
+	for liv = 0, 2 do
+		for i = 0, 2 - liv do
+			for k = 0, 2 - liv do
+				n += 1
+				if n <= 14 then
+					palla(g, 0.75 * s, (mucchio * CFrame.new((i + liv * 0.5) * 0.75 * s, 0.35 * s + liv * 0.6 * s, (k + liv * 0.5) * 0.75 * s)).Position, C(36, 36, 38), M.Metal)
+				end
+			end
+		end
+	end
+	cilindro(g, (cf * CFrame.new(-3.6 * s, 0, 4 * s)).Position, (cf * CFrame.new(-3.6 * s, 1.3 * s, 4 * s)).Position, 1.2 * s, C(110, 80, 50), M.WoodPlanks)
+	cilindro(g, (cf * CFrame.new(-3.6 * s, 1.15 * s, 4 * s)).Position, (cf * CFrame.new(-3.6 * s, 1.3 * s, 4 * s)).Position, 1.28 * s, ferro, M.Metal)
+	local cima = (asse * CFrame.new(2.75 * s, r * 0.9, -2.5 * s)).Position
+	cilindro(g, (cf * CFrame.new(3.1 * s, 0, 1.6 * s)).Position, cima, 0.22 * s, C(110, 80, 50), M.Wood)
+	cilindro(g, cima, cima + (cima - (cf * CFrame.new(3.1 * s, 0, 1.6 * s)).Position).Unit * 1.1 * s, 0.55 * s, C(42, 34, 28), M.Fabric)
 end
 ingombro("cannoneAntico", 5)
 
@@ -825,33 +894,308 @@ function P.muraBizantine(g, cf, rng, s, ctx)
 end
 ingombro("muraBizantine", 30)
 
--- Santa Sofia: la grande cupola su un corpo quadrato, le semicupole, i contrafforti, il colore rosato.
-function P.cupola(g, cf, rng, s, ctx)
-	local rosa = C(214, 170, 140)
-	local piombo = C(120, 128, 136)
-	local lato, h = 50 * s, 22 * s
-	parte(g, Vector3.new(lato, h, lato), cf * CFrame.new(0, h / 2 - 1, 0), rosa, M.Plaster)
-	-- tamburo con le finestre e la cupola
-	local tamburo = cf * CFrame.new(0, h + 3 * s, 0)
-	local cil = parte(g, Vector3.new(6 * s, 34 * s, 34 * s), tamburo * CFrame.Angles(0, 0, math.pi / 2), rosa, M.Plaster)
-	cil.Shape = Enum.PartType.Cylinder
-	for i = 0, 15 do
-		local a = i * math.pi / 8
-		parte(g, Vector3.new(1.6 * s, 3 * s, 0.4), tamburo * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, -17.1 * s), C(50, 50, 60), M.SmoothPlastic)
+-- Finestra ad arco sulla faccia di un muro: cf è al centro del vano, con il LookVector che esce dal muro.
+local VETRO_SCURO = C(34, 32, 38)
+local function finestraArco(g, cf, l, h, cornice)
+	parte(g, Vector3.new(l, h - l / 2, 0.3), cf * CFrame.new(0, -l / 4, 0), VETRO_SCURO, M.SmoothPlastic)
+	local arco = parte(g, Vector3.new(0.3, l, l), cf * CFrame.new(0, h / 2 - l / 2, 0) * CFrame.Angles(0, math.pi / 2, 0), VETRO_SCURO, M.SmoothPlastic)
+	arco.Shape = Enum.PartType.Cylinder
+	if cornice then
+		parte(g, Vector3.new(l + 0.6, 0.35, 0.5), cf * CFrame.new(0, -h / 2 - 0.1, 0.05), cornice, M.Limestone)
 	end
-	ovale(g, Vector3.new(33, 22, 33) * s, tamburo * CFrame.new(0, 3 * s, 0), piombo, M.Metal)
-	for _, lato2 in ipairs({ -1, 1 }) do
-		ovale(g, Vector3.new(30, 18, 22) * s, cf * CFrame.new(0, h, lato2 * 22 * s), piombo, M.Metal)
-		parte(g, Vector3.new(lato * 0.9, h * 0.8, 10 * s), cf * CFrame.new(0, h * 0.4 - 1, lato2 * 28 * s), rosa, M.Plaster)
+end
+
+-- Fila di finestre ad arco lungo la faccia di un muro: da "da" ad "a" (CFrame sul muro), n finestre.
+local function filaFinestre(g, da, a, n, l, h, cornice)
+	for i = 0, n - 1 do
+		local t = n == 1 and 0.5 or i / (n - 1)
+		finestraArco(g, da:Lerp(a, t), l, h, cornice)
+	end
+end
+
+-- Santa Sofia nel 1453, ancora chiesa (i minareti vennero dopo): il grande corpo color ocra rosata con le
+-- fasce chiare, i quattro grandi contrafforti a gradoni, il tamburo basso con la corona di finestre e i
+-- costoloni, la cupola piatta di piombo, le due semicupole e le esedre, il nartece, l'abside, la croce d'oro.
+function P.cupola(g, cf, rng, s, ctx)
+	local ocra = C(204, 146, 108)
+	local ocraScuro = ocra:Lerp(C(60, 30, 20), 0.18)
+	local fascia = C(232, 214, 186)
+	local piombo = C(128, 130, 128)
+	local L, P0, h = 54 * s, 46 * s, 24 * s -- L lungo X (i lati coi contrafforti), P0 lungo Z
+	-- Corpo centrale con le fasce chiare e due file di finestre sui lati lunghi.
+	parte(g, Vector3.new(L, h, P0), cf * CFrame.new(0, h / 2 - 1, 0), ocra, M.Plaster)
+	for _, y in ipairs({ 0.42, 0.98 }) do
+		parte(g, Vector3.new(L + 0.6, 0.8 * s, P0 + 0.6), cf * CFrame.new(0, h * y - 1, 0), fascia, M.Limestone)
 	end
 	for _, x in ipairs({ -1, 1 }) do
+		local verso = CFrame.Angles(0, x > 0 and -math.pi / 2 or math.pi / 2, 0)
+		for _, y in ipairs({ 0.22, 0.68 }) do
+			local da = cf * CFrame.new(x * (L / 2 + 0.05), h * y, -P0 * 0.36) * verso
+			local a = cf * CFrame.new(x * (L / 2 + 0.05), h * y, P0 * 0.36) * verso
+			filaFinestre(g, da, a, 7, 2.2 * s, 4.2 * s, fascia)
+		end
+		-- Il timpano sotto il grande arco: muro più alto al centro del lato, con la sua fila di finestre.
+		parte(g, Vector3.new(4 * s, 8 * s, P0 * 0.62), cf * CFrame.new(x * (L / 2 - 6 * s), h + 4 * s - 1, 0), ocra, M.Plaster)
+		filaFinestre(g, cf * CFrame.new(x * (L / 2 - 3.95 * s), h + 4 * s, -P0 * 0.22) * verso,
+			cf * CFrame.new(x * (L / 2 - 3.95 * s), h + 4 * s, P0 * 0.22) * verso, 5, 1.8 * s, 3.6 * s)
+		-- I grandi contrafforti a gradoni, due per lato.
 		for _, z in ipairs({ -1, 1 }) do
-			parte(g, Vector3.new(8, h * 1.2, 8) * s, cf * CFrame.new(x * 24 * s, h * 0.6 - 1, z * 24 * s), rosa:Lerp(C(0, 0, 0), 0.06), M.Plaster)
+			local base = cf * CFrame.new(x * (L / 2 + 4 * s), 0, z * P0 * 0.33)
+			parte(g, Vector3.new(8 * s, h * 1.15, 9 * s), base * CFrame.new(0, h * 0.575 - 1, 0), ocraScuro, M.Plaster)
+			parte(g, Vector3.new(6 * s, h * 0.3, 7 * s), base * CFrame.new(-x * 1 * s, h * 1.3 - 1, 0), ocraScuro, M.Plaster)
+			cuneo(g, Vector3.new(7 * s, 3 * s, 8 * s), base * CFrame.new(x * 1 * s, h * 1.15 + 0.5 * s, 0) * CFrame.Angles(0, x > 0 and -math.pi / 2 or math.pi / 2, 0), ocraScuro, M.Plaster)
 		end
 	end
-	parte(g, Vector3.new(0.6, 6 * s, 0.6), tamburo * CFrame.new(0, 17 * s, 0), C(220, 190, 90), M.Metal)
+	-- Tamburo basso con 32 finestre e i costoloni in mezzo, poi la cupola piatta di piombo.
+	local quota = h + 8 * s
+	local tamburo = cf * CFrame.new(0, quota, 0)
+	parte(g, Vector3.new(L * 0.78, 8 * s, P0 * 0.78), cf * CFrame.new(0, h + 4 * s - 1, 0), ocra, M.Plaster)
+	local cil = parte(g, Vector3.new(4.5 * s, 36 * s, 36 * s), tamburo * CFrame.new(0, 2 * s, 0) * CFrame.Angles(0, 0, math.pi / 2), ocra, M.Plaster)
+	cil.Shape = Enum.PartType.Cylinder
+	for i = 0, 31 do
+		local giro = tamburo * CFrame.Angles(0, i * math.pi / 16, 0)
+		parte(g, Vector3.new(1.4 * s, 2.6 * s, 0.4), giro * CFrame.new(0, 1.8 * s, -18.05 * s), VETRO_SCURO, M.SmoothPlastic)
+		parte(g, Vector3.new(1.1 * s, 4.5 * s, 1.4 * s), giro * CFrame.Angles(0, math.pi / 32, 0) * CFrame.new(0, 2 * s, -18.3 * s), ocraScuro, M.Plaster)
+	end
+	ovale(g, Vector3.new(35, 13, 35) * s, tamburo * CFrame.new(0, 4.2 * s, 0), piombo, M.Concrete)
+	ovale(g, Vector3.new(8, 3, 8) * s, tamburo * CFrame.new(0, 10.6 * s, 0), piombo:Lerp(C(255, 255, 255), 0.1), M.Concrete)
+	-- La croce d'oro in cima.
+	local oro = C(222, 184, 84)
+	parte(g, Vector3.new(0.5 * s, 5 * s, 0.5 * s), tamburo * CFrame.new(0, 13.5 * s, 0), oro, M.Metal)
+	parte(g, Vector3.new(2.4 * s, 0.5 * s, 0.5 * s), tamburo * CFrame.new(0, 14.6 * s, 0), oro, M.Metal)
+	palla(g, 1.2 * s, (tamburo * CFrame.new(0, 11.2 * s, 0)).Position, oro, M.Metal)
+	-- Le due grandi semicupole (est e ovest) con le esedre più piccole, e i corpi bassi sotto.
+	for _, z in ipairs({ -1, 1 }) do
+		ovale(g, Vector3.new(28, 10, 22) * s, cf * CFrame.new(0, h + 0.5 * s, z * (P0 / 2 - 1 * s)), piombo, M.Concrete)
+		for _, x in ipairs({ -1, 1 }) do
+			ovale(g, Vector3.new(12, 6, 10) * s, cf * CFrame.new(x * 12 * s, h * 0.72 - 1, z * (P0 / 2 + 5 * s)), piombo, M.Concrete)
+		end
+		parte(g, Vector3.new(L * 0.78, h * 0.72, 10 * s), cf * CFrame.new(0, h * 0.36 - 1, z * (P0 / 2 + 5 * s)), ocra, M.Plaster)
+		parte(g, Vector3.new(L * 0.8, 0.7 * s, 10.4 * s), cf * CFrame.new(0, h * 0.72 - 1, z * (P0 / 2 + 5 * s)), fascia, M.Limestone)
+		local verso = CFrame.Angles(0, z > 0 and math.pi or 0, 0)
+		filaFinestre(g, cf * CFrame.new(-L * 0.3, h * 0.42, z * (P0 / 2 + 10.05 * s)) * verso, cf * CFrame.new(L * 0.3, h * 0.42, z * (P0 / 2 + 10.05 * s)) * verso, 6, 2 * s, 3.8 * s, fascia)
+	end
+	-- Nartece (ingresso, verso il campo) col tetto a falde, e l'abside dietro.
+	local nartece = cf * CFrame.new(0, 0, -(P0 / 2 + 14 * s))
+	parte(g, Vector3.new(L * 0.86, 11 * s, 8 * s), nartece * CFrame.new(0, 5.5 * s - 1, 0), ocra, M.Plaster)
+	tetto(g, nartece * CFrame.new(0, 10.5 * s - 1, 0), L * 0.86, 8 * s, 2.5 * s, piombo, M.Slate, 0.5)
+	for i = -3, 3 do
+		finestraArco(g, nartece * CFrame.new(i * 6 * s, 3.2 * s, -4.05 * s), 2.6 * s, 6 * s)
+	end
+	local abside = parte(g, Vector3.new(h * 0.6, 16 * s, 16 * s), cf * CFrame.new(0, h * 0.3 - 1, P0 / 2 + 11 * s) * CFrame.Angles(0, 0, math.pi / 2), ocra, M.Plaster)
+	abside.Shape = Enum.PartType.Cylinder
 end
-ingombro("cupola", 30)
+ingombro("cupola", 36)
+
+-- Casa di Costantinopoli: piano terra di pietra con la fascia di mattoni e la porta ad arco, piano di sopra
+-- di legno intonacato che sporge sulla strada (sorretto da mensole), finestre con le imposte, tetto di coppi.
+-- Colori vari come le case della città; a volte un piano solo, un balcone o un comignolo.
+-- Finestrella con le imposte aperte e il davanzale, sulla faccia di un muro (cf con il LookVector fuori).
+local function finestraImposte(g, cf, s, legno, imposte)
+	parte(g, Vector3.new(1.4 * s, 2 * s, 0.32), cf, VETRO_SCURO, M.SmoothPlastic)
+	for _, lato in ipairs({ -1, 1 }) do
+		parte(g, Vector3.new(0.7 * s, 2.1 * s, 0.15), cf * CFrame.new(lato * 1.05 * s, 0, -0.25 * s) * CFrame.Angles(0, -lato * 0.5, 0), imposte, M.WoodPlanks)
+	end
+	parte(g, Vector3.new(1.8 * s, 0.25 * s, 0.55 * s), cf * CFrame.new(0, -1.1 * s, -0.2 * s), legno, M.Wood)
+end
+
+-- Le altre tre facce di un piano (retro e fianchi): finestre e travi d'angolo. y = quota delle finestre,
+-- zc = centro del piano lungo Z, l x p = misure del piano.
+local function facceCasa(g, cf, s, l, p, zc, y, h, legno, imposte, telaio, rng)
+	local facce = {
+		{ cf * CFrame.new(0, y, zc + p / 2 + 0.05) * CFrame.Angles(0, math.pi, 0), l },
+		{ cf * CFrame.new(l / 2 + 0.05, y, zc) * CFrame.Angles(0, -math.pi / 2, 0), p },
+		{ cf * CFrame.new(-l / 2 - 0.05, y, zc) * CFrame.Angles(0, math.pi / 2, 0), p },
+	}
+	for _, f in ipairs(facce) do
+		local muro, largo = f[1], f[2]
+		local n = math.clamp(math.floor(largo / (4.5 * s)), 1, 3)
+		for i = 1, n do
+			if rng:NextNumber() < 0.85 then
+				finestraImposte(g, muro * CFrame.new(-largo / 2 + i * largo / (n + 1), 0, 0), s, legno, imposte)
+			end
+		end
+		if telaio then
+			for _, x in ipairs({ -largo / 2 + 0.2, largo / 2 - 0.2 }) do
+				parte(g, Vector3.new(0.4 * s, h, 0.3), muro * CFrame.new(x, 0, 0), legno, M.Wood)
+			end
+			parte(g, Vector3.new(largo, 0.35 * s, 0.3), muro * CFrame.new(0, h / 2 - 0.2 * s, 0), legno, M.Wood)
+		end
+	end
+end
+
+local COLORI_CASE = { C(214, 168, 120), C(198, 112, 86), C(226, 206, 168), C(176, 120, 90), C(168, 178, 172), C(222, 186, 132) }
+function P.casaBizantina(g, cf, rng, s, ctx)
+	local l, p = rng:NextNumber(11, 16) * s, rng:NextNumber(8, 11) * s
+	local h1 = rng:NextNumber(5.5, 7) * s
+	local due = rng:NextNumber() < 0.75
+	local h2 = due and rng:NextNumber(5, 6) * s or 0
+	local pietra = varia(C(196, 182, 156), rng, 0.04)
+	local mattone = C(150, 82, 62)
+	local legno = varia(C(92, 62, 40), rng, 0.04)
+	local intonaco = varia(COLORI_CASE[rng:NextInteger(1, #COLORI_CASE)], rng, 0.03)
+	local coppi = varia(C(168, 84, 54), rng, 0.04)
+	local imposte = ({ C(58, 92, 72), C(92, 62, 40), C(60, 74, 104), C(120, 48, 40) })[rng:NextInteger(1, 4)]
+	parte(g, Vector3.new(l, h1, p), cf * CFrame.new(0, h1 / 2 - 1, 0), pietra, M.Limestone)
+	parte(g, Vector3.new(l + 0.2, 0.7 * s, p + 0.2), cf * CFrame.new(0, h1 * 0.55 - 1, 0), mattone, M.Brick)
+	-- Porta ad arco con la soglia, e una finestrella con l'inferriata.
+	local fronte = cf * CFrame.new(0, 0, -p / 2 - 0.05)
+	local xp = rng:NextNumber(-l / 4, l / 4)
+	finestraArco(g, fronte * CFrame.new(-xp, 2 * s - 1, 0), 2.4 * s, 4 * s)
+	parte(g, Vector3.new(2.3 * s, 3 * s, 0.32), fronte * CFrame.new(-xp, 1.5 * s - 1, -0.02), legno, M.WoodPlanks)
+	parte(g, Vector3.new(3.2 * s, 0.4 * s, 1.2 * s), fronte * CFrame.new(-xp, -0.8, -0.4 * s), pietra:Lerp(C(0, 0, 0), 0.1), M.Limestone)
+	local xf = xp > 0 and xp - 4.5 * s or xp + 4.5 * s
+	parte(g, Vector3.new(1.4 * s, 1.4 * s, 0.3), fronte * CFrame.new(-xf, h1 * 0.7, 0), VETRO_SCURO, M.SmoothPlastic)
+	for i = -1, 1 do
+		parte(g, Vector3.new(0.12 * s, 1.4 * s, 0.4), fronte * CFrame.new(-xf + i * 0.4 * s, h1 * 0.7, -0.05), C(40, 38, 36), M.Metal)
+	end
+	local cima = h1
+	if due then
+		-- Il piano di sopra sporge di 1,4 sulla strada; sotto le mensole di legno.
+		local sporge = 1.4 * s
+		local piano = cf * CFrame.new(0, h1 + h2 / 2 - 1, -sporge / 2)
+		parte(g, Vector3.new(l + 0.4, h2, p + sporge), piano, intonaco, M.Plaster)
+		parte(g, Vector3.new(l + 0.6, 0.45 * s, p + sporge + 0.2), cf * CFrame.new(0, h1 - 1 + 0.2 * s, -sporge / 2), legno, M.Wood)
+		for x = -l / 2 + 1.2 * s, l / 2 - 1.2 * s, 2.6 * s do
+			trave(g, (cf * CFrame.new(x, h1 - 2.2 * s - 1, -p / 2)).Position, (cf * CFrame.new(x, h1 - 1, -p / 2 - sporge)).Position, 0.35 * s, 0.35 * s, legno, M.Wood)
+		end
+		-- Telaio di legno a vista sulla facciata e le finestre con le imposte aperte.
+		local facciata = cf * CFrame.new(0, h1 + h2 / 2 - 1, -p / 2 - sporge - 0.05)
+		for _, x in ipairs({ -l / 2 + 0.2, l / 2 - 0.2 }) do
+			parte(g, Vector3.new(0.4 * s, h2, 0.3), facciata * CFrame.new(x, 0, 0), legno, M.Wood)
+		end
+		parte(g, Vector3.new(l + 0.4, 0.35 * s, 0.3), facciata * CFrame.new(0, h2 / 2 - 0.2 * s, 0), legno, M.Wood)
+		local n = math.max(2, math.floor(l / (4 * s)))
+		for i = 1, n do
+			local x = -l / 2 + i * l / (n + 1)
+			parte(g, Vector3.new(1.5 * s, 2.2 * s, 0.32), facciata * CFrame.new(x, 0.2 * s, 0), VETRO_SCURO, M.SmoothPlastic)
+			for _, lato in ipairs({ -1, 1 }) do
+				parte(g, Vector3.new(0.75 * s, 2.3 * s, 0.15), facciata * CFrame.new(x + lato * 1.15 * s, 0.2 * s, -0.25 * s) * CFrame.Angles(0, -lato * 0.5, 0), imposte, M.WoodPlanks)
+			end
+			parte(g, Vector3.new(1.9 * s, 0.25 * s, 0.6 * s), facciata * CFrame.new(x, -0.95 * s, -0.25 * s), legno, M.Wood)
+		end
+		if rng:NextNumber() < 0.35 then
+			-- Balcone di legno con la ringhiera.
+			local b = facciata * CFrame.new(0, -h2 / 2 + 0.2 * s, -1 * s)
+			parte(g, Vector3.new(l * 0.5, 0.3 * s, 2 * s), b, legno, M.WoodPlanks)
+			parte(g, Vector3.new(l * 0.5, 0.25 * s, 0.25 * s), b * CFrame.new(0, 1.5 * s, -0.9 * s), legno, M.Wood)
+			for x = -l * 0.25, l * 0.25, 1.2 * s do
+				parte(g, Vector3.new(0.18 * s, 1.5 * s, 0.18 * s), b * CFrame.new(x, 0.75 * s, -0.9 * s), legno, M.Wood)
+			end
+		end
+		facceCasa(g, cf, s, l + 0.4, p + sporge, -sporge / 2, h1 + h2 / 2 - 1, h2, legno, imposte, true, rng)
+		cima = h1 + h2
+	else
+		facceCasa(g, cf, s, l, p, 0, h1 * 0.6, h1, legno, imposte, false, rng)
+	end
+	-- Tetto di coppi a due falde con la gronda sporgente, e a volte il comignolo.
+	local sporgeTetto = due and 1.4 * s or 0
+	tetto(g, cf * CFrame.new(0, cima - 1, -sporgeTetto / 2), l + 0.4, p + sporgeTetto, rng:NextNumber(2.6, 3.6) * s, coppi, M.ClayRoofTiles, 0.9 * s)
+	if rng:NextNumber() < 0.5 then
+		parte(g, Vector3.new(1.2 * s, 3.5 * s, 1.2 * s), cf * CFrame.new(l * 0.3, cima + 1.4 * s, p * 0.15), mattone, M.Brick)
+	end
+end
+ingombro("casaBizantina", 9)
+
+-- Chiesa bizantina a croce greca: corpo di mattoni a fasce di pietra, i quattro bracci col tetto di coppi,
+-- il tamburo con le finestre e la cupoletta di piombo, l'abside dietro, la croce.
+function P.chiesaBizantina(g, cf, rng, s, ctx)
+	local mattone = varia(C(162, 92, 66), rng, 0.04)
+	local pietra = C(214, 198, 168)
+	local coppi = C(168, 84, 54)
+	local piombo = C(122, 128, 134)
+	local lato, h = 16 * s, 10 * s
+	parte(g, Vector3.new(lato, h, lato), cf * CFrame.new(0, h / 2 - 1, 0), mattone, M.Brick)
+	for _, y in ipairs({ 0.3, 0.6, 0.95 }) do
+		parte(g, Vector3.new(lato + 0.3, 0.6 * s, lato + 0.3), cf * CFrame.new(0, h * y - 1, 0), pietra, M.Limestone)
+	end
+	-- I bracci della croce, più alti del corpo, ognuno col suo timpano e una trifora.
+	for i = 0, 3 do
+		local braccio = cf * CFrame.Angles(0, i * math.pi / 2, 0)
+		parte(g, Vector3.new(7 * s, h + 3 * s, lato + 2 * s), braccio * CFrame.new(0, (h + 3 * s) / 2 - 1, 0), mattone, M.Brick)
+		tetto(g, braccio * CFrame.new(0, h + 3 * s - 1, 0) * CFrame.Angles(0, math.pi / 2, 0), lato + 2 * s, 7 * s, 2.2 * s, coppi, M.ClayRoofTiles, 0.5)
+		local muro = braccio * CFrame.new(0, h * 0.75, -(lato / 2 + 1.05 * s))
+		for k = -1, 1 do
+			finestraArco(g, muro * CFrame.new(k * 1.6 * s, 0, 0), 1.1 * s, 3 * s)
+		end
+	end
+	-- Porta ad arco sul fronte (verso -Z).
+	local fronte = cf * CFrame.new(0, 0, -(lato / 2 + 1.06 * s))
+	finestraArco(g, fronte * CFrame.new(0, 2.4 * s - 1, 0), 3 * s, 4.8 * s)
+	-- Tamburo ottagonale con le finestre e la cupoletta.
+	local tamburo = cf * CFrame.new(0, h + 3 * s, 0)
+	for i = 0, 7 do
+		local giro = tamburo * CFrame.Angles(0, i * math.pi / 4, 0)
+		parte(g, Vector3.new(3.4 * s, 5 * s, 0.8 * s), giro * CFrame.new(0, 2.5 * s - 1, -3.8 * s), mattone, M.Brick)
+		finestraArco(g, giro * CFrame.new(0, 2.6 * s - 1, -4.25 * s), 1 * s, 2.6 * s)
+	end
+	ovale(g, Vector3.new(8.4, 5, 8.4) * s, tamburo * CFrame.new(0, 4.6 * s - 1, 0), piombo, M.Concrete)
+	local oro = C(222, 184, 84)
+	parte(g, Vector3.new(0.3, 2.4, 0.3) * s, tamburo * CFrame.new(0, 8.2 * s - 1, 0), oro, M.Metal)
+	parte(g, Vector3.new(1.4, 0.3, 0.3) * s, tamburo * CFrame.new(0, 8.7 * s - 1, 0), oro, M.Metal)
+	local abside = parte(g, Vector3.new(h * 0.9, 7 * s, 7 * s), cf * CFrame.new(0, h * 0.45 - 1, lato / 2 + 1.5 * s) * CFrame.Angles(0, 0, math.pi / 2), mattone, M.Brick)
+	abside.Shape = Enum.PartType.Cylinder
+end
+ingombro("chiesaBizantina", 13)
+
+-- Colonna onoraria (come quella di Costantino): basamento a gradini, fusto di porfido con gli anelli di
+-- bronzo, capitello e la statua in cima.
+function P.colonnaBizantina(g, cf, rng, s, ctx)
+	local marmo = C(222, 214, 198)
+	local porfido = C(122, 54, 62)
+	local bronzo = C(140, 108, 60)
+	for i, d in ipairs({ 9, 7, 5.4 }) do
+		parte(g, Vector3.new(d, 1.2, d) * s, cf * CFrame.new(0, (i - 0.5) * 1.2 * s - 1, 0), marmo, M.Marble)
+	end
+	local fusto = cf * CFrame.new(0, 3.6 * s - 1, 0)
+	cilindro(g, fusto.Position, (fusto * CFrame.new(0, 30 * s, 0)).Position, 3.4 * s, porfido, M.Marble)
+	for y = 3, 27, 4 do
+		cilindro(g, (fusto * CFrame.new(0, y * s, 0)).Position, (fusto * CFrame.new(0, (y + 0.5) * s, 0)).Position, 3.65 * s, bronzo, M.Metal)
+	end
+	parte(g, Vector3.new(4.4, 1.6, 4.4) * s, fusto * CFrame.new(0, 30.8 * s, 0), marmo, M.Marble)
+	parte(g, Vector3.new(1.6, 3.2, 1.2) * s, fusto * CFrame.new(0, 33.2 * s, 0), bronzo, M.Metal)
+	palla(g, 1.1 * s, (fusto * CFrame.new(0, 35.4 * s, 0)).Position, bronzo, M.Metal)
+	parte(g, Vector3.new(0.3, 4, 0.3) * s, fusto * CFrame.new(1 * s, 34.6 * s, 0), bronzo, M.Metal)
+end
+ingombro("colonnaBizantina", 5)
+
+-- Bancarella del mercato: banco con la tenda a strisce su quattro pali, ceste, anfore e stoffe.
+local TENDE_MERCATO = { { C(196, 54, 44), C(236, 220, 186) }, { C(52, 92, 150), C(236, 220, 186) }, { C(214, 158, 52), C(150, 56, 40) }, { C(70, 120, 70), C(230, 214, 180) } }
+function P.bancarella(g, cf, rng, s, ctx)
+	local legno = varia(C(110, 78, 48), rng, 0.05)
+	local tenda = TENDE_MERCATO[rng:NextInteger(1, #TENDE_MERCATO)]
+	parte(g, Vector3.new(6, 0.4, 3) * s, cf * CFrame.new(0, 2.6 * s - 1, 0), legno, M.WoodPlanks)
+	parte(g, Vector3.new(5.6, 2.2, 0.2) * s, cf * CFrame.new(0, 1.5 * s - 1, -1.3 * s), legno:Lerp(C(0, 0, 0), 0.12), M.WoodPlanks)
+	for _, x in ipairs({ -2.8, 2.8 }) do
+		for _, z in ipairs({ -1.4, 1.4 }) do
+			parte(g, Vector3.new(0.3, z < 0 and 5 or 5.8, 0.3) * s, cf * CFrame.new(x * s, (z < 0 and 2.5 or 2.9) * s - 1, z * s), legno, M.Wood)
+		end
+	end
+	-- Tenda a strisce, inclinata verso il davanti.
+	local falda = cf * CFrame.new(0, 5.4 * s - 1, 0) * CFrame.Angles(-0.25, 0, 0)
+	for i = 0, 5 do
+		parte(g, Vector3.new(1.1 * s, 0.12, 4.2 * s), falda * CFrame.new((-2.75 + i * 1.1) * s, 0, 0), tenda[i % 2 + 1], M.Fabric)
+	end
+	-- La merce sul banco: ceste di frutta, anfore, rotoli di stoffa.
+	for i = 0, 2 do
+		local x = (-1.8 + i * 1.8) * s
+		local scelta = rng:NextInteger(1, 3)
+		if scelta == 1 then
+			cilindro(g, (cf * CFrame.new(x, 2.8 * s - 1, 0)).Position, (cf * CFrame.new(x, 3.6 * s - 1, 0)).Position, 1.4 * s, C(168, 128, 70), M.Fabric)
+			for k = 0, 3 do
+				palla(g, 0.5 * s, (cf * CFrame.new(x + (k % 2 - 0.5) * 0.5 * s, 3.8 * s - 1, (math.floor(k / 2) - 0.5) * 0.5 * s)).Position, ({ C(214, 120, 40), C(190, 40, 40), C(220, 190, 60) })[rng:NextInteger(1, 3)], M.SmoothPlastic)
+			end
+		elseif scelta == 2 then
+			ovale(g, Vector3.new(1, 1.6, 1) * s, cf * CFrame.new(x, 3.6 * s - 1, 0), C(176, 96, 60), M.Slate)
+		else
+			cilindro(g, (cf * CFrame.new(x - 0.7 * s, 3.1 * s - 1, 0)).Position, (cf * CFrame.new(x + 0.7 * s, 3.1 * s - 1, 0)).Position, 0.8 * s, ({ C(150, 40, 70), C(60, 90, 160), C(214, 180, 90) })[rng:NextInteger(1, 3)], M.Fabric)
+		end
+	end
+	-- Due ceste e un'anfora a terra, davanti.
+	cilindro(g, (cf * CFrame.new(-2 * s, 0, -2.4 * s)).Position, (cf * CFrame.new(-2 * s, 1.1 * s, -2.4 * s)).Position, 1.3 * s, C(168, 128, 70), M.Fabric)
+	ovale(g, Vector3.new(1.1, 2, 1.1) * s, cf * CFrame.new(1.8 * s, 1 * s - 1, -2.3 * s), C(176, 96, 60), M.Slate)
+end
+ingombro("bancarella", 4)
 
 -- Ridotta di terra (Borodino): terrapieno a ferro di cavallo con il fossato, i gabbioni e i cannoni.
 function P.ridotta(g, cf, rng, s, ctx)
