@@ -985,7 +985,7 @@ function P.cupola(g, cf, rng, s, ctx)
 	local abside = parte(g, Vector3.new(h * 0.6, 16 * s, 16 * s), cf * CFrame.new(0, h * 0.3 - 1, P0 / 2 + 11 * s) * CFrame.Angles(0, 0, math.pi / 2), ocra, M.Plaster)
 	abside.Shape = Enum.PartType.Cylinder
 end
-ingombro("cupola", 36)
+ingombro("cupola", 48) -- il modello di Blender (ModelliFoto SantaSofiaF1) è 81 x 92 studs
 
 -- Casa di Costantinopoli: piano terra di pietra con la fascia di mattoni e la porta ad arco, piano di sopra
 -- di legno intonacato che sporge sulla strada (sorretto da mensole), finestre con le imposte, tetto di coppi.
