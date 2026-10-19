@@ -17,6 +17,7 @@ local Dati = {}
 local ANTICA = { id = "rbxassetid://1839315075", volume = 0.7 } -- "Bravest Of The Braves" (Kosinus), 59,6 s
 local MEDIEVALE = { id = "rbxassetid://1836104037", volume = 0.7 } -- "Determined Epic Theme (Alt 2)" (Marc Dall'Anese), 67,5 s
 local NOVECENTO = { id = "rbxassetid://1839466301", volume = 0.75 } -- "War Of Heroes" (Kosinus), tamburi di guerra, 36,4 s
+local POLVERE = MEDIEVALE -- età della polvere da sparo: per ora lo stesso brano epico del Medioevo
 
 -- Scorciatoie per le sceneggiature qui sotto.
 local function R(id, tipo, squadra, file, righe, tappe, passo)
@@ -1001,6 +1002,313 @@ Dati["Paris"] = {
 		S(21, "...and De Gaulle marches in triumph.", 3.4),
 	},
 	titolo = { t = 27, testo = "PARIS", sotto = "1944", motto = SCRIVI },
+}
+
+-- Età della polvere da sparo ----------------------------------------------------------------------------
+-- Il giocatore ha il mazzo svedese (picchieri, moschettieri, corazzieri): dove serve, i suoi reparti fanno
+-- gli eserciti del suo lato (Bizantini, Imperiali, Lega Santa, Alleati); il nemico ha la sua armata vera.
+
+-- Costantinopoli, 1453: le bombarde aprono la breccia nelle mura teodosiane, i giannizzeri entrano e
+-- Bizantini e Genovesi di Giustiniani combattono davanti alla breccia. Le mura sono a z = 150, la breccia
+-- è larga ±36: lo sgombero resta dentro la breccia, se no si porterebbe via pezzi di mura.
+Dati["Constantinople"] = {
+	durata = 31,
+	musica = POLVERE,
+	sgombra = { { -70, 30, 70, 140 }, { -32, 140, 32, 185 }, { -60, 185, 60, 275 } },
+	reparti = {
+		R("bombarde", "CannoneOttomano", "nemico", 3, 1, { T(0, 0, 215, 180) }, 14),
+		R("giannizzeriS", "Giannizzero", "nemico", 6, 3, { T(0, -12, 175, 180), T(9), T(19, nil, 101) }),
+		R("giannizzeriD", "Giannizzero", "nemico", 6, 3, { T(0, 12, 178, 180), T(9.5), T(19.5, nil, 101) }),
+		R("giannizzeriC", "Giannizzero", "nemico", 6, 3, { T(0, 0, 200, 180), T(14), T(27, nil, 125) }),
+		R("bizantiniS", "UomoDArme", "giocatore", 6, 3, { T(0, -13, 97, 0) }),
+		R("bizantiniD", "UomoDArme", "giocatore", 6, 3, { T(0, 13, 97, 0) }),
+		R("genovesi", "BalestriereGenovese", "giocatore", 8, 2, { T(0, 0, 82, 0), T(21), T(28, nil, 45, 180) }),
+	},
+	inquadrature = {
+		I(0, 6, { 0, 50, -20 }, { 0, 15, 150 }, { 0, 42, 10 }, { 0, 12, 150 }, { fov = 50 }),
+		I(6, 5, { -28, 14, 262 }, { 0, 8, 215 }, { -20, 12, 252 }, { 0, 12, 150 }),
+		I(11, 5, { -30, 5, 70 }, { -12, 4, 150 }, { -26, 5, 74 }, { -12, 4, 110 }),
+		I(16, 8, { 0, 70, 30 }, { 0, 0, 110 }, { 0, 85, 50 }, { 0, 0, 110 }),
+		I(24, 7, { 38, 6, 70 }, { 0, 4, 100 }, { 32, 14, 50 }, { 0, 3, 110 }, { lineare = true, scossa = 0.12, fov = 60 }),
+	},
+	esplosioni = { { t = 7, x = 0, z = 150, raggio = 18, n = 6, durata = 4 } },
+	fuochi = {
+		{ t = 0, x = 0, z = 150, raggio = 24, n = 4, soloFumo = true, opacita = 0.3 },
+		{ t = 0, x = -48, z = 118, raggio = 10, n = 2 },
+	},
+	lanci = {
+		{ t = 6.6, reparto = "bombarde", punto = { 0, 152 }, colpo = "tiro", ripeti = 3, ogni = 1.5 },
+		{ t = 13.5, reparto = "genovesi", verso = "giannizzeriS", colpo = "tiro", ripeti = 3, ogni = 1.4, righe = 2 },
+		{ t = 16.5, reparto = "giannizzeriS", verso = "bizantiniS", colpo = "tiro" },
+		{ t = 16.8, reparto = "giannizzeriD", verso = "bizantiniD", colpo = "tiro" },
+	},
+	mischie = { da = 18.5, a = 31 },
+	cadute = {
+		{ reparto = "giannizzeriS", da = 14, a = 29, quota = 0.3 },
+		{ reparto = "giannizzeriD", da = 14, a = 29, quota = 0.3 },
+		{ reparto = "bizantiniS", da = 19.5, a = 30, quota = 0.6 },
+		{ reparto = "bizantiniD", da = 19.5, a = 30, quota = 0.6 },
+		{ reparto = "genovesi", da = 17, a = 27, quota = 0.3 },
+	},
+	scritte = {
+		S(1, "Constantinople, 1453. For fifty-three days the Sultan's guns pound the walls.", 4),
+		S(6.3, "At dawn the giant bombards open a breach."),
+		S(11.3, "The Janissaries storm through the gap."),
+		S(16.5, "Byzantines and Genoese fight at the breach...", 3.6),
+		S(21, "...but the great city of the Caesars falls.", 3.4),
+	},
+	titolo = { t = 27, testo = "CONSTANTINOPLE", sotto = "1453", motto = SCRIVI },
+}
+
+-- Lützen, 1632: nella nebbia la brigata svedese avanza sulla strada di Lipsia; Gustavo Adolfo guida la
+-- cavalleria, si spinge troppo avanti e cade sotto i corazzieri imperiali. Gli Svedesi vincono lo stesso.
+Dati["Lutzen"] = {
+	durata = 31,
+	musica = POLVERE,
+	sgombra = { { -80, -70, 80, 95 } },
+	reparti = {
+		R("picchieri", "PicchiereSvedese", "nemico", 6, 3, { T(0, 0, 55, 180), T(5), T(15, nil, 20) }),
+		R("moschettieriS", "MoschettiereSvedese", "nemico", 5, 2, { T(0, -24, 55, 180), T(5), T(13, nil, 22) }),
+		R("moschettieriD", "MoschettiereSvedese", "nemico", 5, 2, { T(0, 24, 55, 180), T(5), T(13, nil, 22) }),
+		R("gustavo", "GustavoAdolfo", "nemico", 1, 1, { T(0, 55, 62, 180), T(6), T(15, 48, 0) }),
+		R("scorta", "CorazziereSvedese", "nemico", 3, 2, { T(0, 55, 70, 180), T(6), T(15.5, 48, 8) }, 5),
+		R("cavalieriS", "Cavaliere", "giocatore", 3, 3, { T(0, -10, -45, 0), T(14), T(19.5, -4, 15) }, 5),
+		R("cavalieriD", "Cavaliere", "giocatore", 3, 2, { T(0, 45, -45, 0), T(13), T(18, 47, -6) }, 5),
+	},
+	inquadrature = {
+		-- Nella nebbia di Lützen da lontano non si vede niente: si parte vicini.
+		I(0, 6, { -38, 14, -18 }, { 0, 4, 45 }, { -28, 12, -6 }, { 0, 4, 40 }, { fov = 50 }),
+		I(6, 5, { -6, 5, -10 }, { 0, 4.5, 0 }, { -5, 4.5, -8 }, { 0, 4.5, -2 }, { segui = "gustavo" }),
+		I(11, 5, { -40, 4, 8 }, { -24, 4, 22 }, { -36, 4, 6 }, { 0, 4, 22 }),
+		I(16, 8, { 20, 30, -40 }, { 42, 0, 0 }, { 26, 38, -28 }, { 40, 0, 2 }),
+		I(24, 7, { -30, 6, -10 }, { 0, 3, 18 }, { -26, 13, -30 }, { 0, 2, 15 }, { lineare = true, scossa = 0.1, fov = 60 }),
+	},
+	lanci = {
+		{ t = 13.2, reparto = "moschettieriS", punto = { -10, -25 }, colpo = "tiro", ripeti = 2, ogni = 1.6, righe = 2 },
+		{ t = 13.4, reparto = "moschettieriD", punto = { 10, -25 }, colpo = "tiro", ripeti = 2, ogni = 1.6, righe = 2 },
+		{ t = 17.5, reparto = "moschettieriS", verso = "cavalieriS", colpo = "tiro", righe = 1 },
+	},
+	mischie = { da = 17, a = 31 },
+	cadute = {
+		{ reparto = "gustavo", da = 19, a = 19.6, quota = 1 },
+		{ reparto = "scorta", da = 18, a = 28, quota = 0.5 },
+		{ reparto = "cavalieriD", da = 18, a = 28, quota = 0.4 },
+		{ reparto = "cavalieriS", da = 18, a = 30, quota = 0.6 },
+		{ reparto = "picchieri", da = 19, a = 30, quota = 0.15 },
+	},
+	scritte = {
+		S(1, "Lutzen, 1632. A thick fog lies on the road to Leipzig.", 4),
+		S(6.3, "King Gustavus Adolphus rides at the head of his cavalry."),
+		S(11.3, "The Swedish musketeers fire in disciplined salvos."),
+		S(16.5, "In the fog, the King rides too far ahead...", 3.6),
+		S(21, "...and falls. But the Swedes fight on, and win.", 3.4),
+	},
+	titolo = { t = 27, testo = "LUTZEN", sotto = "1632", motto = SCRIVI },
+}
+
+-- Vienna, 1683: i giannizzeri e i sipahi sotto il Kahlenberg; al tramonto gli ussari alati di Sobieski
+-- scendono dalla collina nella più grande carica di cavalleria della storia. Il Danubio è a z = 0: la scena
+-- sta sulla riva sud, dove la collina sale alle spalle del giocatore.
+Dati["Vienna"] = {
+	durata = 31,
+	musica = POLVERE,
+	origine = { 0, -70 },
+	sgombra = { { -90, -120, 90, 45 } },
+	reparti = {
+		R("ussariS", "CorazziereSvedese", "giocatore", 4, 3, { T(0, -32, -88, 0), T(15), T(21, -30, 28) }, 5),
+		R("ussariC", "CorazziereSvedese", "giocatore", 4, 3, { T(0, 0, -92, 0), T(15), T(21.5, 0, 28) }, 5),
+		R("ussariD", "CorazziereSvedese", "giocatore", 4, 3, { T(0, 32, -88, 0), T(15), T(21, 30, 28) }, 5),
+		R("giannizzeriS", "Giannizzero", "nemico", 6, 3, { T(0, -20, 33, 180), T(24), T(31, nil, 55, 0) }),
+		R("giannizzeriD", "Giannizzero", "nemico", 6, 3, { T(0, 20, 33, 180), T(24), T(31, nil, 55, 0) }),
+		R("cannoni", "CannoneOttomano", "nemico", 2, 1, { T(0, 0, 42, 180) }, 14),
+		R("sipahi", "Sipahi", "nemico", 4, 2, { T(0, 58, 36, 180), T(16), T(21, 45, 12) }, 5),
+	},
+	inquadrature = {
+		I(0, 6, { -75, 30, -125 }, { 0, 0, 20 }, { -55, 26, -105 }, { 0, 0, 30 }, { fov = 50 }),
+		I(6, 5, { -34, 5, 18 }, { -20, 4, 33 }, { -30, 5, 15 }, { 10, 4, 38 }),
+		I(11, 5, { 8, 4, -74 }, { 0, 7, -92 }, { 5, 4, -76 }, { 0, 7, -90 }, { fov = 50 }),
+		I(16, 8, { -16, 6, -12 }, { 0, 3, 14 }, { -14, 7, -10 }, { 0, 3, 18 }, { segui = "ussariC" }),
+		I(24, 7, { -45, 8, 5 }, { 0, 3, 32 }, { -38, 16, -20 }, { 0, 2, 30 }, { lineare = true, scossa = 0.12, fov = 60 }),
+	},
+	esplosioni = { { t = 7, x = 0, z = -60, raggio = 25, n = 5, durata = 5 } },
+	lanci = {
+		{ t = 6.5, reparto = "cannoni", punto = { 0, -60 }, colpo = "tiro", ripeti = 3, ogni = 1.8 },
+		{ t = 18, reparto = "giannizzeriS", verso = "ussariS", colpo = "tiro", ripeti = 2, ogni = 1.5 },
+		{ t = 18.2, reparto = "giannizzeriD", verso = "ussariD", colpo = "tiro", ripeti = 2, ogni = 1.5 },
+	},
+	mischie = { da = 20, a = 31 },
+	cadute = {
+		{ reparto = "giannizzeriS", da = 20.5, a = 30, quota = 0.6 },
+		{ reparto = "giannizzeriD", da = 20.5, a = 30, quota = 0.6 },
+		{ reparto = "sipahi", da = 21, a = 29, quota = 0.5 },
+		{ reparto = "ussariS", da = 18, a = 29, quota = 0.15 },
+		{ reparto = "ussariD", da = 18, a = 29, quota = 0.15 },
+	},
+	scritte = {
+		S(1, "Vienna, 1683. For two months the Ottoman army has besieged the city.", 4),
+		S(6.3, "Janissaries and Sipahis hold the slopes below the Kahlenberg."),
+		S(11.3, "Then King Sobieski gives the signal..."),
+		S(16.5, "...and the Winged Hussars charge down the hill.", 3.6),
+		S(21, "The greatest cavalry charge in history breaks the siege.", 3.4),
+	},
+	titolo = { t = 27, testo = "VIENNA", sotto = "1683", motto = RIPETI },
+}
+
+-- Austerlitz, 1805: gli Alleati scendono dall'altopiano del Pratzen; quando esce il sole le colonne di
+-- Soult salgono al centro, le batterie sparano dal colle e i corazzieri spezzano la linea alleata.
+Dati["Austerlitz"] = {
+	durata = 31,
+	musica = POLVERE,
+	sgombra = { { -90, -70, 90, 100 } },
+	reparti = {
+		R("colonnaS", "FanteriaDiLinea", "nemico", 4, 4, { T(0, -25, 75, 180), T(10), T(20, nil, -5.5) }),
+		R("colonnaC", "FanteriaDiLinea", "nemico", 4, 4, { T(0, 0, 78, 180), T(10), T(20.5, nil, -5.5) }),
+		R("colonnaD", "FanteriaDiLinea", "nemico", 4, 4, { T(0, 25, 75, 180), T(10), T(20, nil, -5.5) }),
+		R("artS", "Artiglieria", "nemico", 1, 1, { T(0, -55, 88, 180) }),
+		R("artD", "Artiglieria", "nemico", 1, 1, { T(0, 55, 88, 180) }),
+		R("corazzieri", "Corazziere", "nemico", 4, 2, { T(0, 65, 70, 180), T(18), T(23, 42, -8) }, 5),
+		R("alleatiS", "MoschettiereSvedese", "giocatore", 6, 2, { T(0, -25, -10, 0), T(25), T(31, nil, -35, 180) }),
+		R("alleatiC", "MoschettiereSvedese", "giocatore", 6, 2, { T(0, 0, -10, 0), T(25), T(31, nil, -35, 180) }),
+		R("alleatiD", "MoschettiereSvedese", "giocatore", 6, 2, { T(0, 25, -10, 0), T(25), T(31, nil, -35, 180) }),
+		R("guardiaRussa", "CorazziereSvedese", "giocatore", 3, 2, { T(0, -60, -40, 0), T(17), T(22, -36, 0) }, 5),
+	},
+	inquadrature = {
+		I(0, 6, { -80, 30, -90 }, { 0, 10, 90 }, { -60, 28, -70 }, { 0, 10, 80 }, { fov = 50 }),
+		I(6, 5, { -40, 5, -25 }, { -22, 3, -10 }, { -36, 6, -22 }, { 10, 3, -10 }),
+		I(11, 5, { -12, 5, -16 }, { 0, 4, 0 }, { -9, 5, -12 }, { 0, 3, 4 }, { segui = "colonnaC" }),
+		I(16, 8, { 0, 80, -70 }, { 0, 0, 20 }, { 0, 95, -45 }, { 0, 0, 15 }),
+		I(24, 7, { 45, 7, -35 }, { 0, 3, -5 }, { 38, 15, -55 }, { 0, 2, 0 }, { lineare = true, scossa = 0.12, fov = 60 }),
+	},
+	esplosioni = { { t = 12, x = 0, z = -12, raggio = 30, n = 6, durata = 6 } },
+	lanci = {
+		{ t = 11.5, reparto = "artS", verso = "alleatiS", colpo = "tiro", ripeti = 3, ogni = 2 },
+		{ t = 11.8, reparto = "artD", verso = "alleatiD", colpo = "tiro", ripeti = 3, ogni = 2 },
+		{ t = 15, reparto = "alleatiS", verso = "colonnaS", colpo = "tiro", ripeti = 2, ogni = 1.6, righe = 2 },
+		{ t = 15.2, reparto = "alleatiC", verso = "colonnaC", colpo = "tiro", ripeti = 2, ogni = 1.6, righe = 2 },
+		{ t = 15.4, reparto = "alleatiD", verso = "colonnaD", colpo = "tiro", ripeti = 2, ogni = 1.6, righe = 2 },
+		{ t = 18, reparto = "colonnaC", verso = "alleatiC", colpo = "tiro" },
+	},
+	mischie = { da = 19, a = 31 },
+	cadute = {
+		{ reparto = "alleatiS", da = 12, a = 30, quota = 0.5 },
+		{ reparto = "alleatiC", da = 12, a = 30, quota = 0.5 },
+		{ reparto = "alleatiD", da = 12, a = 30, quota = 0.5 },
+		{ reparto = "colonnaS", da = 15, a = 29, quota = 0.2 },
+		{ reparto = "colonnaC", da = 15, a = 29, quota = 0.2 },
+		{ reparto = "colonnaD", da = 15, a = 29, quota = 0.2 },
+		{ reparto = "guardiaRussa", da = 22, a = 30, quota = 0.5 },
+		{ reparto = "corazzieri", da = 23, a = 30, quota = 0.1 },
+	},
+	scritte = {
+		S(1, "Austerlitz, 1805. At dawn, fog fills the valleys.", 4),
+		S(6.3, "The Russians and Austrians march against the French."),
+		S(11.3, "Then the sun breaks through, and Napoleon's columns attack.", 4),
+		S(16.5, "The French guns and cuirassiers break the Allied centre...", 3.6),
+		S(21, "...in Napoleon's greatest victory.", 3.4),
+	},
+	titolo = { t = 27, testo = "AUSTERLITZ", sotto = "1805", motto = SCRIVI },
+}
+
+-- Borodino, 1812: centinaia di cannoni francesi battono le fortificazioni russe, le colonne attaccano
+-- di continuo, i Russi contrattaccano. Il fiume Kolocha è a z = 0: la scena sta sulla riva russa.
+Dati["Borodino"] = {
+	durata = 31,
+	musica = POLVERE,
+	origine = { 0, -70 },
+	sgombra = { { -90, -90, 90, 50 } },
+	reparti = {
+		R("russiS", "MoschettiereSvedese", "giocatore", 6, 2, { T(0, -20, -25, 0) }),
+		R("russiD", "MoschettiereSvedese", "giocatore", 6, 2, { T(0, 20, -25, 0) }),
+		R("cavalleriaRussa", "CorazziereSvedese", "giocatore", 3, 2, { T(0, -58, -50, 0), T(18), T(23, -32, -20) }, 5),
+		R("colonnaS", "FanteriaDiLinea", "nemico", 4, 4, { T(0, -20, 42, 180), T(8), T(19, nil, -20.5) }),
+		R("colonnaD", "FanteriaDiLinea", "nemico", 4, 4, { T(0, 20, 44, 180), T(8.5), T(19.5, nil, -20.5) }),
+		R("artS", "Artiglieria", "nemico", 1, 1, { T(0, -50, 40, 180) }),
+		R("artD", "Artiglieria", "nemico", 1, 1, { T(0, 50, 40, 180) }),
+		R("corazzieri", "Corazziere", "nemico", 4, 2, { T(0, 62, 38, 180), T(17), T(23, 38, -22) }, 5),
+	},
+	inquadrature = {
+		I(0, 6, { -90, 50, -100 }, { 0, 0, 0 }, { -70, 42, -85 }, { 0, 0, 10 }, { fov = 50 }),
+		I(6, 5, { -30, 5, -42 }, { -20, 3, -25 }, { -27, 6, -40 }, { 10, 3, -25 }),
+		I(11, 5, { -12, 5, -16 }, { 0, 3, 0 }, { -10, 5, -12 }, { 0, 3, 2 }, { segui = "colonnaS" }),
+		I(16, 8, { 0, 75, -70 }, { 0, 0, 0 }, { 0, 95, -50 }, { 0, 0, 0 }),
+		I(24, 7, { 45, 7, -40 }, { 0, 3, -20 }, { 38, 15, -60 }, { 0, 2, -15 }, { lineare = true, scossa = 0.12, fov = 60 }),
+	},
+	esplosioni = { { t = 6, x = 0, z = -28, raggio = 30, n = 12, durata = 8 } },
+	fuochi = { { t = 0, x = 0, z = -36, raggio = 30, n = 5, soloFumo = true, opacita = 0.25 } },
+	lanci = {
+		{ t = 6.2, reparto = "artS", verso = "russiS", colpo = "tiro", ripeti = 3, ogni = 2 },
+		{ t = 6.6, reparto = "artD", verso = "russiD", colpo = "tiro", ripeti = 3, ogni = 2 },
+		{ t = 13, reparto = "russiS", verso = "colonnaS", colpo = "tiro", ripeti = 3, ogni = 1.6, righe = 2 },
+		{ t = 13.3, reparto = "russiD", verso = "colonnaD", colpo = "tiro", ripeti = 3, ogni = 1.6, righe = 2 },
+		{ t = 15, reparto = "colonnaS", verso = "russiS", colpo = "tiro" },
+		{ t = 15.3, reparto = "colonnaD", verso = "russiD", colpo = "tiro" },
+	},
+	mischie = { da = 18, a = 31 },
+	cadute = {
+		{ reparto = "russiS", da = 6, a = 30, quota = 0.4 },
+		{ reparto = "russiD", da = 6, a = 30, quota = 0.4 },
+		{ reparto = "colonnaS", da = 13, a = 29, quota = 0.5 },
+		{ reparto = "colonnaD", da = 13, a = 29, quota = 0.5 },
+		{ reparto = "cavalleriaRussa", da = 23, a = 30, quota = 0.3 },
+		{ reparto = "corazzieri", da = 23, a = 30, quota = 0.3 },
+	},
+	scritte = {
+		S(1, "Borodino, 1812. Napoleon has marched all the way to Russia.", 4),
+		S(6.3, "Hundreds of French guns pound the Russian earthworks."),
+		S(11.3, "Then the French columns attack, again and again."),
+		S(16.5, "The Russians counter-attack and fight to the last...", 3.6),
+		S(21, "...the bloodiest day of the war ends without a winner.", 3.4),
+	},
+	titolo = { t = 27, testo = "BORODINO", sotto = "1812", motto = TIENI },
+}
+
+-- Waterloo, 1815: Napoleone guarda dalle sue batterie, i corazzieri di Ney caricano più volte i quadrati
+-- britannici sul crinale di Mont-Saint-Jean e si infrangono; poi arrivano i Prussiani da sinistra.
+Dati["Waterloo"] = {
+	durata = 31,
+	musica = POLVERE,
+	sgombra = { { -120, -100, 90, 100 } },
+	reparti = {
+		R("quadratoS", "MoschettiereSvedese", "giocatore", 4, 4, { T(0, -28, -55, 0) }),
+		R("quadratoD", "MoschettiereSvedese", "giocatore", 4, 4, { T(0, 28, -55, 0) }),
+		R("prussiani", "MoschettiereSvedese", "giocatore", 6, 2, { T(0, -110, 0, 90), T(19), T(31, -65, 10, 90) }),
+		R("corazzieriS", "Corazziere", "nemico", 4, 2, { T(0, -60, 45, 180), T(9), T(17, -42, -58), T(23), T(29, nil, 35, 0) }, 5),
+		R("corazzieriC", "Corazziere", "nemico", 4, 2, { T(0, 0, 50, 180), T(9.5), T(17.5, -12, -60), T(23.5), T(29.5, nil, 35, 0) }, 5),
+		R("corazzieriD", "Corazziere", "nemico", 4, 2, { T(0, 60, 45, 180), T(9), T(17, 42, -58), T(23), T(29, nil, 35, 0) }, 5),
+		R("artiglieria", "Artiglieria", "nemico", 2, 1, { T(0, 15, 80, 180) }, 14),
+		R("napoleone", "Napoleone", "nemico", 1, 1, { T(0, -20, 88, 180) }),
+	},
+	inquadrature = {
+		I(0, 6, { -80, 40, -120 }, { 0, 0, 0 }, { -60, 34, -100 }, { 0, 0, 10 }, { fov = 50 }),
+		I(6, 5, { -13, 4, 78 }, { -20, 4, 88 }, { -16, 4.5, 76 }, { -20, 4.5, 88 }, { fov = 45 }),
+		I(11, 5, { -28, 6, -75 }, { -28, 4, -55 }, { -24, 5, -70 }, { -20, 3, -10 }),
+		I(16, 8, { 0, 70, -125 }, { 0, 0, -40 }, { 0, 90, -105 }, { 0, 0, -40 }),
+		I(24, 7, { 50, 7, -70 }, { 28, 4, -55 }, { 40, 15, -90 }, { 0, 2, -30 }, { lineare = true, scossa = 0.1, fov = 60 }),
+	},
+	-- Il bombardamento finisce prima dell'inquadratura dietro il quadrato (da vicino sbianca tutto).
+	esplosioni = { { t = 6.5, x = 0, z = -55, raggio = 35, n = 8, durata = 4 } },
+	lanci = {
+		{ t = 6.3, reparto = "artiglieria", verso = "quadratoS", colpo = "tiro", ripeti = 2, ogni = 2 },
+		{ t = 14, reparto = "quadratoS", verso = "corazzieriS", colpo = "tiro", ripeti = 3, ogni = 1.5 },
+		{ t = 14.3, reparto = "quadratoD", verso = "corazzieriD", colpo = "tiro", ripeti = 3, ogni = 1.5 },
+		{ t = 26, reparto = "prussiani", punto = { -30, 30 }, colpo = "tiro", righe = 1 },
+	},
+	mischie = { da = 16, a = 24 },
+	cadute = {
+		{ reparto = "corazzieriS", da = 14, a = 26, quota = 0.35 },
+		{ reparto = "corazzieriC", da = 14, a = 26, quota = 0.35 },
+		{ reparto = "corazzieriD", da = 14, a = 26, quota = 0.35 },
+		{ reparto = "quadratoS", da = 6.5, a = 24, quota = 0.2 },
+		{ reparto = "quadratoD", da = 6.5, a = 24, quota = 0.2 },
+	},
+	scritte = {
+		S(1, "Waterloo, 1815. Napoleon's last battle.", 4),
+		S(6.3, "The Emperor sends his cuirassiers against Wellington's line."),
+		S(11.3, "The British form squares and stand firm."),
+		S(16.5, "Charge after charge breaks against the squares...", 3.6),
+		S(21, "...until the Prussians arrive. The Empire falls.", 3.4),
+	},
+	titolo = { t = 27, testo = "WATERLOO", sotto = "1815", motto = RIPETI },
 }
 
 -- Armate fedeli alla storia (Mattia, 18/10/2026): nelle scene non si vedono più le carte del giocatore usate per
