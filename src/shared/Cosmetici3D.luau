@@ -643,7 +643,7 @@ local SUPERFICI = {
 	Ferro = { "Metallo", hex("#7C838E") }, FerroScuro = { "Metallo", hex("#4A5059") },
 	Acciaio = { "Metallo", hex("#9AA1AB") }, Ottone = { "Metallo", hex("#B8862A") },
 	Oro = { "Metallo", hex("#D9A93A") }, OroScuro = { "Metallo", hex("#A07A26") },
-	Maglia = { "MagliaMetallo", hex("#B4BAC4") },
+	Maglia = { "MagliaMetallo", hex("#F0F2F5") }, -- la texture ha già il suo colore (Chainmail004 di ambientCG)
 	Rubino = { "Lucido", hex("#B3182E") }, Zaffiro = { "Lucido", hex("#1F5FB8") }, Perla = { "Lucido", hex("#F2EEE4") },
 	Avorio = { "Satinato", hex("#E6DCC2") }, CornoPunta = { "Satinato", hex("#4A3A2A") },
 	BluOrizzonte = { "Satinato", hex("#6F8296") }, BluOrizzonteScuro = { "Satinato", hex("#5A6B7E") },
