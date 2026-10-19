@@ -17,7 +17,7 @@ local Dati = {}
 local ANTICA = { id = "rbxassetid://1839315075", volume = 0.7 } -- "Bravest Of The Braves" (Kosinus), 59,6 s
 local MEDIEVALE = { id = "rbxassetid://1836104037", volume = 0.7 } -- "Determined Epic Theme (Alt 2)" (Marc Dall'Anese), 67,5 s
 local NOVECENTO = { id = "rbxassetid://1839466301", volume = 0.75 } -- "War Of Heroes" (Kosinus), tamburi di guerra, 36,4 s
-local POLVERE = MEDIEVALE -- età della polvere da sparo: per ora lo stesso brano epico del Medioevo
+local POLVERE = { id = "rbxassetid://1840899338", volume = 0.7 } -- "The Regiment" (APM), marcia militare per l'età della polvere da sparo, 63,1 s
 
 -- Scorciatoie per le sceneggiature qui sotto.
 local function R(id, tipo, squadra, file, righe, tappe, passo)

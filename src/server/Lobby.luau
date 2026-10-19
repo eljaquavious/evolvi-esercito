@@ -317,33 +317,15 @@ local function corsia(parte)
 	return parte
 end
 
--- Tappeto di moquette da "a" a "b" (a terra), largo "larghezza": spesso, con una cornice più scura,
--- un filo dorato tra cornice e campo e le frange alle due estremità. "aperto" ("a" o "b") è il capo che
--- continua in un altro tappeto: lì niente cornice né frange, così i due sembrano uno solo.
-local function tappeto(genitore, a, b, larghezza, colore, aperto)
+-- Tappeto di moquette da "a" a "b" (a terra), largo "larghezza". Tutti i tappeti sono di un solo colore,
+-- marrone scuro quasi nero, senza cornice né frange (scelta di Mattia, 19/10/2026): "colore" e "aperto"
+-- restano per chi lo chiama ma non cambiano più l'aspetto.
+local MOQUETTE = Color3.fromRGB(40, 30, 24)
+local function tappeto(genitore, a, b, larghezza, _colore, _aperto)
 	local medio = (a + b) / 2
 	local cf = CFrame.lookAt(Vector3.new(medio.X, PAVIMENTO, medio.Z), Vector3.new(b.X, PAVIMENTO, b.Z))
 	local lunghezza = (Vector3.new(b.X, 0, b.Z) - Vector3.new(a.X, 0, a.Z)).Magnitude
-	local cornice = colore:Lerp(Color3.new(0, 0, 0), 0.45)
-	local frange = colore:Lerp(Color3.fromRGB(240, 228, 200), 0.75)
-	-- Nel CFrame il capo "b" è verso -Z, il capo "a" verso +Z.
-	local chiusoA, chiusoB = aperto ~= "a", aperto ~= "b"
-	local tagliaA, tagliaB = chiusoA and 0.7 or 0, chiusoB and 0.7 or 0
-	local t = corsia(scatola(genitore, Vector3.new(larghezza, 0.3, lunghezza), cf * CFrame.new(0, 0.15, 0), cornice, Enum.Material.Fabric))
-	corsia(scatola(genitore, Vector3.new(larghezza - 1.4, 0.34, lunghezza - tagliaA - tagliaB), cf * CFrame.new(0, 0.17, (tagliaB - tagliaA) / 2), colore, Enum.Material.Fabric))
-	local filoA, filoB = chiusoA and 0.5 or 0, chiusoB and 0.5 or 0
-	for lato = -1, 1, 2 do
-		scatola(genitore, Vector3.new(0.18, 0.32, lunghezza - filoA - filoB), cf * CFrame.new(lato * (larghezza / 2 - 0.55), 0.16, (filoB - filoA) / 2), ORO, Enum.Material.Fabric, { CanCollide = false })
-		if (lato == 1 and chiusoA) or (lato == -1 and chiusoB) then
-			scatola(genitore, Vector3.new(larghezza - 1, 0.32, 0.18), cf * CFrame.new(0, 0.16, lato * (lunghezza / 2 - 0.55)), ORO, Enum.Material.Fabric, { CanCollide = false })
-			-- Frange: fili chiari che escono dal capo.
-			for i = 0, math.floor(larghezza / 0.5) - 1 do
-				local x = -larghezza / 2 + 0.25 + i * 0.5
-				scatola(genitore, Vector3.new(0.12, 0.06, 0.7), cf * CFrame.new(x, 0.03, lato * (lunghezza / 2 + 0.35)), frange, Enum.Material.Fabric, { CanCollide = false, CastShadow = false })
-			end
-		end
-	end
-	return t
+	return corsia(scatola(genitore, Vector3.new(larghezza, 0.3, lunghezza), cf * CFrame.new(0, 0.15, 0), MOQUETTE, Enum.Material.Fabric))
 end
 
 ---------------------------------------------------------------------------------------------------------
@@ -685,12 +667,9 @@ local function rotonda(lobby)
 	local m = Instance.new("Model")
 	m.Name = "Rotonda"
 	local centro = Vector3.new(0, 0, 0)
-	-- Pavimento: pietra scura, anello chiaro, rosa dei venti.
+	-- Pavimento: tutto moquette scura di un colore solo, senza anelli né linee (scelta di Mattia, 19/10/2026).
 	-- Il disco grande sta un filo più basso dei pavimenti delle ali, che gli passano sopra alle porte.
-	colonna(m, 1, (R_ROTONDA + 6) * 2, Vector3.new(0, PAVIMENTO - 0.53, 0), Color3.fromRGB(84, 78, 74), Enum.Material.Slate)
-	colonna(m, 1, 70, Vector3.new(0, PAVIMENTO - 0.47, 0), PIETRA_CHIARA, Enum.Material.Limestone)
-	colonna(m, 1, 66, Vector3.new(0, PAVIMENTO - 0.45, 0), Color3.fromRGB(110, 100, 92), Enum.Material.Slate)
-	colonna(m, 1, 40, Vector3.new(0, PAVIMENTO - 0.43, 0), Color3.fromRGB(70, 64, 60), Enum.Material.Slate)
+	colonna(m, 1, (R_ROTONDA + 6) * 2, Vector3.new(0, PAVIMENTO - 0.53, 0), MOQUETTE, Enum.Material.Fabric)
 
 	local ALI = {
 		{ angolo = -math.pi / 2, colore = BLU, titolo = "CAMPAIGN", sotto = "Gallery of Eras" },
