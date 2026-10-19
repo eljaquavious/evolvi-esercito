@@ -530,20 +530,30 @@ S["Constantinople"] = {
 	-- delle bombarde, le case di legno e pietra, i cipressi, Santa Sofia alle tue spalle. Gli Ottomani entrano.
 	-- Le case sono quelle della città (Paesaggio.casaBizantina: pietra sotto, legno colorato sopra, coppi).
 	cornice = { { "casaBizantina", 46, 0.9, 1.3 }, { "cipresso", 24, 1.0, 1.4 } },
-	-- Dentro la città: tutto lastricato (piazza di pietra e strade di ciottoli), quasi piano.
-	terreno = { base = M.Pavement, campo = M.Cobblestone, chiazze = M.Pavement, alto = M.Pavement, sponda = M.Cobblestone, ondulazione = 1.5 },
+	-- Dentro la città: tutto lastricato, quasi piano. Salt e Asphalt li usa solo questa mappa: in MaterialService
+	-- hanno i lastrici fatti in Blender (assets-foto/lastrici.py): LastricoBizantino (grandi lastre di pietra,
+	-- piazze e strade) e CiottolatoBizantino (ciottoli, il campo di battaglia).
+	terreno = { base = M.Salt, campo = M.Asphalt, chiazze = M.Asphalt, alto = M.Salt, sponda = M.Asphalt, ondulazione = 1.5 },
 	flora = { { "cipresso", 16, 0.9, 1.3 }, { "ulivo", 8, 0.9, 1.2 }, { "cespuglio", 24, 0.8, 1.2 }, { "sassi", 30, 0.8, 1.2 } },
 	linee = {
 		{ "muraBizantine", { -270, 150 }, { -36, 150 }, 58, ctx = { lunghezza = 58 } },
 		{ "muraBizantine", { 36, 150 }, { 270, 150 }, 58, ctx = { lunghezza = 58 } },
 	},
 	gruppi = {
+		-- verso in gradi: il davanti (la porta) dell'oggetto guarda -Z ruotato di verso; -90 = verso +X.
+		-- Le case subito attorno al campo (fuori dalla cornice libera di 68 studs), su tutti e quattro i lati.
+		{ "casaBizantina", 12, { -110, -78, -110, 130 }, 1.0, 1.2, verso = -90 },
+		{ "casaBizantina", 12, { 78, 110, -110, 130 }, 1.0, 1.2, verso = 90 },
+		{ "casaBizantina", 8, { -135, -36, 78, 132 }, 1.0, 1.2, verso = "campo" },
+		{ "casaBizantina", 8, { 36, 135, 78, 132 }, 1.0, 1.2, verso = "campo" },
+		{ "casaBizantina", 6, { -135, -40, -125, -78 }, 1.0, 1.2, verso = "campo" },
+		{ "casaBizantina", 6, { 40, 135, -125, -78 }, 1.0, 1.2, verso = "campo" },
 		-- Due quartieri fitti ai lati del campo, le case rivolte verso la piazza.
-		{ "casaBizantina", 24, { -270, -95, -240, 125 }, 0.9, 1.3, verso = 90 },
-		{ "casaBizantina", 24, { 95, 270, -240, 125 }, 0.9, 1.3, verso = -90 },
+		{ "casaBizantina", 24, { -270, -95, -240, 125 }, 0.9, 1.3, verso = -90 },
+		{ "casaBizantina", 24, { 95, 270, -240, 125 }, 0.9, 1.3, verso = 90 },
 		{ "casaBizantina", 16, { -230, 230, -275, -150 }, 0.9, 1.2, verso = "campo" },
-		{ "chiesaBizantina", 2, { -250, -130, -200, 60 }, 0.9, 1.0, verso = 90 },
-		{ "chiesaBizantina", 2, { 130, 250, -200, 60 }, 0.9, 1.0, verso = -90 },
+		{ "chiesaBizantina", 2, { -250, -130, -200, 60 }, 1.6, 1.8, verso = -90 },
+		{ "chiesaBizantina", 2, { 130, 250, -200, 60 }, 1.6, 1.8, verso = 90 },
 		-- Il mercato abbandonato in fretta, tra la piazza e Santa Sofia.
 		{ "bancarella", 8, { -90, 90, -150, -95 }, 0.9, 1.1, verso = "campo" },
 		{ "fuoco", 8, { -230, 230, 110, 175 }, 1.0, 1.5 },

@@ -1136,7 +1136,7 @@ function P.chiesaBizantina(g, cf, rng, s, ctx)
 	local abside = parte(g, Vector3.new(h * 0.9, 7 * s, 7 * s), cf * CFrame.new(0, h * 0.45 - 1, lato / 2 + 1.5 * s) * CFrame.Angles(0, 0, math.pi / 2), mattone, M.Brick)
 	abside.Shape = Enum.PartType.Cylinder
 end
-ingombro("chiesaBizantina", 13)
+ingombro("chiesaBizantina", 15) -- il modello di Blender è 18 x 29
 
 -- Colonna onoraria (come quella di Costantino): basamento a gradini, fusto di porfido con gli anelli di
 -- bronzo, capitello e la statua in cima.
@@ -1195,7 +1195,7 @@ function P.bancarella(g, cf, rng, s, ctx)
 	cilindro(g, (cf * CFrame.new(-2 * s, 0, -2.4 * s)).Position, (cf * CFrame.new(-2 * s, 1.1 * s, -2.4 * s)).Position, 1.3 * s, C(168, 128, 70), M.Fabric)
 	ovale(g, Vector3.new(1.1, 2, 1.1) * s, cf * CFrame.new(1.8 * s, 1 * s - 1, -2.3 * s), C(176, 96, 60), M.Slate)
 end
-ingombro("bancarella", 4)
+ingombro("bancarella", 5)
 
 -- Ridotta di terra (Borodino): terrapieno a ferro di cavallo con il fossato, i gabbioni e i cannoni.
 function P.ridotta(g, cf, rng, s, ctx)

@@ -56,6 +56,8 @@ function Ambiente.imposta()
 		[Enum.Material.Snow] = false,
 		[Enum.Material.Ice] = false,
 		[Enum.Material.Cobblestone] = false,
+		[Enum.Material.Salt] = false, -- i lastrici di Costantinopoli (MaterialService): bianco, la texture è già colorata
+		[Enum.Material.Asphalt] = false,
 	}
 	-- Con la foto però l'erba ha un colore suo: Grass colora anche i fili d'erba 3D (bianco = verde acido) e
 	-- LeafyGrass un po' meno saturo, così il prato fotografico non è troppo acceso.
