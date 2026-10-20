@@ -129,6 +129,38 @@ local function seguiBersaglio()
 end
 
 local faseAttuale
+local diLato = false -- dopo la prima carta schierata il riquadro va in basso a sinistra (Mattia: "occupa lo schermo")
+
+-- Due misure del riquadro: grande al centro (benvenuto e prima carta), piccolo in basso a sinistra (il resto).
+local function impostaLayout()
+	if diLato then
+		riquadro.AnchorPoint = Vector2.new(0, 1)
+		riquadro.Position = UDim2.new(0, 28, 1, -28)
+		riquadro.Size = UDim2.fromOffset(290, 330)
+		titolo.Size = UDim2.new(1, -40, 0, 60)
+		titolo.TextWrapped = true
+		titolo.TextSize = 24
+		numeroPasso.Visible = false
+		testo.Position = UDim2.fromOffset(18, 78)
+		testo.Size = UDim2.new(1, -36, 0, 170)
+		bottoneAvanti.AnchorPoint = Vector2.new(0.5, 1)
+		bottoneAvanti.Position = UDim2.new(0.5, 0, 1, -14)
+		bottoneAvanti.Size = UDim2.fromOffset(170, 48)
+	else
+		riquadro.AnchorPoint = Vector2.new(0.5, 0)
+		riquadro.Position = UDim2.new(0.5, 0, 0, 230)
+		riquadro.Size = UDim2.fromOffset(760, 210)
+		titolo.Size = UDim2.new(1, -150, 0, 44)
+		titolo.TextWrapped = false
+		titolo.TextSize = 36
+		numeroPasso.Visible = true
+		testo.Position = UDim2.fromOffset(24, 62)
+		testo.Size = UDim2.new(1, -48, 0, 82)
+		bottoneAvanti.AnchorPoint = Vector2.new(1, 1)
+		bottoneAvanti.Position = UDim2.new(1, -18, 1, -14)
+		bottoneAvanti.Size = UDim2.fromOffset(190, 52)
+	end
+end
 
 local function mostraPasso()
 	local passo = passi and passi[indice]
@@ -141,6 +173,9 @@ local function mostraPasso()
 		chiudiRiquadro() -- il passo aspetta che la partita arrivi alla sua fase
 		return
 	end
+	-- Dopo la prima carta schierata (passo 2 fatto) il riquadro sta di lato.
+	diLato = indice > 2
+	impostaLayout()
 	titolo.Text = passo.titolo
 	testo.Text = passo.testo
 	numeroPasso.Text = ("%d / %d"):format(indice, #passi)
@@ -241,6 +276,7 @@ end
 function Tutorial.avvia()
 	passi, indice, attivo = PASSI, 1, true
 	faseAttuale = nil
+	diLato = false
 	if not connessione then
 		connessione = RunService.RenderStepped:Connect(function()
 			if attivo then
