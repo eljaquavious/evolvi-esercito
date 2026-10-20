@@ -647,9 +647,9 @@ local function plastico(genitore, centro, larghezza, profondita)
 		end
 	end
 	-- Bandierine sulle battaglie della campagna, del colore dell'epoca (come la GUI: oro, blu, verde).
-	local coloriEpoca = { Color3.fromRGB(255, 196, 60), Color3.fromRGB(70, 150, 255), Color3.fromRGB(90, 200, 90) }
+	local coloriEpoca = { Color3.fromRGB(255, 196, 60), Color3.fromRGB(70, 150, 255), Color3.fromRGB(230, 70, 70), Color3.fromRGB(90, 200, 90), Color3.fromRGB(170, 90, 230) }
 	for numero, battaglia in ipairs(Campagna.Battaglie) do
-		local indiceEpoca = math.floor((numero - 1) / Campagna.LIVELLI_PER_EPOCA) + 1
+		local indiceEpoca = Campagna.epocaDi(numero)
 		if battaglia.lat and battaglia.lon then
 			local col, riga = MappaEuropa.cella(battaglia.lat, battaglia.lon)
 			local x = -larghezza / 2 + col / PASSO * cx
@@ -807,6 +807,10 @@ local SALE_EPOCHE = {
 	Novecento = {
 		nome = "20TH CENTURY", pavimento = CEMENTO, materiale = Enum.Material.Concrete,
 		muri = Color3.fromRGB(116, 114, 108), materialeMuri = Enum.Material.Concrete, drappo = OLIVA, decoro = "travi",
+	},
+	Moderna = {
+		nome = "MODERN ERA", pavimento = Color3.fromRGB(150, 138, 110), materiale = Enum.Material.Concrete,
+		muri = Color3.fromRGB(176, 160, 124), materialeMuri = Enum.Material.Concrete, drappo = Color3.fromRGB(150, 122, 76), decoro = "travi",
 	},
 }
 local PASSO_FILA = 10 -- profondità di una fila di piedistalli
@@ -1182,7 +1186,7 @@ local function eroi(lobby, callback)
 	end
 	for i, id in ipairs(comandanti) do
 		local lato = i % 2 == 1 and -1 or 1
-		local z = 58 + math.floor((i - 1) / 2) * 18
+		local z = 58 + math.floor((i - 1) / 2) * 16 -- 12 statue: le ultime restano davanti al tavolo ARMY
 		local pos = Vector3.new(lato * 15, 0, z)
 		local verso = Vector3.new(-lato, 0, -0.25).Unit
 		colonna(m, 1.2, 10, pos + Vector3.new(0, PAVIMENTO + 0.6, 0), PIETRA_SCURA, Enum.Material.Slate)

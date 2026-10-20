@@ -687,7 +687,7 @@ function Mappa.inizializza(gui, r)
 	end)
 
 	-- In basso a sinistra: linguette delle epoche (portano al livello da giocare di quell'epoca).
-	local larghezzeSchede = { 206, 200, 290 }
+	local larghezzeSchede = { 180, 176, 250, 200, 180 }
 	local x = 26
 	for i, epoca in ipairs(Epoche.Lista) do
 		local larghezza = larghezzeSchede[i] or 220
@@ -712,7 +712,7 @@ function Mappa.inizializza(gui, r)
 				return
 			end
 			-- Il livello da giocare se è in questa epoca, altrimenti l'ultimo dell'epoca.
-			local ultimo = i * Campagna.LIVELLI_PER_EPOCA
+			local ultimo = Campagna.ultimoDellEpoca(i)
 			seleziona(math.min(stato and stato.livello or 1, ultimo, Campagna.TOTALE))
 		end)
 		x += larghezza + 12

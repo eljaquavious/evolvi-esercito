@@ -618,6 +618,8 @@ local COLORI_MESH = {
 	GiubbaScura = { hex("#4B5868"), STOFFA }, Crine = { hex("#A3242A"), STOFFA },
 	Piuma = { hex("#E9E4D6"), STOFFA }, PiumaRossa = { ROSSO, STOFFA }, Corda = { hex("#D9D2BE"), STOFFA },
 	Targa = { ROSSO, STOFFA },
+	-- Capelli corti da soldato sotto kepì e Adrian: coprono la nuca, così la testa non sembra calva.
+	CapelliCorti = { hex("#3A2A20"), Enum.Material.SmoothPlastic },
 }
 -- Texture che hanno già il loro colore (la parte resta SmoothPlastic sotto): ciocche del crine e pelo d'ermellino.
 local TEXTURE_MESH = {

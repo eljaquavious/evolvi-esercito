@@ -876,6 +876,8 @@ function Cinematica.riproduci(nome, centro, arena, fine)
 		musica.SoundId = dati.musica.id
 		musica.Volume = dati.musica.volume or 0.6
 		musica.TimePosition = dati.musica.inizio or 0
+		-- Nel gruppo della musica: il menu Settings la può togliere.
+		musica.SoundGroup = SoundService:FindFirstChild("Musica")
 		musica.Parent = SoundService
 		musica:Play()
 		stato.musica = musica

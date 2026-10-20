@@ -96,6 +96,10 @@ local function targhetta(player, personaggio, idTitolo, livello)
 	nome.RichText = true
 	nome.Text = ('<font color="#FFD23F">Lv.%d</font>  %s'):format(livello or 1, player.DisplayName)
 	local titolo = Config.titolo(idTitolo) or Config.titolo(Config.TITOLO_INIZIALE)
+	-- Il titolo compare anche accanto al nome nella chat (Client/Chat legge questi attributi).
+	player:SetAttribute("Titolo", titolo.nome)
+	player:SetAttribute("TitoloColore", Config.Rarita[titolo.rarita].colore)
+	player:SetAttribute("Livello", livello or 1)
 	local etichetta = gui:FindFirstChild("Titolo")
 	etichetta.Text = "« " .. string.upper(titolo.nome) .. " »"
 	etichetta.TextColor3 = Color3.fromHex(Config.Rarita[titolo.rarita].colore)

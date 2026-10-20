@@ -903,6 +903,58 @@ S["Paris"] = {
 	contestoOstacolo = { lunghezza = 12 },
 }
 
+-- Era moderna -------------------------------------------------------------------------------------------
+
+S["Khe Sanh"] = {
+	-- Gennaio 1968: la base dei Marines sull'altopiano di terra rossa, sacchetti, reticolati e trincee, crateri
+	-- dei mortai, l'erba alta (canne) e la giungla spezzata dalle bombe sulle colline attorno, nella nebbia.
+	cornice = { { "palma", 40, 1.0, 1.6 }, { "quercia", 36, 1.0, 1.6 }, { "alberoSpezzato", 40, 1.0, 1.6 }, { "cespuglio", 50, 1.0, 1.5 } },
+	terreno = { campo = M.Ground, chiazze = M.Mud, base = M.Ground, alto = M.LeafyGrass, sponda = M.Mud },
+	flora = { { "canne", 50, 0.9, 1.4 }, { "palma", 12, 0.9, 1.3 }, { "alberoSpezzato", 20, 0.8, 1.3 }, { "cespuglio", 40, 0.8, 1.3 }, { "ciuffo", 80, 0.8, 1.2 }, { "sassi", 20, 0.8, 1.2 } },
+	crateri = { 30, { -270, 270, -260, 260 }, 5, 10 },
+	trincee = { { { -210, -105 }, { -50, -105 } }, { { 50, -105 }, { 210, -105 } } },
+	linee = {
+		{ "filoSpinato", { -220, -88 }, { -60, -88 }, 22, ctx = { lunghezza = 22 } },
+		{ "filoSpinato", { 60, -88 }, { 220, -88 }, 22, ctx = { lunghezza = 22 } },
+		{ "sacchetti", { -200, -125 }, { -60, -125 }, 14, ctx = { lunghezza = 14 } },
+		{ "sacchetti", { 60, -125 }, { 200, -125 }, 14, ctx = { lunghezza = 14 } },
+		{ "palo", { -250, -160 }, { 250, -160 }, 40 },
+	},
+	gruppi = {
+		{ "casse", 6, { -200, 200, -220, -140 }, 0.9, 1.1 },
+		{ "cannone", 3, { -180, 180, -230, -170 }, 1, 1, verso = "campo" },
+		{ "relitto", 2, { -200, 200, 120, 230 }, 0.9, 1.0, ctx = { colore = C(70, 78, 56) } },
+		{ "casaDiroccata", 3, { 130, 260, 120, 250 }, 0.8, 1.0, verso = "campo" },
+	},
+	resti = 16,
+	ostacolo = { "canne", "alberoSpezzato", "sacchetti" },
+	contestoOstacolo = { lunghezza = 12 },
+}
+
+S["Panjshir"] = {
+	-- 1982: la valle stretta tra montagne nude, i villaggi di fango con i muretti dei campi, i pioppi lungo
+	-- il fiume, i blindati sovietici bruciati sulla strada.
+	terreno = { campo = M.Ground, chiazze = M.Sandstone, base = M.Ground, alto = M.Rock, sponda = M.Ground },
+	flora = { { "cipresso", 14, 0.9, 1.3 }, { "masso", 10, 0.7, 1.2 }, { "roccia", 30, 0.9, 1.8 }, { "arbusto", 40, 0.8, 1.3 }, { "ciuffo", 50, 0.8, 1.1 }, { "sassi", 60, 0.8, 1.3 } },
+	contesto = { secco = true },
+	linee = {
+		{ "muretto", { -260, 110 }, { -90, 110 }, 20, ctx = { lunghezza = 20 } },
+		{ "muretto", { 90, -120 }, { 260, -120 }, 20, ctx = { lunghezza = 20 } },
+		{ "relitto", { -230, -175 }, { 230, -175 }, 70, ctx = { colore = C(92, 96, 70) } },
+	},
+	gruppi = {
+		{ "casa", 6, { 140, 270, 100, 260 }, 0.8, 1.0, verso = "campo", ctx = { colore = C(176, 150, 112) } },
+		{ "casa", 4, { -270, -140, -250, -120 }, 0.8, 1.0, verso = "campo", ctx = { colore = C(176, 150, 112) } },
+		{ "rovina", 3, { -260, 260, -60, 60 }, 0.8, 1.0 },
+		{ "casse", 4, { -180, 180, -220, -140 }, 0.9, 1.1 },
+		{ "sacchetti", 3, { -160, 160, -140, -110 }, 1, 1, verso = 0, ctx = { lunghezza = 14 } },
+	},
+	crateri = { 12, { -260, 260, -250, 250 }, 5, 8 },
+	resti = 14,
+	ostacolo = { "masso", "roccia", "muretto" },
+	contestoOstacolo = { lunghezza = 12 },
+}
+
 -- Dati per il terreno (Arena) --------------------------------------------------------------------------
 
 function Scenari.dati(nome)
@@ -1377,12 +1429,14 @@ local CASE = {
 	Medievale = { "casa", "capanna" },
 	Polvere = { "casa", "pagliaio" },
 	Novecento = { "casaDiroccata" },
+	Moderna = { "casaDiroccata", "casa" },
 }
 local ROTTAMI = {
 	Antica = { "carro", "carroFalcato", "anfore", "palizzata" },
 	Medievale = { "carro", "botti", "pavesi", "staccionata" },
 	Polvere = { "cannoneAntico", "carro", "botti", "casse" },
 	Novecento = { "relitto", "barricata", "casse", "riccio", "cannone" },
+	Moderna = { "relitto", "relitto", "barricata", "sacchetti", "casse", "riccio" },
 }
 -- Pezzi piccoli sparsi attorno a quello grande, per epoca.
 local CONTORNO = {
@@ -1390,6 +1444,7 @@ local CONTORNO = {
 	Medievale = { "botti", "resti", "sassi" },
 	Polvere = { "botti", "resti", "casse" },
 	Novecento = { "casse", "sacchetti", "resti" },
+	Moderna = { "casse", "sacchetti", "resti" },
 }
 
 -- Ostacolo su una casella bloccata: un pezzo grande al centro e due piccoli attorno, dentro la casella.

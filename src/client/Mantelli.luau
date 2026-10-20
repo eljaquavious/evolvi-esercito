@@ -6,6 +6,8 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
+local Impostazioni = require(script.Parent.UI.Impostazioni)
+
 local Mantelli = {}
 
 local DISTANZA = 120 -- oltre questa distanza dalla telecamera i mantelli restano fermi
@@ -71,7 +73,7 @@ function Mantelli.inizializza()
 			local radice = personaggio and personaggio:FindFirstChild("HumanoidRootPart")
 			local cartella = personaggio and personaggio:FindFirstChild("Cosmetici")
 			local modello = cartella and cartella:FindFirstChild("Mantello")
-			if modello and radice and camera and (radice.Position - camera.CFrame.Position).Magnitude < DISTANZA then
+			if modello and radice and camera and not Impostazioni.prestazioni() and (radice.Position - camera.CFrame.Position).Magnitude < DISTANZA then
 				visti[modello] = true
 				aggiornaMantello(modello, radice, dt, tempo)
 			end

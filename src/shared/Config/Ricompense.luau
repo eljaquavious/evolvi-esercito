@@ -44,9 +44,10 @@ Ricompense.Titoli = {
 	{ id = "GranRe", nome = "High King", rarita = "epico", condizione = { "battaglia", 12 }, epoca = 2 },
 	{ id = "GranMaresciallo", nome = "Marshal of the Empire", rarita = "epico", condizione = { "battaglia", 18 }, epoca = 3 },
 	{ id = "Maresciallo", nome = "Field Marshal", rarita = "leggendario", condizione = { "battaglia", 24 }, epoca = 4 },
+	{ id = "ComandanteSupremo", nome = "Supreme Commander", rarita = "leggendario", condizione = { "battaglia", Campagna.TOTALE }, epoca = 5 },
 	{ id = "Flagello", nome = "Scourge of Armies", rarita = "epico", condizione = { "sconfitti", 500 } },
 	{ id = "Leggende", nome = "Keeper of Legends", rarita = "epico", condizione = { "comandanti" } },
-	{ id = "Stratega", nome = "Master Tactician", rarita = "leggendario", condizione = { "stelle", 72 } },
+	{ id = "Stratega", nome = "Master Tactician", rarita = "leggendario", condizione = { "stelle", Campagna.TOTALE * Campagna.STELLE_MASSIME } },
 	{ id = "Comandante", nome = "Commander", rarita = "raro", condizione = { "ranked", 10 } },
 	{ id = "Generalissimo", nome = "Generalissimo", rarita = "leggendario", condizione = { "ranked", 100 } },
 	{ id = "Mercenario", nome = "Mercenary", rarita = "raro", monete = 4000 },
@@ -148,9 +149,8 @@ function Ricompense.avanzamento(oggetto, d)
 	elseif tipo == "vittorie" then
 		return s.vittorie or 0, n
 	elseif tipo == "stelleEpoca" then
-		local per = Campagna.LIVELLI_PER_EPOCA
-		local massimo = per * Campagna.STELLE_MASSIME
-		return stelleDi(d, (n - 1) * per + 1, n * per), massimo
+		local massimo = Campagna.livelliEpoca(n) * Campagna.STELLE_MASSIME
+		return stelleDi(d, Campagna.primoDellEpoca(n), Campagna.ultimoDellEpoca(n)), massimo
 	elseif tipo == "stelle" then
 		return stelleDi(d, 1, Campagna.TOTALE), n
 	elseif tipo == "sconfitti" then
@@ -196,8 +196,9 @@ function Ricompense.comeSbloccare(oggetto)
 	local tipo, n = oggetto.condizione[1], oggetto.condizione[2]
 	if tipo == "battaglia" then
 		local battaglia = Campagna.Battaglie[n]
-		local epoca = Epoche.Lista[math.ceil(n / Campagna.LIVELLI_PER_EPOCA)]
-		if n % Campagna.LIVELLI_PER_EPOCA == 0 and epoca then
+		local indice = Campagna.epocaDi(n)
+		local epoca = Epoche.Lista[indice]
+		if n == Campagna.ultimoDellEpoca(indice) and epoca then
 			return ("Conquer the %s era (win %s)."):format(epoca.nome, battaglia.nome)
 		end
 		return ("Win the Battle of %s."):format(battaglia.nome)

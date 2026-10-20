@@ -56,6 +56,7 @@ local function stato(dati)
 		cosmetici = dati.cosmetici,
 		indossati = dati.indossati,
 		preferito = dati.preferito,
+		impostazioni = dati.impostazioni,
 	}
 end
 
@@ -82,6 +83,18 @@ end
 remoti.Ranked.OnServerInvoke = function(player)
 	ranked(player)
 	return false
+end
+
+-- Menu Settings: si salvano con i progressi, così valgono anche la volta dopo.
+local IMPOSTAZIONI = { musica = true, effetti = true, prestazioni = true }
+remoti.Impostazioni.OnServerInvoke = function(player, chiave, valore)
+	if typeof(chiave) ~= "string" or not IMPOSTAZIONI[chiave] or typeof(valore) ~= "boolean" or not Dati.ottieni(player) then
+		return false
+	end
+	Dati.modifica(player, function(d)
+		d.impostazioni[chiave] = valore
+	end)
+	return true
 end
 
 ModelliAsset.carica()

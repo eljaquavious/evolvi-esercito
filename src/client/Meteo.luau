@@ -4,6 +4,8 @@
 
 local RunService = game:GetService("RunService")
 
+local Impostazioni = require(script.Parent.UI.Impostazioni)
+
 local Meteo = {}
 
 local TIPI = {
@@ -80,7 +82,11 @@ function Meteo.imposta(tipo)
 		emettitore[k] = v
 	end
 	emettitore.Parent = blocco
-	for _ = 2, conf.emettitori or 1 do
+	-- Modalità prestazioni: un solo emettitore, a metà.
+	if Impostazioni.prestazioni() then
+		emettitore.Rate = emettitore.Rate / 2
+	end
+	for _ = 2, Impostazioni.prestazioni() and 1 or conf.emettitori or 1 do
 		emettitore:Clone().Parent = blocco
 	end
 	blocco.Parent = workspace

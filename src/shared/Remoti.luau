@@ -27,5 +27,6 @@ return {
 		"AcquistaOggetto", -- tipo, id: titolo o cosmetico con monete o Robux
 		"RiscattaCodice", -- testo del codice
 		"Preferito", -- il client avvisa che il gioco è nei Preferiti di Roblox: titolo e aura in regalo
+		"Impostazioni", -- chiave (musica, effetti, prestazioni), valore (true/false): menu Settings
 	},
 }

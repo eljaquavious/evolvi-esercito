@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Suoni = require(script.Parent.Suoni)
+local Impostazioni = require(script.Parent.UI.Impostazioni)
 
 local Effetti = {}
 
@@ -159,7 +160,7 @@ function Effetti.esplosione(posizione)
 	polvere.LightInfluence = 1
 	polvere.Rate = 0
 	polvere.Parent = ancora
-	polvere:Emit(14)
+	polvere:Emit(Impostazioni.prestazioni() and 5 or 14)
 	Debris:AddItem(ancora, 2)
 end
 

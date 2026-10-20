@@ -11,6 +11,7 @@ local Profilo = require(script.UI.Profilo)
 local Partita = require(script.UI.Partita)
 local Mappa = require(script.UI.Mappa)
 local Armadio = require(script.UI.Armadio)
+local Impostazioni = require(script.UI.Impostazioni)
 local Truppe = require(script.Truppe)
 local Paesaggio = require(script.Paesaggio)
 local LobbyVita = require(script.LobbyVita)
@@ -34,6 +35,7 @@ local gui = Stile.crea("ScreenGui", {
 
 Notifiche.inizializza(gui)
 require(script.UI.Preferiti).inizializza(remoti)
+require(script.Chat).inizializza()
 Truppe.inizializza(remoti)
 LobbyVita.inizializza(remoti)
 Mantelli.inizializza()
@@ -41,6 +43,7 @@ task.spawn(Paesaggio.inizializza)
 Shop.inizializza(gui, remoti)
 Inventario.inizializza(gui, remoti)
 Profilo.inizializza(gui)
+Impostazioni.inizializza(gui, remoti)
 Mappa.inizializza(gui, remoti)
 Armadio.inizializza(gui, remoti, {
 	-- Gli sblocchi si festeggiano in lobby, non in mezzo a una battaglia o sulla mappa.
@@ -50,7 +53,7 @@ Armadio.inizializza(gui, remoti, {
 })
 
 -- Una sola finestra aperta alla volta.
-local finestre = { Shop, Inventario, Profilo, Armadio }
+local finestre = { Shop, Inventario, Profilo, Armadio, Impostazioni }
 local function chiudiFinestre(tranne)
 	for _, finestra in ipairs(finestre) do
 		if finestra ~= tranne then
@@ -79,6 +82,7 @@ Hud.inizializza(gui, {
 	esercito = alterna(Inventario),
 	shop = alterna(Shop),
 	profilo = alterna(Profilo),
+	impostazioni = alterna(Impostazioni),
 	ranked = function()
 		remoti.Ranked:InvokeServer()
 	end,
@@ -97,6 +101,7 @@ Partita.inizializza(gui, remoti, function()
 end)
 
 local function aggiornaStato(stato)
+	Impostazioni.aggiorna(stato)
 	Hud.aggiorna(stato)
 	Shop.aggiorna(stato)
 	Inventario.aggiorna(stato)

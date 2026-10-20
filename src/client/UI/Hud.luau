@@ -23,7 +23,7 @@ local mazzoCarte, mediaOvr, epocheUi, prossima, chipStelle
 local mazzoMostrato -- per non ricostruire le carte se il mazzo non cambia
 local avvisoLocker
 
-local COLORI_EPOCA = { "oro", "blu", "rosso", "verde" }
+local COLORI_EPOCA = { "oro", "blu", "rosso", "verde", "viola" }
 
 local function nascondibile(oggetto)
 	table.insert(elementi, oggetto)
@@ -222,7 +222,7 @@ local function pannelloCampagna(tela)
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -12, 0, 6),
 			Size = UDim2.fromOffset(80, 34),
-			Text = "0/" .. Campagna.LIVELLI_PER_EPOCA * Campagna.STELLE_MASSIME,
+			Text = "0/" .. Campagna.livelliEpoca(i) * Campagna.STELLE_MASSIME,
 			TextSize = 28,
 			TextXAlignment = Enum.TextXAlignment.Right,
 			ZIndex = 4,
@@ -293,6 +293,17 @@ function Hud.inizializza(gui, a)
 		Parent = soldi,
 	}, "star", "0/" .. Campagna.TOTALE * Campagna.STELLE_MASSIME)
 	numeroStelle = stelle
+
+	-- Ingranaggio delle impostazioni in alto a destra (musica, effetti, modalità prestazioni).
+	if azioni.impostazioni then
+		local ingranaggio = nascondibile(Stile.pulsanteTondo({
+			Name = "Impostazioni",
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -28, 0, 36),
+			Parent = tela,
+		}, "blu", "settings", 104))
+		ingranaggio.Activated:Connect(azioni.impostazioni)
+	end
 
 	-- Sei riquadri a sinistra.
 	local menu = nascondibile(Stile.crea("Frame", {
@@ -483,9 +494,9 @@ function Hud.aggiorna(stato)
 	end
 
 	-- Avanzamento per epoca: stelle prese sul massimo; le epoche non ancora raggiunte sono grigie col lucchetto.
-	local per = Campagna.LIVELLI_PER_EPOCA
 	for i, ui in ipairs(epocheUi) do
-		local primo = (i - 1) * per + 1
+		local per = Campagna.livelliEpoca(i)
+		local primo = Campagna.primoDellEpoca(i)
 		local raggiunta = stato.completata or (stato.livello or 1) >= primo
 		local stelle = 0
 		for n = primo, primo + per - 1 do

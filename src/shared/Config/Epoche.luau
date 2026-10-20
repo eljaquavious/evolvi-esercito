@@ -80,6 +80,23 @@ Epoche.Lista = {
 		fortezza = "FortezzaNovecento",
 		mazzoIniziale = { "Fante", "Fante", "Fante", "Mitragliere", "Mitragliere", "CarroArmato" },
 	},
+	{
+		-- Era moderna (richiesta di Mattia): due battaglie sole, Vietnam e Afghanistan, con armate moderne.
+		-- Il mazzo iniziale è americano; i nemici sono i Nordvietnamiti a Khe Sanh e i Sovietici nel Panjshir.
+		id = "Moderna",
+		nome = "Modern Era",
+		colore = Color3.fromRGB(150, 122, 76),
+		livelli = 2,
+		truppe = {
+			"MarineUSA", "MitraglieriM60", "M48Patton",
+			"FanteNVA", "MitraglieriNVA", "PT76",
+			"VDV", "PKM", "BMP2",
+		},
+		comandanti = { "Giap", "Sokolov" },
+		-- Il bunker di cemento del Novecento va bene anche qui (Khe Sanh, le basi sovietiche).
+		fortezza = "FortezzaNovecento",
+		mazzoIniziale = { "MarineUSA", "MarineUSA", "MarineUSA", "MitraglieriM60", "MitraglieriM60", "M48Patton" },
+	},
 }
 
 Epoche.Truppe = {
@@ -431,6 +448,12 @@ local ARCHETIPI = {
 		Tiratore = { soldati = 3, hp = 400, danno = 16, cadenza = 3.0, gittata = 4.0, velocita = 0.7, armatura = 0.15 },
 		Cavalleria = { soldati = 1, hp = 1150, danno = 105, cadenza = 0.45, gittata = 3.0, velocita = 1.0, armatura = 0.45, area = 0.4 },
 	},
+	-- Era moderna: fucili d'assalto (più colpi, più lontano), mitragliatrici di squadra, carri e cingolati.
+	Moderna = {
+		Fanteria = { soldati = 8, hp = 700, danno = 50, cadenza = 1.1, gittata = 2.5, velocita = 1.05, armatura = 0.16 },
+		Tiratore = { soldati = 3, hp = 440, danno = 18, cadenza = 3.2, gittata = 4.2, velocita = 0.75, armatura = 0.15 },
+		Cavalleria = { soldati = 1, hp = 1250, danno = 115, cadenza = 0.5, gittata = 3.2, velocita = 1.1, armatura = 0.46, area = 0.4, veicolo = true },
+	},
 }
 
 local function reggimento(id, epoca, classe, origine, nome, descrizione, cambi)
@@ -498,6 +521,20 @@ reggimento("MG42", "Novecento", "Tiratore", "Germany", "MG 42 Team", "Hitler's b
 reggimento("Panzer", "Novecento", "Cavalleria", "Germany", "Panzer IV", "The workhorse of the Panzer divisions.", { hp = 1250, danno = 110, velocita = 0.9, armatura = 0.5, veicolo = true })
 reggimento("FanteFranciaLibera", "Novecento", "Fanteria", "France", "Free French Infantry", "Leclerc's men, first into Paris.")
 Epoche.Truppe.CarroArmato.veicolo = true
+
+-- Era moderna ----------------------------------------------------------------------------------------------
+-- Mazzo iniziale: i Marines americani in Vietnam.
+reggimento("MarineUSA", "Moderna", "Fanteria", "USA", "US Marines", "M16 rifles and flak jackets. Semper Fi.")
+reggimento("MitraglieriM60", "Moderna", "Tiratore", "USA", "M60 Gun Team", "The Pig: belt-fed fire that pins the enemy down.")
+reggimento("M48Patton", "Moderna", "Cavalleria", "USA", "M48 Patton", "The Marines' tank in Vietnam. 90 mm gun.")
+-- Khe Sanh 1968: l'esercito del Vietnam del Nord attorno alla base dei Marines.
+reggimento("FanteNVA", "Moderna", "Fanteria", "Vietnam", "NVA Regulars", "Pith helmets and AK-47s. Masters of the jungle.", { velocita = 1.15, armatura = 0.12, hp = 680 })
+reggimento("MitraglieriNVA", "Moderna", "Tiratore", "Vietnam", "NVA Machine Gunners", "Heavy DShK guns dug into the hills.", { danno = 20, cadenza = 2.8 })
+reggimento("PT76", "Moderna", "Cavalleria", "Vietnam", "PT-76 Tank", "Light amphibious tank that stormed Lang Vei.", { hp = 950, danno = 85, velocita = 1.3, armatura = 0.32 })
+-- Panjshir 1982: le offensive sovietiche nella valle.
+reggimento("VDV", "Moderna", "Fanteria", "USSR", "Soviet Paratroopers", "The VDV: blue berets and striped shirts.", { hp = 720, danno = 52, velocita = 1.1 })
+reggimento("PKM", "Moderna", "Tiratore", "USSR", "PKM Team", "Kalashnikov's general-purpose machine gun.", { cadenza = 3.4, danno = 17 })
+reggimento("BMP2", "Moderna", "Cavalleria", "USSR", "BMP-2", "Infantry fighting vehicle with a 30 mm autocannon.", { hp = 1050, danno = 70, cadenza = 0.9, gittata = 3.0, velocita = 1.3, armatura = 0.38, area = 0.25 })
 
 -- Comandanti nuovi ---------------------------------------------------------------------------------------
 Epoche.Truppe.Saladino = {
@@ -573,6 +610,43 @@ Epoche.Truppe.Rommel = {
 	velocita = 1.1,
 	armatura = 0.3,
 	aura = 0.15,
+}
+
+Epoche.Truppe.Giap = {
+	id = "Giap",
+	origine = "Vietnam",
+	abilita = { nome = "People's War", difesa = 0.15, velocita = 0.2, danno = 0.1, durata = 9 },
+	nome = "Vo Nguyen Giap",
+	epoca = "Moderna",
+	classe = "Fanteria",
+	comandante = true,
+	descrizione = "The general of Dien Bien Phu. Nearby allies hit harder.",
+	soldati = 1,
+	hp = 1150,
+	danno = 62,
+	cadenza = 1.1,
+	gittata = 2.5,
+	velocita = 1.1,
+	armatura = 0.3,
+	aura = 0.15,
+}
+Epoche.Truppe.Sokolov = {
+	id = "Sokolov",
+	origine = "USSR",
+	abilita = { nome = "Red Army Offensive", danno = 0.2, difesa = 0.1, durata = 9 },
+	nome = "Sergei Sokolov",
+	epoca = "Moderna",
+	classe = "Fanteria",
+	comandante = true,
+	descrizione = "Marshal of the Soviet Union. Nearby allies hit much harder.",
+	soldati = 1,
+	hp = 1200,
+	danno = 64,
+	cadenza = 1.1,
+	gittata = 2.5,
+	velocita = 1.0,
+	armatura = 0.35,
+	aura = 0.2,
 }
 
 -- Le carte che un giocatore può avere: reggimenti e comandanti, nell'ordine delle epoche.

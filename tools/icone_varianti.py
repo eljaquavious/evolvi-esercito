@@ -73,6 +73,18 @@ VARIANTI = {
     "Panzer IV": ("sherman_tank", -35, 0.45, 1.05),
     "Free French Infantry": ("french_poilus", -140, 0.7, 0.8),
     "Erwin Rommel": ("ferdinand_foch", 0, 0.15, 0.7),
+    # Era moderna
+    "US Marines": ("french_poilus", -40, 0.55, 0.7),
+    "M60 Gun Team": ("machine_gun_crew", -30, 0.45, 0.7),
+    "M48 Patton": ("sherman_tank", 0, 0.6, 0.8),
+    "NVA Regulars": ("french_poilus", -20, 0.8, 0.95),
+    "NVA Machine Gunners": ("machine_gun_crew", -20, 0.8, 0.95),
+    "PT-76 Tank": ("sherman_tank", 25, 1.0, 0.85),
+    "Soviet Paratroopers": ("french_poilus", 20, 0.5, 1.05),
+    "PKM Team": ("machine_gun_crew", 15, 0.45, 1.05),
+    "BMP-2": ("sherman_tank", -15, 0.5, 1.0),
+    "Vo Nguyen Giap": ("ferdinand_foch", -25, 0.8, 0.9),
+    "Sergei Sokolov": ("ferdinand_foch", 45, 0.5, 0.75),
 }
 
 

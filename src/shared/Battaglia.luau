@@ -79,6 +79,18 @@ Battaglia.TEMPI = {
 	CarroMarkV = { gesto = 0.35, volo = 9 },
 	T34 = { gesto = 0.35, volo = 9 },
 	Panzer = { gesto = 0.35, volo = 9 },
+	-- Era moderna: fucili d'assalto, mitragliatrici, carri; il BMP-2 spara a raffiche col cannoncino.
+	MarineUSA = { gesto = 0.2, volo = 40 },
+	FanteNVA = { gesto = 0.2, volo = 40 },
+	VDV = { gesto = 0.2, volo = 40 },
+	Giap = { gesto = 0.2, volo = 40 },
+	Sokolov = { gesto = 0.2, volo = 40 },
+	MitraglieriM60 = { gesto = 0.05, volo = 40 },
+	MitraglieriNVA = { gesto = 0.05, volo = 40 },
+	PKM = { gesto = 0.05, volo = 40 },
+	M48Patton = { gesto = 0.35, volo = 9 },
+	PT76 = { gesto = 0.35, volo = 9 },
+	BMP2 = { gesto = 0.25, volo = 14 },
 }
 local GESTO_MISCHIA = 0.3
 -- Lancio del pilum: una volta sola, prima della mischia.

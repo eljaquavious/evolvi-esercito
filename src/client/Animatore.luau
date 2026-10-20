@@ -83,6 +83,17 @@ Animatore.STILI = {
 	Panzer = "carro",
 	FanteFranciaLibera = "fucile",
 	Rommel = "pistola",
+	MarineUSA = "fucile",
+	MitraglieriM60 = "mitragliatrice",
+	M48Patton = "carro",
+	FanteNVA = "fucile",
+	MitraglieriNVA = "mitragliatrice",
+	PT76 = "carro",
+	VDV = "fucile",
+	PKM = "mitragliatrice",
+	BMP2 = "carro",
+	Giap = "pistola",
+	Sokolov = "pistola",
 }
 
 -- Lunghezza di un passo completo (due appoggi) in studs.

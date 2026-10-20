@@ -1,14 +1,43 @@
 -- Livelli della campagna: battaglie storiche sulla mappa d'Europa, generate in modo fisso
 -- (lo stesso livello ha sempre lo stesso terreno; ogni round ha la sua armata nemica).
--- Ogni epoca ha LIVELLI_PER_EPOCA livelli; a metà e all'ultimo c'è un comandante da battere.
+-- Ogni epoca ha LIVELLI_PER_EPOCA livelli (o quelli che dice Epoche.Lista[].livelli); a metà e all'ultimo c'è un comandante da battere.
 -- Un livello si vince al meglio di 5 round: quando ti manca una vittoria il nemico si chiude in una fortezza.
 
 local Epoche = require(script.Parent.Epoche)
 
 local Campagna = {}
 
+-- Livelli di un'epoca normale; un'epoca può averne di meno (Epoche.Lista[].livelli: l'Era Moderna ne ha 2).
 Campagna.LIVELLI_PER_EPOCA = 6
-Campagna.TOTALE = Campagna.LIVELLI_PER_EPOCA * #Epoche.Lista
+
+-- Quanti livelli ha l'epoca i, il numero del suo primo livello e l'epoca (con il posto dentro l'epoca) di un livello.
+function Campagna.livelliEpoca(i)
+	local epoca = Epoche.Lista[i]
+	return epoca and (epoca.livelli or Campagna.LIVELLI_PER_EPOCA) or 0
+end
+
+function Campagna.primoDellEpoca(i)
+	local primo = 1
+	for k = 1, i - 1 do
+		primo += Campagna.livelliEpoca(k)
+	end
+	return primo
+end
+
+function Campagna.ultimoDellEpoca(i)
+	return Campagna.primoDellEpoca(i) + Campagna.livelliEpoca(i) - 1
+end
+
+Campagna.TOTALE = Campagna.ultimoDellEpoca(#Epoche.Lista)
+
+function Campagna.epocaDi(numero)
+	for i = 1, #Epoche.Lista do
+		if numero <= Campagna.ultimoDellEpoca(i) then
+			return i, numero - Campagna.primoDellEpoca(i) + 1
+		end
+	end
+	return #Epoche.Lista, Campagna.livelliEpoca(#Epoche.Lista)
+end
 Campagna.COLONNE = 6
 Campagna.RIGHE = 6
 Campagna.RIGHE_GIOCATORE = 2
@@ -78,6 +107,12 @@ Campagna.Battaglie = {
 		armata = { "Granatieri", "MG42", "Panzer" } },
 	{ nome = "Paris", anno = "1944", lat = 48.86, lon = 2.35, bioma = "Pianeggiante", fiume = true, comandante = "DeGaulle", meteo = "tramonto", nemico = "the Free French",
 		armata = { "FanteFranciaLibera", "Mitragliere", "CarroArmato" } },
+	-- Era moderna. Vietnam e Afghanistan stanno fuori dalla mappa d'Europa: lat/lon qui sono il posto sulla mappa,
+	-- sul bordo a est (verso l'Asia), non quello vero (Khe Sanh 16.6 N 106.7 E, Panjshir 35.3 N 69.5 E).
+	{ nome = "Khe Sanh", trincee = true, anno = "1968", lat = 31.0, lon = 45.2, bioma = "Collinoso", comandante = "Giap", meteo = "nebbia", nemico = "the North Vietnamese",
+		luogo = "Vietnam", armata = { "FanteNVA", "MitraglieriNVA", "PT76" } },
+	{ nome = "Panjshir", anno = "1982", lat = 36.2, lon = 45.2, bioma = "Montagnoso", fiume = true, comandante = "Sokolov", meteo = "caldo", nemico = "the Soviets",
+		luogo = "Afghanistan", armata = { "VDV", "PKM", "BMP2" } },
 }
 -- Battaglie tolte quando i livelli sono scesi da 10 a 6 per epoca (i loro scenari restano in Scenari.luau,
 -- pronti per tornare): Marathon, Heraclea, Carthage, Aquae Sextiae, Manzikert, Lechfeld, Stamford Bridge,
@@ -113,7 +148,7 @@ Campagna.BLOCCATI = { ostacolo = true, casa = true, rottami = true, fiume = true
 -- Terreno del campo: { { col, riga, tipo } } con tipo "ostacolo" (naturale: alberi, rocce), "casa" (casupola,
 -- tenda, casa diroccata), "rottami" (carri rotti, relitti, barricate), "fiume" (rallenta ed espone), "guado"
 -- (punto basso del fiume, normale), "collina" (protegge e allunga il tiro) o "trincea" (ripara chi c'è dentro).
-local function generaTerreno(numero, locale, battaglia)
+local function generaTerreno(numero, locale, battaglia, indiceEpoca)
 	local rng = Random.new(numero * 7919)
 	local terreno, occupate = {}, {}
 	local function aggiungi(col, riga, tipo)
@@ -139,10 +174,12 @@ local function generaTerreno(numero, locale, battaglia)
 			end
 		end
 	end
-	-- Il primo livello di ogni epoca è un campo aperto: niente ostacoli (le trincee, se ci sono, restano).
-	if locale == 1 then
+	-- Il primo livello delle prime due epoche è un campo aperto: niente ostacoli (le trincee, se ci sono, restano).
+	if locale == 1 and indiceEpoca <= 2 then
 		return terreno
 	end
+	-- Più l'epoca è moderna, più il campo è ingombro (richiesta di Mattia): rottami, case, alberi abbattuti.
+	local ingombro = indiceEpoca - 1
 	-- Terra di nessuno: il fiume, se c'è, e qualche ostacolo naturale o rottame.
 	local rigaFiume
 	if battaglia.fiume then
@@ -155,16 +192,21 @@ local function generaTerreno(numero, locale, battaglia)
 			aggiungi(col, rigaFiume, guadi[col] and "guado" or "fiume")
 		end
 	end
-	local numeroOstacoli = rigaFiume and rng:NextInteger(1, 2) or rng:NextInteger(2, 3)
+	-- Terra di nessuno: 2-3 ostacoli, uno in più per ogni epoca dopo la prima (col fiume ne restano meno:
+	-- almeno metà delle caselle restano libere, così le armate passano).
+	local numeroOstacoli = (rigaFiume and rng:NextInteger(1, 2) or rng:NextInteger(2, 3)) + math.floor(ingombro * 0.75 + 0.5)
+	numeroOstacoli = math.min(numeroOstacoli, rigaFiume and 3 or 6)
+	-- Nelle epoche moderne gli ostacoli sono soprattutto rottami (carri bruciati, barricate, crateri).
+	local quotaNaturali = math.max(0.3, 0.6 - 0.08 * ingombro)
 	for _ = 1, numeroOstacoli do
 		local col, riga = casellaLibera(Campagna.RIGHE_GIOCATORE + 1, Campagna.PRIMA_RIGA_NEMICA - 1)
 		if col then
-			aggiungi(col, riga, rng:NextNumber() < 0.6 and "ostacolo" or "rottami")
+			aggiungi(col, riga, rng:NextNumber() < quotaNaturali and "ostacolo" or "rottami")
 		end
 	end
-	-- Su ogni metà del campo una o due casupole o rottami dove non ci si può schierare.
+	-- Su ogni metà del campo una o due casupole o rottami dove non ci si può schierare, una in più dalla terza epoca.
 	for _, righe in ipairs({ { 1, Campagna.RIGHE_GIOCATORE }, { Campagna.PRIMA_RIGA_NEMICA, Campagna.RIGHE } }) do
-		for _ = 1, locale <= 2 and 1 or rng:NextInteger(1, 2) do
+		for _ = 1, math.min(3, (locale <= 2 and 1 or rng:NextInteger(1, 2)) + math.floor(ingombro / 2)) do
 			local col, riga = casellaLibera(righe[1], righe[2])
 			if col then
 				aggiungi(col, riga, rng:NextNumber() < 0.5 and "casa" or "rottami")
@@ -192,13 +234,16 @@ end
 
 function Campagna.livello(numero)
 	numero = math.clamp(numero, 1, Campagna.TOTALE)
-	local indiceEpoca = math.floor((numero - 1) / Campagna.LIVELLI_PER_EPOCA) + 1
+	local indiceEpoca, locale = Campagna.epocaDi(numero)
 	local epoca = Epoche.Lista[indiceEpoca]
-	local locale = (numero - 1) % Campagna.LIVELLI_PER_EPOCA + 1
+	local livelliEpoca = Campagna.livelliEpoca(indiceEpoca)
 	local battaglia = Campagna.Battaglie[numero]
 	-- Grado da 1 a 10: quanto si è avanti nell'epoca, qualunque sia il numero dei suoi livelli.
-	local grado = 1 + (locale - 1) * 9 / math.max(1, Campagna.LIVELLI_PER_EPOCA - 1)
-	local numeroNemici = math.min(1 + math.floor(grado * 0.35), Campagna.MAX_REGGIMENTI - 1)
+	local grado = 1 + (locale - 1) * 9 / math.max(1, livelliEpoca - 1)
+	-- Più si va avanti nella campagna, più reggimenti ci sono in campo (richiesta di Mattia): il conto non
+	-- riparte da capo a ogni epoca ma cresce dall'inizio alla fine, da 1 nemico contro 2 fino a 6 contro 6.
+	local avanzamento = (numero - 1) / math.max(1, Campagna.TOTALE - 1)
+	local numeroNemici = math.clamp(1 + math.floor(avanzamento * 5 + 0.5), 1, Campagna.MAX_REGGIMENTI)
 
 	return {
 		numero = numero,
@@ -214,16 +259,17 @@ function Campagna.livello(numero)
 		nemico = battaglia.nemico or "the enemy",
 		armata = battaglia.armata or epoca.truppe,
 		citta = battaglia.citta,
-		terreno = generaTerreno(numero, locale, battaglia),
+		terreno = generaTerreno(numero, locale, battaglia, indiceEpoca),
 		numeroNemici = numeroNemici,
 		maxReggimenti = math.min(numeroNemici + 1, Campagna.MAX_REGGIMENTI),
-		forzaNemici = 1 + 0.025 * (grado - 1),
+		-- A parità di reggimenti (in fondo alla campagna) i nemici sono un po' più deboli.
+		forzaNemici = (1 + 0.025 * (grado - 1)) * (numeroNemici >= Campagna.MAX_REGGIMENTI and 0.93 or 1),
 		ricompensa = math.floor(40 + 15 * grado + 60 * (indiceEpoca - 1)),
 		-- Prima vittoria: il comandante del livello, oppure una carta dell'epoca a rotazione.
 		-- premio = la carta della prima vittoria quando non è né il boss né una dell'armata (gli Spartani alle Termopili).
 		premio = battaglia.premio,
 		cartaPremio = battaglia.comandante or battaglia.premio or (battaglia.armata or epoca.truppe)[1],
-		ultimoDellEpoca = locale == Campagna.LIVELLI_PER_EPOCA,
+		ultimoDellEpoca = locale == livelliEpoca,
 	}
 end
 

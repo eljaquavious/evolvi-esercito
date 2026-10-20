@@ -25,7 +25,7 @@ local filtro -- nil = tutte, altrimenti la classe (Fanteria, Cavalleria, Tirator
 local selezionato -- tipo della carta mostrata nel dettaglio
 
 -- Colore del chip dell'epoca nel dettaglio.
-local PAL_EPOCA = { Antica = "arancio", Medievale = "grigio", Novecento = "oro" }
+local PAL_EPOCA = { Antica = "arancio", Medievale = "grigio", Novecento = "oro", Moderna = "oro" }
 
 local LARGHEZZA_SINISTRA = 1220
 
