@@ -274,7 +274,7 @@ local function disegnaDettaglio()
 		Size = UDim2.fromOffset(120, 46),
 		LayoutOrder = 2,
 		Parent = riga,
-	}, "blu", ("x%d MEN"):format(def.soldati or 1), 24)
+	}, "blu", ("x%d MEN"):format((def.soldati or 1) + (def.guardia and def.guardia.numero or 0)), 24)
 	-- Origine: le abilità dei comandanti valgono doppio per le truppe della stessa origine.
 	if def.origine then
 		Stile.chip({

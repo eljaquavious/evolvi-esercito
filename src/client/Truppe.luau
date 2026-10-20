@@ -178,8 +178,9 @@ local function schieramento(dati)
 			-- frattempo può arrivare un altro schieramento (che non deve rifare lo stesso gruppo) o l'inizio
 			-- della battaglia (che lo toglie).
 			schierati[chiave] = gruppo
-			for _, offset in ipairs(Battaglia.formazione(def.soldati, def)) do
-				local s = nuovoSoldato(r.tipo, "giocatore", punto(r.x + offset[1], r.y + offset[2]), 0)
+			-- Il generale con la sua guardia del corpo, come in battaglia.
+			for _, posto in ipairs(Battaglia.composizione(def)) do
+				local s = nuovoSoldato(posto.def.id, "giocatore", punto(r.x + posto.x, r.y + posto.y), 0)
 				if schierati[chiave] ~= gruppo then
 					togli(s, true)
 					break

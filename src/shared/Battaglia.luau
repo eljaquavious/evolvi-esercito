@@ -178,6 +178,27 @@ function Battaglia.formazione(numero, def)
 	return lista
 end
 
+-- Soldati di un reggimento: { def, x, y } attorno al centro (stesse coordinate di formazione). Un generale con la
+-- guardia (def.guardia) sta subito dietro ai suoi soldati di scorta, che hanno le statistiche del loro reparto.
+function Battaglia.composizione(def)
+	local lista = {}
+	local guardia = def.guardia
+	if guardia and guardia.def then
+		local gdef = guardia.def
+		local dietro = math.huge
+		for _, offset in ipairs(Battaglia.formazione(guardia.numero, gdef)) do
+			table.insert(lista, { def = gdef, x = offset[1], y = offset[2] + 0.12 })
+			dietro = math.min(dietro, offset[2] + 0.12)
+		end
+		table.insert(lista, 1, { def = def, x = 0, y = dietro - (def.classe == "Cavalleria" and 0.36 or 0.26) })
+		return lista
+	end
+	for _, offset in ipairs(Battaglia.formazione(math.max(1, def.soldati or 1), def)) do
+		table.insert(lista, { def = def, x = offset[1], y = offset[2] })
+	end
+	return lista
+end
+
 local function distanza(a, b)
 	local dx, dy = a.x - b.x, a.y - b.y
 	return math.sqrt(dx * dx + dy * dy)
@@ -226,26 +247,31 @@ function Battaglia.nuova(reggimenti, opzioni)
 			abilitaUsata = false,
 		}
 		local avanti = r.squadra == "giocatore" and 1 or -1
-		for i, offset in ipairs(Battaglia.formazione(numero, def)) do
+		local hpTotale = 0
+		for i, posto in ipairs(Battaglia.composizione(def)) do
+			-- Ogni soldato ha la sua parte del reparto da cui viene (la guardia di un generale ha quella del suo reparto).
+			local sdef = posto.def
+			local parti = sdef == def and numero or math.max(1, sdef.soldati or 1)
+			hpTotale += sdef.hp * forza / parti
 			local s = {
 				id = r.id * 16 + i,
 				numero = i,
 				reggimento = reggimento,
 				squadra = r.squadra,
-				def = def,
-				x = r.x + offset[1] * avanti,
-				y = r.y + offset[2] * avanti,
-				raggio = Battaglia.raggio(def),
-				hpMax = def.hp * forza / numero,
-				hp = def.hp * forza / numero,
-				danno = def.danno * forza / numero,
+				def = sdef,
+				x = r.x + posto.x * avanti,
+				y = r.y + posto.y * avanti,
+				raggio = Battaglia.raggio(sdef),
+				hpMax = sdef.hp * forza / parti,
+				hp = sdef.hp * forza / parti,
+				danno = sdef.danno * forza / parti,
 				-- I soldati non colpiscono tutti nello stesso istante.
-				ricarica = ((i * 0.37) % 1) / (def.cadenza * 2),
+				ricarica = ((i * 0.37) % 1) / (sdef.cadenza * 2),
 				vivo = true,
 				bersaglio = nil,
 				ripensa = 0,
 				caricaUsata = false,
-				lancioUsato = not def.lancio,
+				lancioUsato = not sdef.lancio,
 				rivolto = r.squadra == "giocatore" and 0 or math.pi,
 				inMarcia = false,
 				inMischia = false,
@@ -257,6 +283,7 @@ function Battaglia.nuova(reggimenti, opzioni)
 			table.insert(self.soldati, s)
 			self.perId[s.id] = s
 		end
+		reggimento.hpMax = hpTotale -- con la guardia di un generale è più della vita del solo generale
 		table.insert(self.reggimenti, reggimento)
 		self.perReggimento[reggimento.id] = reggimento
 	end
@@ -477,10 +504,21 @@ function Battaglia:_bersaglio(u, dt)
 	return migliore
 end
 
--- Posto del comandante: i generali non combattono mai da soli (richiesta di Mattia), stanno attaccati a un
--- reggimento della loro squadra (il più vicino; se muore, il più vicino tra quelli rimasti) e lo seguono,
--- appena dietro il suo centro. Restituisce x, y del posto, oppure nil se non resta nessun reggimento.
+-- Posto del comandante: i generali non combattono mai da soli (richiesta di Mattia). Seguono la loro guardia
+-- (i soldati di scorta della loro carta), appena dietro; se la guardia cade, stanno attaccati al reggimento
+-- della loro squadra più vicino (se muore, al più vicino tra quelli rimasti).
+-- Restituisce x, y del posto, oppure nil se non resta nessun reggimento.
 function Battaglia:_postoComandante(u)
+	local avanti = u.squadra == "giocatore" and 1 or -1
+	local gx, gy, gn = 0, 0, 0
+	for _, s in ipairs(u.reggimento.soldati) do
+		if s.vivo and s ~= u and not s.def.comandante then
+			gx, gy, gn = gx + s.x, gy + s.y, gn + 1
+		end
+	end
+	if gn > 0 then
+		return gx / gn, math.clamp(gy / gn - 0.3 * avanti, 0.6, self.righe + 0.4)
+	end
 	local scorta = u.scorta
 	if not (scorta and scorta.vivo) then
 		scorta = nil
@@ -511,7 +549,6 @@ function Battaglia:_postoComandante(u)
 	if n == 0 then
 		return nil
 	end
-	local avanti = u.squadra == "giocatore" and 1 or -1
 	-- Dietro alla fortezza (che è grande) un po' di più che dietro a un reggimento.
 	local dietro = scorta.def.fortezza and 0.9 or 0.45
 	return sx / n, math.clamp(sy / n - dietro * avanti, 0.6, self.righe + 0.4)
@@ -950,7 +987,13 @@ function Battaglia:passo(dt)
 						})
 					end
 				elseif postoX then
-					if (u.x - postoX) ^ 2 + (u.y - postoY) ^ 2 > 0.3 ^ 2 then
+					-- Un nemico vicino (entro INGAGGIO oltre la sua portata) il generale lo va a combattere, senza
+					-- allontanarsi troppo dalla sua scorta (Mattia: "si attaccano alle armate ma non combattono").
+					local vicino = distanza(u, b) <= portata + INGAGGIO
+					local dalPosto = (b.x - postoX) ^ 2 + (b.y - postoY) ^ 2
+					if vicino and dalPosto <= (portata + INGAGGIO + 0.6) ^ 2 then
+						self:_muovi(u, b, dt, portata)
+					elseif (u.x - postoX) ^ 2 + (u.y - postoY) ^ 2 > 0.3 ^ 2 then
 						self:_muovi(u, { id = "scorta" .. u.id, x = postoX, y = postoY }, dt, 0)
 					else
 						u.rivolto = math.atan2(b.x - u.x, b.y - u.y)

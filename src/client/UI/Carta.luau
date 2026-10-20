@@ -229,7 +229,7 @@ function Carta.crea(tipo, opzioni)
 		local y = 216 + (r - 1) * 21
 		for c, chiave in ipairs(coppia) do
 			local x = 30 + (c - 1) * 84
-			local valore = chiave == "MEN" and def.soldati or v[chiave]
+			local valore = chiave == "MEN" and (def.soldati or 1) + (def.guardia and def.guardia.numero or 0) or v[chiave]
 			local numero = etichetta(
 				corpo,
 				x - 34,

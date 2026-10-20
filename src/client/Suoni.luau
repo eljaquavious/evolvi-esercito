@@ -122,6 +122,11 @@ local MUSICA = {
 	-- Lobby e mappa: musica tranquilla (Mattia voleva qualcosa come "Morning of D-Day" di HOI4, che non si può
 	-- usare su Roblox): "Mountainside Awakening - Leads Only", "Soleil Levant", "Slow Movement" (APM).
 	lobby = { volume = 0.22, ids = { 9043694722, 1837591314, 1836331268 } },
+	-- Round vinto, cinematica tra i round: musica "vittoriosa a metà" (Mattia, 20/10/2026).
+	-- "Conquering Heroes Link", "Glorious Morning Link" (APM), circa 13 s. Ripartono sempre da capo.
+	roundVinto = { volume = 0.34, ids = { 83315768373322, 100735630401429 }, daCapo = true },
+	-- Battaglia vinta (il gioco intero): "Homecoming Of The Victorious", "March of Justice 30A" (APM).
+	vittoria = { volume = 0.36, ids = { 1838608860, 1835323453 }, daCapo = true },
 }
 
 local DISSOLVENZA = 1.6
@@ -189,7 +194,13 @@ function Suoni.musica(momento)
 	end
 	if momento and MUSICA[momento] then
 		local b = branoDi(momento)
-		if b.suono.IsPaused and b.suono.TimePosition > 0 then
+		if MUSICA[momento].daCapo then
+			-- Brani brevi per un momento preciso: ogni volta il brano dopo, dall'inizio.
+			if b.suono.TimePosition > 0 then
+				prossimoBrano(momento)
+			end
+			b.suono:Play()
+		elseif b.suono.IsPaused and b.suono.TimePosition > 0 then
 			b.suono:Resume()
 		else
 			b.suono:Play()

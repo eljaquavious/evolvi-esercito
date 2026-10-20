@@ -652,6 +652,29 @@ Epoche.Truppe.PengDehuai = {
 	aura = 0.15,
 }
 
+-- Armata di ogni generale: la sua carta (una sola) porta in battaglia anche un reggimento intero di questo reparto,
+-- nello stesso reggimento del generale (Mattia, 20/10/2026: "la carta del generale contiene anche la sua armata").
+local GUARDIE = {
+	Annibale = { "CavalleriaNumidica" },
+	Cesare = { "CavalleriaGermanica" }, -- la guardia germanica di Cesare
+	Guglielmo = { "CavaliereNormanno" },
+	Saladino = { "Mamelucco" },
+	Giovanna = { "UomoDArme" },
+	GustavoAdolfo = { "CorazziereSvedese" },
+	Napoleone = { "FanteriaDiLinea" }, -- la Vecchia Guardia
+	Foch = { "Fante" },
+	Rommel = { "Granatieri" },
+	DeGaulle = { "FanteFranciaLibera" },
+	PengDehuai = { "FantePVA" },
+	Giap = { "FanteNVA" },
+}
+for generale, g in pairs(GUARDIE) do
+	local def, guardia = Epoche.Truppe[generale], Epoche.Truppe[g[1]]
+	if def and guardia then
+		def.guardia = { tipo = g[1], numero = math.max(1, guardia.soldati or 1), def = guardia } -- un reggimento intero
+	end
+end
+
 -- Le carte che un giocatore può avere: reggimenti e comandanti, nell'ordine delle epoche.
 function Epoche.carte()
 	local lista = {}

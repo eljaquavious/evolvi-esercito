@@ -10,7 +10,8 @@ local RIFERIMENTO = { Testa = "Testa", Corpo = "Busto", Schiena = "Busto" }
 local MISURA = { Testa = 1.2 } -- larghezza della testa standard (il busto standard è 2 x 1.6 x 1)
 local ALZA_TESTA = 0.12 -- di quanto si alzano i copricapi sopra la posizione disegnata in Blender (testa standard)
 -- In più per i copricapi con la tesa o la visiera sul davanti, che scendono sugli occhi.
-local ALZA_EXTRA = { Kepi = 0.3, Adrian = 0.3, ElmoM1 = 0.26, Vichingo = 0.12 }
+-- Kepì e Adrian: a metà tra prima (0) e il 20/10 (0.3), perché alzati scoprivano troppo la nuca (Mattia).
+local ALZA_EXTRA = { Kepi = 0.1, Adrian = 0.1, ElmoM1 = 0.26, Vichingo = 0.12 }
 
 local function hex(h)
 	return Color3.fromHex(h)
@@ -837,6 +838,17 @@ function Cosmetici3D.indossa(personaggio, id, slot)
 		k *= Vector3.new(1.04, 1.02, 1.2)
 	end
 	scala(modello, k)
+	if riferimento == "Testa" then
+		-- I capelli corti sotto il copricapo (CapelliCorti) restano attaccati in alto al copricapo alzato ma
+		-- scendono fino alla nuca come se non fosse alzato: si allungano verso il basso di quanto è salito.
+		local alzato = (ALZA_TESTA + (ALZA_EXTRA[id] or 0)) * k.Y
+		for _, p in ipairs(modello:GetDescendants()) do
+			if p:IsA("MeshPart") and string.match(p.Name, "^[^_]+_CapelliCorti") then
+				p.Size += Vector3.new(0, alzato, 0)
+				p.CFrame -= Vector3.new(0, alzato / 2, 0)
+			end
+		end
+	end
 	for nome, valore in pairs(modello:GetAttributes()) do
 		if string.sub(nome, 1, 8) == "Cerniera" then
 			modello:SetAttribute(nome, valore * k) -- nello spazio della parte del corpo, come il modello

@@ -60,7 +60,7 @@ Ricompense.Titoli = {
 Ricompense.Cosmetici = {
 	-- Testa
 	{ id = "Galea", nome = "Legionary Galea", slot = "Testa", rarita = "raro", condizione = { "battaglia", 1 }, epoca = 1 },
-	{ id = "Alloro", nome = "Laurel Wreath", slot = "Testa", rarita = "epico", condizione = { "stelleEpoca", 1 }, epoca = 1 },
+	{ id = "Alloro", nome = "Laurel Wreath", slot = "Testa", rarita = "epico", condizione = { "stelleEpoca", 1 }, epoca = 1, lasciaCapelli = true },
 	{ id = "ElmoGrande", nome = "Great Helm", slot = "Testa", rarita = "raro", condizione = { "battaglia", 9 }, epoca = 2 },
 	{ id = "Adrian", nome = "Adrian Helmet", slot = "Testa", rarita = "raro", condizione = { "battaglia", 20 }, epoca = 4 },
 	{ id = "Kepi", nome = "Marshal's Kepi", slot = "Testa", rarita = "epico", condizione = { "stelleEpoca", 4 }, epoca = 4 },

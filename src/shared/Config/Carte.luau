@@ -30,8 +30,14 @@ function Carte.valutazioni(def)
 	}
 	-- L'OVR pesa di più attacco e vita; parte da una base per l'epoca, così le epoche più avanzate valgono di più.
 	local media = v.ATK * 0.3 + v.HP * 0.3 + v.SPD * 0.15 + v.RNG * 0.1 + v.DEF * 0.15
-	local base = 30 + 12 * ((Epoche.indice(def.epoca) or 1) - 1) + (def.comandante and 8 or 0)
-	v.OVR = math.clamp(math.floor(base + media * 0.55 + 0.5), 1, 99)
+	-- Bilanciato il 20/10/2026 (Mattia: "troppe carte a 99"): epoca per epoca circa 47-64, 55-73, 64-82, 76-90, 85-95.
+	-- Sopra 88 il valore cresce la metà, così il 99 non si raggiunge quasi mai.
+	local base = 36 + 8 * ((Epoche.indice(def.epoca) or 1) - 1) + (def.comandante and 6 or 0)
+	local ovr = base + media * 0.42
+	if ovr > 88 then
+		ovr = 88 + (ovr - 88) * 0.5
+	end
+	v.OVR = math.clamp(math.floor(ovr + 0.5), 1, 99)
 	return v
 end
 

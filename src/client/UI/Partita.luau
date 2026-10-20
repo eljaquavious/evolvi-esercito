@@ -598,6 +598,10 @@ local function mostraRound(dati)
 	scrittaConto.Visible = false
 	mostraTimer(nil)
 	aggiornaPunteggio(dati)
+	-- Round vinto: musica vittoriosa a metà; se era l'ultimo, già quella della vittoria.
+	if dati.vittoria then
+		Suoni.musica(dati.finita and "vittoria" or "roundVinto")
+	end
 	if info and info.centro then
 		bannerRound.Visible = false
 		Intermezzo.riproduci(dati, info.centro)
@@ -623,7 +627,11 @@ end
 
 local function mostraRisultato(dati)
 	fase = "risultato"
-	Suoni.fermaMusica()
+	if dati.vittoria then
+		Suoni.musica("vittoria") -- se suona già dalla cinematica dell'ultimo round, continua
+	else
+		Suoni.fermaMusica()
+	end
 	mostraPiazzamento(false)
 	mostraVinci(false)
 	scrittaConto.Visible = false
