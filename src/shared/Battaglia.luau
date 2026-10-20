@@ -224,6 +224,7 @@ function Battaglia.nuova(reggimenti, opzioni)
 	self.ordini = { giocatore = "avanza", nemico = "avanza" }
 	self.ultimoOrdine = { giocatore = -math.huge, nemico = -math.huge }
 	self.caricaUsata = {}
+	self.mire = { giocatore = {}, nemico = {} } -- bersagli scelti: [id del proprio reggimento o 0 = tutti] -> filtro
 	self.tempo = 0
 	self.finita = false
 	self.vincitore = nil
@@ -410,6 +411,61 @@ function Battaglia:ordine(squadra, nome, automatico)
 	return true
 end
 
+-- Bersagli (Mattia, 20/10/2026: "ordini più dettagliati, targetta questo, quest'altro"). filtro = una classe
+-- ("Fanteria", "Cavalleria", "Tiratore"), "Comandante", l'id di un reggimento nemico, oppure nil (nessuno: ognuno
+-- sceglie il nemico più vicino). proprio = id di un reggimento della squadra (solo lui) o nil (tutta l'armata,
+-- e allora vale anche per chi aveva un bersaglio suo). Restituisce false e il motivo se non si può.
+Battaglia.CLASSI_BERSAGLIO = { Fanteria = true, Cavalleria = true, Tiratore = true, Comandante = true }
+function Battaglia:bersaglio(squadra, filtro, proprio)
+	local mire = self.mire[squadra]
+	if self.finita or not mire then
+		return false, nil
+	end
+	if filtro ~= nil and not Battaglia.CLASSI_BERSAGLIO[filtro] then
+		local r = self.perReggimento[filtro]
+		if not (r and r.vivo and r.squadra ~= squadra) then
+			return false, "That regiment cannot be targeted."
+		end
+	end
+	if proprio ~= nil then
+		local r = self.perReggimento[proprio]
+		if not (r and r.vivo and r.squadra == squadra) then
+			return false, "That regiment is no longer on the field."
+		end
+		mire[proprio] = filtro or false -- false = libero anche se tutta l'armata ha un bersaglio
+	else
+		table.clear(mire)
+		mire[0] = filtro
+	end
+	for _, s in ipairs(self.soldati) do
+		if s.vivo and s.squadra == squadra and (proprio == nil or s.reggimento.id == proprio) then
+			s.ripensa = 0
+		end
+	end
+	table.insert(self.eventiInAttesa, { tipo = "bersaglio", squadra = squadra, filtro = filtro, reggimento = proprio })
+	return true
+end
+
+-- Il nemico "altro" va bene per il filtro di bersaglio?
+local function adatto(altro, filtro)
+	if type(filtro) == "number" then
+		return altro.reggimento.id == filtro
+	elseif filtro == "Comandante" then
+		return altro.def.comandante == true
+	end
+	return altro.def.classe == filtro
+end
+
+-- Filtro di bersaglio che vale per il soldato u (quello del suo reggimento prima di quello di tutta l'armata).
+function Battaglia:_mira(u)
+	local mire = self.mire[u.squadra]
+	local suo = mire[u.reggimento.id]
+	if suo ~= nil then
+		return suo or nil
+	end
+	return mire[0]
+end
+
 -- Ordini che finiscono da soli: la carica dopo DURATA_CARICA torna avanzata, la ritirata finita (o durata
 -- troppo) diventa una linea da tenere.
 function Battaglia:_aggiornaOrdini()
@@ -465,16 +521,19 @@ end
 
 -- Sceglie il nemico da attaccare: il più vicino, ma chi ha già tanti addosso conta come più lontano.
 -- Con l'ordine "fianchi" la cavalleria preferisce i tiratori nemici (finché ce ne sono).
+-- Con un bersaglio scelto (Battaglia:bersaglio) va sul più vicino tra quelli adatti, finché ce ne sono.
 function Battaglia:_bersaglio(u, dt)
 	local attuale = u.bersaglio
+	local filtro = self:_mira(u)
 	u.ripensa = u.ripensa - dt
-	if attuale and attuale.vivo and (self:_inGittata(u, attuale) or u.ripensa > 0) then
+	if attuale and attuale.vivo and (self:_inGittata(u, attuale) or u.ripensa > 0)
+		and (filtro == nil or u.senzaMira or adatto(attuale, filtro)) then
 		return attuale
 	end
 	u.ripensa = RIPENSA
 	local mischia = not tiratore(u.def)
 	local cercaTiratori = false
-	if self.ordini[u.squadra] == "fianchi" and u.def.classe == "Cavalleria" then
+	if filtro == nil and self.ordini[u.squadra] == "fianchi" and u.def.classe == "Cavalleria" then
 		for _, altro in ipairs(self.soldati) do
 			if altro.vivo and altro.squadra ~= u.squadra and altro.def.classe == "Tiratore" then
 				cercaTiratori = true
@@ -483,16 +542,25 @@ function Battaglia:_bersaglio(u, dt)
 		end
 	end
 	local migliore, punteggioMin = nil, math.huge
+	local mirato, punteggioMirato = nil, math.huge
 	for _, altro in ipairs(self.soldati) do
-		if altro.vivo and altro.squadra ~= u.squadra and (not cercaTiratori or altro.def.classe == "Tiratore") then
+		if altro.vivo and altro.squadra ~= u.squadra then
 			local punteggio = distanza(u, altro) - altro.raggio
 			if mischia and altro ~= attuale then
 				punteggio = punteggio + (altro.assalitori or 0) * AFFOLLAMENTO
 			end
-			if punteggio < punteggioMin then
+			if (not cercaTiratori or altro.def.classe == "Tiratore") and punteggio < punteggioMin then
 				migliore, punteggioMin = altro, punteggio
 			end
+			if filtro ~= nil and punteggio < punteggioMirato and adatto(altro, filtro) then
+				mirato, punteggioMirato = altro, punteggio
+			end
 		end
+	end
+	-- Se del bersaglio scelto non resta nessuno, si combatte come senza bersaglio.
+	u.senzaMira = filtro ~= nil and mirato == nil
+	if mirato then
+		migliore = mirato
 	end
 	if attuale and attuale.assalitori and attuale ~= migliore then
 		attuale.assalitori = attuale.assalitori - 1
@@ -1001,7 +1069,9 @@ function Battaglia:passo(dt)
 				elseif mobile then
 					-- Con "tieni", dopo una ritirata e con "fianchi" (tranne la cavalleria) la linea resta ferma:
 					-- si va incontro solo a un nemico ormai vicino, e chi è stato spinto via torna al suo posto.
-					local inLinea = ordine == "tieni" or ordine == "ripiega" or (ordine == "fianchi" and u.def.classe ~= "Cavalleria")
+					-- Chi ha un bersaglio scelto (e ancora in campo) ci va anche se la linea tiene.
+					local mira = self:_mira(u) ~= nil and not u.senzaMira
+					local inLinea = not mira and (ordine == "tieni" or ordine == "ripiega" or (ordine == "fianchi" and u.def.classe ~= "Cavalleria"))
 					if inLinea then
 						if not tiratore(u.def) and distanza(u, b) <= portata + INGAGGIO then
 							self:_muovi(u, b, dt, portata)

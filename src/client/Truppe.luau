@@ -148,11 +148,81 @@ local function svuotaSchierati()
 	schierati = {}
 end
 
+-- Segnale rosso "TARGET" sopra il reggimento nemico scelto come bersaglio (sopra un suo soldato vivo).
+local mira = { reggimento = nil, gui = nil }
+
+local function aggiornaMira()
+	if mira.gui then
+		mira.gui:Destroy()
+		mira.gui = nil
+	end
+	if not mira.reggimento then
+		return
+	end
+	for idSoldato, s in pairs(soldati) do
+		if s.vivo and idSoldato // 16 == mira.reggimento and s.modello.PrimaryPart then
+			local gui = Instance.new("BillboardGui")
+			gui.Name = "Mira"
+			gui.AlwaysOnTop = true
+			gui.Size = UDim2.fromOffset(110, 70)
+			gui.StudsOffsetWorldSpace = Vector3.new(0, s.altezza + 4, 0)
+			gui.LightInfluence = 0
+			local testo = Instance.new("TextLabel")
+			testo.BackgroundTransparency = 1
+			testo.Size = UDim2.fromScale(1, 1)
+			testo.Text = "TARGET\n▼"
+			testo.TextScaled = true
+			testo.Font = Enum.Font.FredokaOne
+			testo.TextColor3 = Color3.fromRGB(255, 70, 60)
+			local bordo = Instance.new("UIStroke")
+			bordo.Thickness = 3
+			bordo.Color = Color3.fromRGB(40, 10, 10)
+			bordo.Parent = testo
+			testo.Parent = gui
+			gui.Adornee = s.modello.PrimaryPart
+			gui.Parent = s.modello
+			mira.gui = gui
+			return
+		end
+	end
+	mira.reggimento = nil -- del reggimento non resta nessuno
+end
+
+-- id del reggimento nemico da segnare, o nil per togliere il segnale.
+function Truppe.segnaBersaglio(idReggimento)
+	mira.reggimento = idReggimento
+	aggiornaMira()
+end
+
+-- Il soldato vivo più vicino a un punto dello schermo (clic del mouse, in pixel del viewport), entro "raggio"
+-- pixel: restituisce la sua squadra e l'id del suo reggimento, o nil.
+function Truppe.reggimentoSulloSchermo(x, y, raggio)
+	local camera = workspace.CurrentCamera
+	local migliore, distanzaMin = nil, raggio or 60
+	for _, s in pairs(soldati) do
+		if s.vivo and s.id then
+			local p, davanti = camera:WorldToViewportPoint(s.posizione + Vector3.new(0, s.altezza / 2, 0))
+			if davanti then
+				local d = math.sqrt((p.X - x) ^ 2 + (p.Y - y) ^ 2)
+				if d < distanzaMin then
+					migliore, distanzaMin = s, d
+				end
+			end
+		end
+	end
+	if not migliore then
+		return nil
+	end
+	return migliore.squadra, migliore.id // 16
+end
+
 local function svuotaBattaglia(subito)
 	for _, s in pairs(soldati) do
 		togli(s, subito)
 	end
 	soldati = {}
+	mira.reggimento = nil
+	aggiornaMira()
 end
 
 local function impostaCampo(dati)
@@ -419,6 +489,9 @@ local function evento(e)
 			end
 			if s.barra then
 				s.barra.Enabled = false
+			end
+			if mira.reggimento == e.id // 16 and mira.gui and mira.gui.Parent == s.modello then
+				aggiornaMira() -- il segnale passa a un altro soldato del reggimento
 			end
 			task.delay(4, function()
 				if soldati[e.id] == s then

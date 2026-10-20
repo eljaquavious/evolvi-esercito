@@ -144,6 +144,7 @@ local function inizioRound(player, sessione)
 		assedio = sessione.assedio,
 		esploratori = esploratori,
 		fiume = sessione.arena.rigaFiume ~= nil,
+		tutorial = sessione.tutorial or nil,
 	})
 end
 
@@ -172,10 +173,15 @@ function GestoreCampagna.avvia(player, numero)
 	-- Il campo si costruisce in qualche istante: intanto la sessione esiste già, così un secondo
 	-- clic non ne apre un'altra e se il giocatore esce il campo viene distrutto.
 	local livello = Campagna.livello(numero)
+	-- Prima battaglia mai vinta: è il tutorial (Mattia, 20/10/2026). Il giocatore sceglie le carte da sé.
+	local tutorial = numero == 1 and not (dati.stelle and dati.stelle["1"])
 	-- All'inizio sono scelte le prime carte del mazzo, nella formazione usata l'ultima volta.
 	local scelte = {}
 	for indice = 1, math.min(#dati.mazzo, livello.maxReggimenti) do
 		table.insert(scelte, indice)
+	end
+	if tutorial then
+		scelte = {}
 	end
 	local formazione = Formazioni.sbloccata(dati.formazione, dati.livello) and dati.formazione or Formazioni.PREDEFINITA
 	local sessione = {
@@ -192,6 +198,7 @@ function GestoreCampagna.avvia(player, numero)
 		persi = 0,
 		sconfitti = 0,
 		caduti = 0,
+		tutorial = tutorial,
 	}
 	sessioni[player] = sessione
 	local arena = Arena.crea(player, livello)
@@ -283,7 +290,7 @@ local function eventiPerClient(eventi)
 			table.insert(lista, { tipo = "colpo", a = e.a, danno = e.danno, area = area })
 		elseif e.tipo == "morte" then
 			table.insert(lista, { tipo = "morte", id = e.id, reggimento = e.reggimentoCaduto and e.reggimento or nil })
-		elseif e.tipo == "ordine" or e.tipo == "abilita" then
+		elseif e.tipo == "ordine" or e.tipo == "abilita" or e.tipo == "bersaglio" then
 			table.insert(lista, e)
 		end
 	end
@@ -322,9 +329,10 @@ local function combattiRound(player, sessione)
 
 	local ostacoli, terreno = {}, {}
 	for _, t in ipairs(livello.terreno) do
-		if Campagna.SOLIDI[t.tipo] then
+		-- Nell'acqua non si combatte (Mattia, 20/10/2026): il fiume si passa solo ai guadi.
+		if Campagna.SOLIDI[t.tipo] or t.tipo == "fiume" then
 			table.insert(ostacoli, { x = t.col, y = t.riga })
-		elseif t.tipo == "fiume" or t.tipo == "collina" or t.tipo == "trincea" then
+		elseif t.tipo == "collina" or t.tipo == "trincea" then
 			terreno[t.col .. "," .. t.riga] = t.tipo
 		end
 	end
@@ -574,6 +582,23 @@ function GestoreCampagna.ordine(player, nome)
 	return battaglia:ordine("giocatore", nome)
 end
 
+-- Bersaglio del giocatore: filtro = classe, "Comandante" o id di un reggimento nemico (nil = libero);
+-- proprio = id di un suo reggimento (nil = tutta l'armata). Restituisce ok, messaggio.
+function GestoreCampagna.bersaglio(player, filtro, proprio)
+	local sessione = sessioni[player]
+	local battaglia = sessione and sessione.battaglia
+	if not battaglia then
+		return false, "Targets can be given during the battle."
+	end
+	if filtro ~= nil and typeof(filtro) ~= "string" and typeof(filtro) ~= "number" then
+		return false
+	end
+	if proprio ~= nil and (typeof(proprio) ~= "number" or proprio < 1 or proprio >= 100) then
+		return false
+	end
+	return battaglia:bersaglio("giocatore", filtro, proprio)
+end
+
 -- Abilità del comandante "id" del giocatore, una volta per round.
 function GestoreCampagna.abilita(player, id)
 	local sessione = sessioni[player]
@@ -650,6 +675,7 @@ function GestoreCampagna.inizializza(r)
 	remoti.Combatti.OnServerInvoke = GestoreCampagna.combatti
 	remoti.Ordine.OnServerInvoke = GestoreCampagna.ordine
 	remoti.Abilita.OnServerInvoke = GestoreCampagna.abilita
+	remoti.Bersaglio.OnServerInvoke = GestoreCampagna.bersaglio
 	remoti.VinciRound.OnServerInvoke = GestoreCampagna.vinciRound
 	remoti.TornaLobby.OnServerInvoke = GestoreCampagna.tornaLobby
 end

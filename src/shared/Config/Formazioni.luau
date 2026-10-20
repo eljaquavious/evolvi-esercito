@@ -100,11 +100,61 @@ Formazioni.Lista = {
 			p(3.6, 0.8, "T"), p(0.8, 1.6, "T", "C"),
 		},
 	},
+	-- Age of Gunpowder ---------------------------------------------------------------------------------------
+	{
+		id = "tercio",
+		nome = "Tercio",
+		descrizione = "The Spanish tercio: a great square of pikes in the centre, musketeers at its four corners.",
+		sblocco = 13,
+		posti = {
+			p(2.9, 2.0, "F"), p(4.1, 2.0, "F"), p(3.5, 1.45, "F"), p(2.3, 1.35, "F"), p(4.7, 1.35, "F"),
+			p(1.7, 2.3, "T"), p(5.3, 2.3, "T"), p(1.7, 0.8, "T"), p(5.3, 0.8, "T"),
+			p(0.8, 1.6, "C"), p(6.2, 1.6, "C"),
+			p(3.5, 0.75, "K", "T"),
+		},
+	},
+	{
+		id = "brigata",
+		nome = "Swedish Brigade",
+		descrizione = "Gustavus Adolphus' brigade: thin lines of pikes and muskets mixed together, horsemen with musket support.",
+		sblocco = 14,
+		posti = {
+			p(3.5, 2.3, "F"), p(2.3, 2.3, "T", "F"), p(4.7, 2.3, "T", "F"), p(2.9, 1.6, "F"), p(4.1, 1.6, "F"),
+			p(1.2, 2.0, "C"), p(5.8, 2.0, "C"), p(0.8, 1.3, "T", "C"), p(6.2, 1.3, "T", "C"),
+			p(3.5, 0.85, "K", "T"),
+			p(2.0, 1.0, "T"), p(5.0, 1.0, "T"),
+		},
+	},
+	{
+		id = "colonna",
+		nome = "Attack Column",
+		descrizione = "Napoleon's columns: skirmishers screen the front, deep columns of infantry punch through behind them.",
+		sblocco = 16,
+		posti = {
+			p(2.0, 2.35, "T"), p(3.5, 2.35, "T"), p(5.0, 2.35, "T"),
+			p(2.6, 1.7, "F"), p(4.4, 1.7, "F"), p(2.6, 1.0, "F"), p(4.4, 1.0, "F"),
+			p(1.0, 1.4, "C"), p(6.0, 1.4, "C"),
+			p(3.5, 0.85, "K", "F"),
+		},
+	},
+	{
+		id = "quadrato",
+		nome = "Infantry Square",
+		descrizione = "The square of Waterloo: infantry facing every side, guns and the general safe in the middle.",
+		sblocco = 17,
+		posti = {
+			p(2.9, 2.35, "F"), p(4.1, 2.35, "F"), p(2.2, 1.55, "F"), p(4.8, 1.55, "F"), p(2.9, 0.8, "F"), p(4.1, 0.8, "F"),
+			p(3.5, 1.55, "K", "T"),
+			p(1.2, 2.2, "T"), p(5.8, 2.2, "T"),
+			p(0.8, 1.0, "C"), p(6.2, 1.0, "C"),
+		},
+	},
+	-- Twentieth century ---------------------------------------------------------------------------------------
 	{
 		id = "difesa",
 		nome = "Defence in Depth",
 		descrizione = "Great War defence in depth: machine guns up front, riflemen behind, tanks and reserves at the back.",
-		sblocco = 13,
+		sblocco = 19,
 		posti = {
 			p(3.5, 2.25, "T"), p(2.0, 2.25, "T"), p(5.0, 2.25, "T"),
 			p(1.2, 1.5, "F"), p(2.75, 1.5, "F"), p(4.25, 1.5, "F"), p(5.8, 1.5, "F"),
@@ -113,15 +163,63 @@ Formazioni.Lista = {
 		},
 	},
 	{
+		id = "infiltrazione",
+		nome = "Infiltration",
+		descrizione = "Stormtrooper tactics: small assault groups spread wide and slip through the gaps, machine guns cover them.",
+		sblocco = 21,
+		posti = {
+			p(1.2, 2.3, "F"), p(2.9, 2.3, "F"), p(4.6, 2.3, "F"), p(6.1, 2.2, "F"),
+			p(2.0, 1.5, "T"), p(3.8, 1.5, "T"), p(5.4, 1.5, "T"),
+			p(1.2, 1.0, "C", "F"), p(6.0, 1.0, "C", "F"),
+			p(3.5, 0.85, "K", "T"),
+		},
+	},
+	{
 		id = "punta",
 		nome = "Spearhead",
 		descrizione = "Spearhead: armour massed at one point to break through, with the infantry following in its wake.",
-		sblocco = 16,
+		sblocco = 23,
 		posti = {
 			p(3.5, 2.35, "F", "C"), p(2.6, 2.0, "F", "C"), p(4.4, 2.0, "F", "C"),
 			p(3.5, 1.5, "F"), p(2.0, 1.2, "F"), p(5.0, 1.2, "F"),
 			p(1.0, 1.8, "T"), p(6.0, 1.8, "T"),
 			p(3.5, 0.75, "K", "T"),
+		},
+	},
+	{
+		id = "tenaglia",
+		nome = "Pincer",
+		descrizione = "The Kesselschlacht: tanks on both wings race forward to encircle, the infantry holds the centre.",
+		sblocco = 24,
+		posti = {
+			p(0.9, 2.3, "C"), p(6.1, 2.3, "C"), p(1.6, 1.7, "C", "F"), p(5.4, 1.7, "C", "F"),
+			p(3.0, 1.6, "F"), p(4.0, 1.6, "F"), p(3.5, 2.1, "F"),
+			p(2.6, 0.9, "T"), p(4.4, 0.9, "T"),
+			p(3.5, 0.8, "K", "T"),
+		},
+	},
+	-- Modern era ----------------------------------------------------------------------------------------------
+	{
+		id = "fuocoMovimento",
+		nome = "Fire and Manoeuvre",
+		descrizione = "One group pins the enemy with heavy fire while the other moves round the flank to strike.",
+		sblocco = 25,
+		posti = {
+			p(1.6, 1.9, "T"), p(2.6, 1.9, "T"), p(2.1, 1.2, "T"),
+			p(4.6, 2.3, "F"), p(5.6, 2.1, "F"), p(4.2, 1.6, "F"), p(3.4, 2.2, "F"),
+			p(6.1, 1.4, "C"), p(5.2, 1.0, "C", "F"),
+			p(3.3, 0.85, "K", "T"),
+		},
+	},
+	{
+		id = "riccio",
+		nome = "Hedgehog",
+		descrizione = "The perimeter of Khe Sanh: a ring of positions that holds from every side, armour at the centre.",
+		sblocco = 26,
+		posti = {
+			p(3.5, 2.35, "F"), p(2.2, 1.95, "F"), p(4.8, 1.95, "F"), p(2.2, 1.0, "F"), p(4.8, 1.0, "F"),
+			p(1.3, 1.5, "T"), p(5.7, 1.5, "T"), p(3.5, 0.8, "T"),
+			p(3.0, 1.5, "C"), p(4.0, 1.5, "K", "C"),
 		},
 	},
 }

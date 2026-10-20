@@ -147,7 +147,7 @@ Campagna.SOLIDI = { ostacolo = true, casa = true, rottami = true }
 Campagna.BLOCCATI = { ostacolo = true, casa = true, rottami = true, fiume = true }
 
 -- Terreno del campo: { { col, riga, tipo } } con tipo "ostacolo" (naturale: alberi, rocce), "casa" (casupola,
--- tenda, casa diroccata), "rottami" (carri rotti, relitti, barricate), "fiume" (rallenta ed espone), "guado"
+-- tenda, casa diroccata), "rottami" (carri rotti, relitti, barricate), "fiume" (non si attraversa: in battaglia è un ostacolo), "guado"
 -- (punto basso del fiume, normale), "collina" (protegge e allunga il tiro) o "trincea" (ripara chi c'è dentro).
 local function generaTerreno(numero, locale, battaglia, indiceEpoca)
 	local rng = Random.new(numero * 7919)
@@ -185,10 +185,14 @@ local function generaTerreno(numero, locale, battaglia, indiceEpoca)
 	local rigaFiume
 	if battaglia.fiume then
 		rigaFiume = rng:NextInteger(Campagna.RIGHE_GIOCATORE + 1, Campagna.PRIMA_RIGA_NEMICA - 1)
+		-- Il fiume si passa solo ai guadi: sempre due, distinti, così le armate non restano bloccate.
 		local guadi = {}
-		for _ = 1, rng:NextInteger(1, 2) do
-			guadi[rng:NextInteger(1, Campagna.COLONNE)] = true
+		local primo = rng:NextInteger(1, Campagna.COLONNE)
+		local secondo = rng:NextInteger(1, Campagna.COLONNE - 1)
+		if secondo >= primo then
+			secondo += 1
 		end
+		guadi[primo], guadi[secondo] = true, true
 		for col = 1, Campagna.COLONNE do
 			aggiungi(col, rigaFiume, guadi[col] and "guado" or "fiume")
 		end

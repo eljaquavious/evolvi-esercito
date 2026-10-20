@@ -18,6 +18,7 @@ return {
 		"Combatti",
 		"Ordine", -- in battaglia: ordine generale a tutta la tua armata (avanza, tieni, ripiega, fianchi, carica)
 		"Abilita", -- in battaglia: attiva l'abilità di un tuo comandante
+		"Bersaglio", -- in battaglia: bersaglio (classe, "Comandante", id di un reggimento nemico o nil) e reggimento tuo (nil = tutti)
 		"VinciRound", -- modalità prova (solo in Studio): il round in corso è vinto subito
 		"TornaLobby",
 		"AcquistaCassa",

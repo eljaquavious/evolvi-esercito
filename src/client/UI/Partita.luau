@@ -11,6 +11,7 @@ local TweenService = game:GetService("TweenService")
 local Cielo = require(script.Parent.Parent.Cielo)
 local Meteo = require(script.Parent.Parent.Meteo)
 local Intermezzo = require(script.Parent.Parent.Intermezzo)
+local Truppe = require(script.Parent.Parent.Truppe)
 local Stile = require(script.Parent.Stile)
 local Carta = require(script.Parent.Carta)
 local Icone = require(script.Parent.Icone)
@@ -22,6 +23,7 @@ local Battaglia = require(ReplicatedStorage.Shared.Battaglia)
 local Cinematica = require(script.Parent.Parent.Cinematica)
 local Suoni = require(script.Parent.Parent.Suoni)
 local Preferiti = require(script.Parent.Preferiti)
+local Tutorial = require(script.Parent.Tutorial)
 
 local Partita = {}
 
@@ -46,6 +48,21 @@ local pannelloOrdini
 local bottoniOrdine = {} -- nome dell'ordine -> pulsante
 local ordineAttuale = "avanza"
 local caricaSuonata = false
+-- Bersagli: dal pannello ORDERS (classe o generale, tasti 6-0) o cliccando un reggimento nemico sul campo.
+-- Cliccando una propria carta (o un proprio soldato) il bersaglio vale solo per quel reggimento.
+local BERSAGLI = {
+	{ filtro = "Fanteria", nome = "Infantry" },
+	{ filtro = "Cavalleria", nome = "Cavalry" },
+	{ filtro = "Tiratore", nome = "Ranged" },
+	{ filtro = "Comandante", nome = "General" },
+	{ filtro = nil, nome = "Any" },
+}
+local bottoniMira = {} -- [i di BERSAGLI] -> pulsante
+local miraArmata = nil -- bersaglio di tutta l'armata
+local mireReparti = {} -- id del proprio reggimento -> bersaglio suo (false = libero)
+local repartoScelto = nil -- id del proprio reggimento selezionato (nil = tutta l'armata)
+local titoloMira
+local scegliReparto -- definita più sotto (la usano le carte della barra)
 local inviando = false -- una richiesta di schieramento alla volta
 
 -- Tabellone in alto: targhe YOU / Round / ENEMY con i pallini dei round vinti.
@@ -192,6 +209,9 @@ local function inviaScelte(nuove, formazione)
 		end
 		aggiornaCarte()
 		aggiornaFormazioni()
+		if #scelte > 0 then
+			Tutorial.evento("carta")
+		end
 	elseif messaggio then
 		Notifiche.mostra(messaggio, Stile.Colori.Rosso)
 	end
@@ -407,6 +427,11 @@ local function entraPiazzamento(dati)
 	mostraPiazzamento(true)
 	mostraTimer(nil)
 	mostraVinci(true)
+	-- Prima battaglia: tutorial passo passo.
+	if dati.tutorial and dati.round == 1 and not Tutorial.attivo() then
+		Tutorial.avvia()
+	end
+	Tutorial.evento("piazzamento")
 end
 
 -- Colori dei numeri del conto alla rovescia: 3 blu, 2 verde, 1 oro, FIGHT! arancio.
@@ -471,6 +496,14 @@ local function costruisciBarraBattaglia(reggimenti)
 		carta.LayoutOrder = r.indice
 		carta.Parent = carteMazzo
 		carta.AutoButtonColor = false
+		-- Clic sulla carta: i bersagli scelti dopo valgono solo per questo reggimento (di nuovo: tutta l'armata).
+		if carta:IsA("GuiButton") then
+			carta.Activated:Connect(function()
+				if fase == "battaglia" and not carta:GetAttribute("Caduto") then
+					scegliReparto(r.id)
+				end
+			end)
+		end
 		if def.abilita then
 			local bottone = Stile.pulsante({
 				Name = "Abilita",
@@ -496,7 +529,7 @@ local function costruisciBarraBattaglia(reggimenti)
 		carte[r.indice] = carta
 	end
 	contatore.Text = "REGIMENTS"
-	suggerimento.Text = "ORDERS GO TO YOUR WHOLE ARMY  ·  KEYS 1-5"
+	suggerimento.Text = "CLICK A CARD, THEN A TARGET  ·  CLICK AN ENEMY TO ATTACK IT"
 end
 
 -- Cosa fa ogni ordine, per l'avviso sotto il tabellone.
@@ -514,6 +547,64 @@ local function aggiornaOrdini()
 		local finita = nome == "carica" and caricaSuonata and ordineAttuale ~= "carica"
 		Stile.coloraPulsante(bottone, nome == ordineAttuale and "oro" or (finita and "grigio" or "blu"))
 	end
+end
+
+-- Nome visibile di un bersaglio: classe, generale o reggimento nemico (numero).
+local function nomeMira(filtro)
+	if type(filtro) == "number" then
+		return "THAT REGIMENT"
+	end
+	for _, b in ipairs(BERSAGLI) do
+		if b.filtro == filtro then
+			return filtro and ("ENEMY " .. string.upper(b.nome)) or "ANY ENEMY"
+		end
+	end
+	return "ANY ENEMY"
+end
+
+-- Pannello TARGET: oro il bersaglio in corso (del reggimento selezionato, o di tutta l'armata).
+local function aggiornaMire()
+	local filtro = miraArmata
+	if repartoScelto and mireReparti[repartoScelto] ~= nil then
+		filtro = mireReparti[repartoScelto] or nil
+	end
+	for i, bottone in pairs(bottoniMira) do
+		Stile.coloraPulsante(bottone, BERSAGLI[i].filtro == filtro and "oro" or "blu")
+	end
+	if titoloMira then
+		local nome
+		for indice, id in pairs(idPerIndice) do
+			if id == repartoScelto then
+				local def = Epoche.Truppe[info and info.mazzo and info.mazzo[indice] or ""]
+				nome = def and def.nome
+			end
+		end
+		titoloMira.Text = repartoScelto and ("TARGET · %s"):format(string.upper(nome or "REGIMENT")) or "TARGET · WHOLE ARMY"
+	end
+	-- Segnale sopra il reggimento nemico scelto (dell'armata o del reggimento selezionato).
+	Truppe.segnaBersaglio(type(filtro) == "number" and filtro or (type(miraArmata) == "number" and miraArmata or nil))
+end
+
+local function daiBersaglio(filtro)
+	if fase ~= "battaglia" then
+		return
+	end
+	local ok, messaggio = remoti.Bersaglio:InvokeServer(filtro, repartoScelto)
+	if not ok and messaggio then
+		Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+	end
+end
+
+-- Seleziona (o deseleziona) un proprio reggimento: i bersagli valgono solo per lui.
+scegliReparto = function(id)
+	if repartoScelto == id then
+		id = nil
+	end
+	repartoScelto = id
+	for indice, carta in pairs(carte) do
+		Carta.seleziona(carta, id ~= nil and idPerIndice[indice] == id)
+	end
+	aggiornaMire()
 end
 
 local function daiOrdine(nome)
@@ -534,10 +625,31 @@ local function eventoBattaglia(e)
 				carte[indice]:SetAttribute("Caduto", true)
 				Carta.spegni(carte[indice], true, "FALLEN")
 				spegniAbilita(id, "FALLEN")
+				if repartoScelto == id then
+					scegliReparto(id) -- deseleziona
+				end
 			end
 		end
+		if type(miraArmata) == "number" and miraArmata == e.reggimento then
+			miraArmata = nil -- il reggimento nemico scelto è caduto
+			aggiornaMire()
+		end
+	elseif e.tipo == "bersaglio" and e.squadra == "giocatore" then
+		Tutorial.evento("bersaglio")
+		if e.reggimento then
+			mireReparti[e.reggimento] = e.filtro or false
+		else
+			miraArmata = e.filtro
+			mireReparti = {}
+		end
+		aggiornaMire()
+		avviso.Text = ("%s: %s!"):format(e.reggimento and "YOUR REGIMENT ATTACKS" or "ALL REGIMENTS ATTACK", nomeMira(e.filtro))
+		avviso.TextColor3 = Stile.Colori.Oro
 	elseif e.tipo == "ordine" and e.squadra == "giocatore" then
 		ordineAttuale = e.ordine
+		if not e.automatico then
+			Tutorial.evento("ordine")
+		end
 		if e.ordine == "carica" then
 			caricaSuonata = true
 		end
@@ -577,6 +689,9 @@ local function entraBattaglia(dati)
 	ordineAttuale = "avanza"
 	caricaSuonata = false
 	aggiornaOrdini()
+	miraArmata, mireReparti, repartoScelto = nil, {}, nil
+	aggiornaMire()
+	Tutorial.evento("battaglia")
 	sottotitolo.Text = "GET READY!"
 	sottotitolo.TextColor3 = Stile.Colori.Oro
 	avviso.Text = dati.assedio and "Storm the fortress!" or "The enemy army is revealed!"
@@ -592,6 +707,7 @@ end
 -- il prossimo schieramento o il risultato. Senza campo, la vecchia grande scritta.
 local function mostraRound(dati)
 	fase = "round"
+	Tutorial.evento("round")
 	mostraPiazzamento(false)
 	pannelloOrdini.Visible = false
 	mostraVinci(false)
@@ -627,6 +743,7 @@ end
 
 local function mostraRisultato(dati)
 	fase = "risultato"
+	Tutorial.evento("risultato")
 	if dati.vittoria then
 		Suoni.musica("vittoria") -- se suona già dalla cinematica dell'ultimo round, continua
 	else
@@ -744,6 +861,7 @@ end
 -- Esce dalla partita; ripristinaVista = false quando si passa alla mappa, che ha la sua telecamera.
 local function esci(ripristinaVista)
 	fase = "lobby"
+	Tutorial.ferma()
 	Suoni.fermaMusica()
 	Suoni.musica("lobby")
 	info = nil
@@ -1126,13 +1244,21 @@ function Partita.inizializza(gui, r, callbackLobby)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = testataFormazioni,
 	})
-	listaFormazioni = Stile.crea("Frame", {
+	-- Le formazioni sono più di quante ne stanno: la lista scorre (rotella o trascinando).
+	listaFormazioni = Stile.crea("ScrollingFrame", {
 		Name = "Lista",
 		Position = UDim2.fromOffset(14, 86),
-		Size = UDim2.new(1, -28, 0, 460),
+		Size = UDim2.new(1, -20, 0, 460),
 		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		ScrollBarThickness = 8,
+		ScrollBarImageColor3 = Stile.BIANCO,
 		Parent = pannelloFormazioni,
 	}, {
+		Stile.crea("UIPadding", { PaddingRight = UDim.new(0, 12) }),
 		Stile.crea("UIListLayout", {
 			Padding = UDim.new(0, 5),
 			SortOrder = Enum.SortOrder.LayoutOrder,
@@ -1157,7 +1283,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Name = "Ordini",
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, -28, 1, -28),
-		Size = UDim2.fromOffset(330, 72 + #Battaglia.ORDINI * 58 + 18),
+		Size = UDim2.fromOffset(330, 72 + #Battaglia.ORDINI * 58 + 18 + 40 + 3 * 50),
 		BackgroundColor3 = Stile.BIANCO,
 		Visible = false,
 		ZIndex = 5,
@@ -1187,6 +1313,31 @@ function Partita.inizializza(gui, r, callbackLobby)
 			daiOrdine(nome)
 		end)
 		bottoniOrdine[nome] = bottone
+	end
+	-- Sezione TARGET: chi attaccare (tasti 6-0). Vale per il reggimento selezionato o per tutta l'armata.
+	local yMira = 86 + #Battaglia.ORDINI * 58 + 4
+	titoloMira = Stile.testo({
+		Position = UDim2.fromOffset(16, yMira),
+		Size = UDim2.new(1, -32, 0, 32),
+		Text = "TARGET · WHOLE ARMY",
+		TextColor3 = Stile.Colori.Oro,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = pannelloOrdini,
+	})
+	Stile.crea("UITextSizeConstraint", { MaxTextSize = 22, MinTextSize = 10, Parent = titoloMira })
+	for i, b in ipairs(BERSAGLI) do
+		local ultima = i == #BERSAGLI
+		local colonna, riga = (i - 1) % 2, (i - 1) // 2
+		local bottone = Stile.pulsante({
+			Name = "Mira" .. i,
+			Position = ultima and UDim2.fromOffset(14, yMira + 40 + riga * 50) or UDim2.new(colonna * 0.5, 14 - colonna * 7, 0, yMira + 40 + riga * 50),
+			Size = ultima and UDim2.new(1, -28, 0, 44) or UDim2.new(0.5, -21, 0, 44),
+			Parent = pannelloOrdini,
+		}, "blu", { Testo = ("%d  %s"):format(i == 5 and 0 or i + 5, string.upper(b.nome)), TestoSize = 22, Profondita = 4, Raggio = 12, Contorno = 3 })
+		bottone.Activated:Connect(function()
+			daiBersaglio(b.filtro)
+		end)
+		bottoniMira[i] = bottone
 	end
 
 	-- Grande scritta di fine round.
@@ -1439,7 +1590,26 @@ function Partita.inizializza(gui, r, callbackLobby)
 		remoti.TornaLobby:InvokeServer()
 	end)
 
+	Tutorial.inizializza(tela, {
+		mazzo = function()
+			return barraMazzo
+		end,
+		esploratori = function()
+			return esploratori
+		end,
+		formazioni = function()
+			return pannelloFormazioni
+		end,
+		combatti = function()
+			return bottoneCombatti
+		end,
+		ordini = function()
+			return pannelloOrdini
+		end,
+	})
+
 	local TASTI = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five }
+	local TASTI_MIRA = { Enum.KeyCode.Six, Enum.KeyCode.Seven, Enum.KeyCode.Eight, Enum.KeyCode.Nine, Enum.KeyCode.Zero }
 	UserInputService.InputBegan:Connect(function(input, usatoDaGui)
 		if usatoDaGui or fase ~= "battaglia" then
 			return
@@ -1447,6 +1617,21 @@ function Partita.inizializza(gui, r, callbackLobby)
 		local numero = table.find(TASTI, input.KeyCode)
 		if numero and Battaglia.ORDINI[numero] then
 			daiOrdine(Battaglia.ORDINI[numero])
+		end
+		local mira = table.find(TASTI_MIRA, input.KeyCode)
+		if mira then
+			daiBersaglio(BERSAGLI[mira].filtro)
+		end
+		-- Clic (o tocco) sul campo: un nemico diventa il bersaglio, un proprio soldato seleziona il suo reggimento.
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			-- input.Position non conta la barra in alto di Roblox, WorldToViewportPoint sì.
+			local inset = game:GetService("GuiService"):GetGuiInset()
+			local squadra, id = Truppe.reggimentoSulloSchermo(input.Position.X, input.Position.Y + inset.Y, 60)
+			if squadra == "nemico" then
+				daiBersaglio(id)
+			elseif squadra == "giocatore" then
+				scegliReparto(id)
+			end
 		end
 	end)
 	remoti.Truppe.OnClientEvent:Connect(function(dati)
