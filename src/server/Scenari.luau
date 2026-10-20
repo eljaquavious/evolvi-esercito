@@ -908,9 +908,10 @@ S["Paris"] = {
 S["Khe Sanh"] = {
 	-- Gennaio 1968: la base dei Marines sull'altopiano di terra rossa, sacchetti, reticolati e trincee, crateri
 	-- dei mortai, l'erba alta (canne) e la giungla spezzata dalle bombe sulle colline attorno, nella nebbia.
-	cornice = { { "palma", 40, 1.0, 1.6 }, { "quercia", 36, 1.0, 1.6 }, { "alberoSpezzato", 40, 1.0, 1.6 }, { "cespuglio", 50, 1.0, 1.5 } },
+	cornice = { { "palma", 70, 1.0, 1.7 }, { "quercia", 60, 1.0, 1.7 }, { "alberoSpezzato", 20, 1.0, 1.6 }, { "cespuglio", 80, 1.0, 1.5 } },
 	terreno = { campo = M.Ground, chiazze = M.Mud, base = M.Ground, alto = M.LeafyGrass, sponda = M.Mud },
-	flora = { { "canne", 50, 0.9, 1.4 }, { "palma", 12, 0.9, 1.3 }, { "alberoSpezzato", 20, 0.8, 1.3 }, { "cespuglio", 40, 0.8, 1.3 }, { "ciuffo", 80, 0.8, 1.2 }, { "sassi", 20, 0.8, 1.2 } },
+	-- Giungla fitta (Mattia: "pieno di ostacoli naturali, come nella realtà"): palme, alberi, canne alte.
+	flora = { { "palma", 50, 0.9, 1.5 }, { "quercia", 36, 0.9, 1.5 }, { "canne", 90, 0.9, 1.5 }, { "cespuglio", 90, 0.8, 1.4 }, { "alberoSpezzato", 16, 0.8, 1.3 }, { "ciuffo", 80, 0.8, 1.2 } },
 	crateri = { 30, { -270, 270, -260, 260 }, 5, 10 },
 	trincee = { { { -210, -105 }, { -50, -105 } }, { { 50, -105 }, { 210, -105 } } },
 	linee = {
@@ -927,32 +928,34 @@ S["Khe Sanh"] = {
 		{ "casaDiroccata", 3, { 130, 260, 120, 250 }, 0.8, 1.0, verso = "campo" },
 	},
 	resti = 16,
-	ostacolo = { "canne", "alberoSpezzato", "sacchetti" },
+	ostacolo = { "palma", "quercia", "cespuglio", "canne" },
 	contestoOstacolo = { lunghezza = 12 },
 }
 
-S["Panjshir"] = {
-	-- 1982: la valle stretta tra montagne nude, i villaggi di fango con i muretti dei campi, i pioppi lungo
-	-- il fiume, i blindati sovietici bruciati sulla strada.
-	terreno = { campo = M.Ground, chiazze = M.Sandstone, base = M.Ground, alto = M.Rock, sponda = M.Ground },
-	flora = { { "cipresso", 14, 0.9, 1.3 }, { "masso", 10, 0.7, 1.2 }, { "roccia", 30, 0.9, 1.8 }, { "arbusto", 40, 0.8, 1.3 }, { "ciuffo", 50, 0.8, 1.1 }, { "sassi", 60, 0.8, 1.3 } },
-	contesto = { secco = true },
+S["Chosin Reservoir"] = {
+	-- Novembre 1950: le colline gelate attorno al bacino di Chosin a 30 gradi sotto zero, il lago ghiacciato
+	-- in fondo, la colonna dei Marines sulla strada (camion e carri abbandonati), i sacchetti e i reticolati del
+	-- perimetro di Hagaru-ri, i pini carichi di neve sulle creste da cui scendono i Cinesi di notte.
+	terreno = { ondulazione = 8 },
+	laghi = { { 0, 255, 220, 45, ghiaccio = true } },
+	cornice = { { "pino", 90, 1.1, 1.9 }, { "roccia", 30, 1.0, 1.8 }, { "masso", 16, 0.9, 1.5 } },
+	flora = { { "pino", 50, 0.9, 1.6 }, { "roccia", 20, 0.9, 1.6 }, { "cespuglio", 20, 0.8, 1.2 }, { "sassi", 30, 0.8, 1.3 } },
 	linee = {
-		{ "muretto", { -260, 110 }, { -90, 110 }, 20, ctx = { lunghezza = 20 } },
-		{ "muretto", { 90, -120 }, { 260, -120 }, 20, ctx = { lunghezza = 20 } },
-		{ "relitto", { -230, -175 }, { 230, -175 }, 70, ctx = { colore = C(92, 96, 70) } },
+		{ "relitto", { -240, -175 }, { 240, -175 }, 60, ctx = { colore = C(84, 90, 64) } },
+		{ "filoSpinato", { -200, -95 }, { -50, -95 }, 22, ctx = { lunghezza = 22 } },
+		{ "filoSpinato", { 50, -95 }, { 200, -95 }, 22, ctx = { lunghezza = 22 } },
+		{ "sacchetti", { -180, -120 }, { -50, -120 }, 14, ctx = { lunghezza = 14 } },
+		{ "sacchetti", { 50, -120 }, { 180, -120 }, 14, ctx = { lunghezza = 14 } },
 	},
 	gruppi = {
-		{ "casa", 6, { 140, 270, 100, 260 }, 0.8, 1.0, verso = "campo", ctx = { colore = C(176, 150, 112) } },
-		{ "casa", 4, { -270, -140, -250, -120 }, 0.8, 1.0, verso = "campo", ctx = { colore = C(176, 150, 112) } },
-		{ "rovina", 3, { -260, 260, -60, 60 }, 0.8, 1.0 },
-		{ "casse", 4, { -180, 180, -220, -140 }, 0.9, 1.1 },
-		{ "sacchetti", 3, { -160, 160, -140, -110 }, 1, 1, verso = 0, ctx = { lunghezza = 14 } },
+		{ "casse", 6, { -200, 200, -230, -140 }, 0.9, 1.1 },
+		{ "cannone", 3, { -170, 170, -235, -190 }, 1, 1, verso = "campo" },
+		{ "fuoco", 4, { -200, 200, -230, -140 }, 1, 1 },
+		{ "casaDiroccata", 3, { -260, -140, 110, 230 }, 0.8, 1.0, verso = "campo" },
 	},
 	crateri = { 12, { -260, 260, -250, 250 }, 5, 8 },
 	resti = 14,
-	ostacolo = { "masso", "roccia", "muretto" },
-	contestoOstacolo = { lunghezza = 12 },
+	ostacolo = { "pino", "roccia", "masso" },
 }
 
 -- Dati per il terreno (Arena) --------------------------------------------------------------------------
@@ -1429,7 +1432,7 @@ local CASE = {
 	Medievale = { "casa", "capanna" },
 	Polvere = { "casa", "pagliaio" },
 	Novecento = { "casaDiroccata" },
-	Moderna = { "casaDiroccata", "casa" },
+	Moderna = { "casaDiroccata" },
 }
 local ROTTAMI = {
 	Antica = { "carro", "carroFalcato", "anfore", "palizzata" },

@@ -80,11 +80,10 @@ VARIANTI = {
     "NVA Regulars": ("french_poilus", -20, 0.8, 0.95),
     "NVA Machine Gunners": ("machine_gun_crew", -20, 0.8, 0.95),
     "PT-76 Tank": ("sherman_tank", 25, 1.0, 0.85),
-    "Soviet Paratroopers": ("french_poilus", 20, 0.5, 1.05),
-    "PKM Team": ("machine_gun_crew", 15, 0.45, 1.05),
-    "BMP-2": ("sherman_tank", -15, 0.5, 1.0),
     "Vo Nguyen Giap": ("ferdinand_foch", -25, 0.8, 0.9),
-    "Sergei Sokolov": ("ferdinand_foch", 45, 0.5, 0.75),
+    "Chinese Volunteers": ("french_poilus", 15, 0.45, 1.0),
+    "Chinese Machine Gunners": ("machine_gun_crew", 15, 0.45, 1.0),
+    "Peng Dehuai": ("ferdinand_foch", 20, 0.6, 0.85),
 }
 
 

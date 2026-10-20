@@ -26,7 +26,7 @@ local FRASI_BOSS = {
 	Rommel = { vince = "Sweat saves blood.", perde = "The first hours will be decisive!" },
 	DeGaulle = { vince = "Paris, liberated by her own people!", perde = "France has lost a battle, not the war!" },
 	Giap = { vince = "The jungle fights with us.", perde = "We will fight for as long as it takes." },
-	Sokolov = { vince = "The valley is ours!", perde = "Hold the passes, comrades!" },
+	PengDehuai = { vince = "The mountains and the snow are on our side.", perde = "Attack again tonight!" },
 }
 
 local player = Players.LocalPlayer

@@ -1311,6 +1311,117 @@ Dati["Waterloo"] = {
 	titolo = { t = 27, testo = "WATERLOO", sotto = "1815", motto = RIPETI },
 }
 
+-- Khe Sanh, 1968: tu sei con i Marines nella base sull'altopiano, dietro sacchetti e mitragliatrici. Dalla
+-- nebbia escono le ondate nordvietnamite di Giap; l'artiglieria le ferma, la base resiste.
+Dati["Khe Sanh"] = {
+	durata = 31,
+	musica = NOVECENTO,
+	sgombra = { { -70, -70, 70, 110 } },
+	reparti = {
+		R("marinesS", "MarineUSA", "giocatore", 6, 2, { T(0, -18, -30, 0), T(25), T(31, nil, -14) }),
+		R("marinesD", "MarineUSA", "giocatore", 6, 2, { T(0, 18, -30, 0), T(25), T(31, nil, -14) }),
+		R("m60S", "MitraglieriM60", "giocatore", 1, 1, { T(0, -34, -27, 0) }),
+		R("m60D", "MitraglieriM60", "giocatore", 1, 1, { T(0, 34, -27, 0) }),
+		R("carro", "M48Patton", "giocatore", 1, 1, { T(0, 0, -50, 0), T(24), T(31, nil, -28) }),
+		R("nvaS", "FanteNVA", "nemico", 6, 2, { T(0, -22, 95, 180), T(3), T(21, nil, -12) }),
+		R("nvaC", "FanteNVA", "nemico", 6, 2, { T(0, 0, 105, 180), T(5), T(22, nil, -10) }),
+		R("nvaD", "FanteNVA", "nemico", 6, 2, { T(0, 22, 95, 180), T(4), T(21, nil, -12) }),
+		R("giap", "Giap", "nemico", 1, 1, { T(0, 0, 80, 180) }),
+	},
+	inquadrature = {
+		I(0, 6, { -80, 50, -110 }, { 0, 0, 20 }, { -60, 40, -90 }, { 0, 0, 30 }, { fov = 50 }),
+		-- Alle spalle dei Marines, sopra le teste: la nebbia e le sagome che arrivano.
+		I(6, 5, { -48, 9, -46 }, { -10, 3, 25 }, { -44, 9, -42 }, { 0, 3, 40 }, { fov = 50 }),
+		I(11, 5, { -12, 5, 10 }, { 6, 3, -4 }, { -10, 5, 6 }, { 6, 3, 4 }, { segui = "nvaC" }),
+		I(16, 8, { 0, 75, -70 }, { 0, 0, 10 }, { 0, 95, -45 }, { 0, 0, 10 }),
+		I(24, 7, { 44, 4, -40 }, { 0, 4, -20 }, { 38, 14, -60 }, { 0, 2, -20 }, { lineare = true, scossa = 0.15, fov = 60 }),
+	},
+	esplosioni = {
+		{ t = 8, x = 0, z = 55, raggio = 30, n = 6, durata = 8 },
+		{ t = 15, x = 0, z = 20, raggio = 30, n = 6, durata = 8 },
+	},
+	lanci = {
+		{ t = 9, reparto = "m60S", verso = "nvaS", colpo = "tiro", ripeti = 16, ogni = 0.5 },
+		{ t = 9.2, reparto = "m60D", verso = "nvaD", colpo = "tiro", ripeti = 16, ogni = 0.5 },
+		{ t = 10, reparto = "nvaS", verso = "marinesS", colpo = "tiro", ripeti = 4, ogni = 2, quota = 0.6 },
+		{ t = 10.5, reparto = "nvaD", verso = "marinesD", colpo = "tiro", ripeti = 4, ogni = 2, quota = 0.6 },
+		{ t = 11, reparto = "carro", verso = "nvaC", colpo = "tiro", ripeti = 5, ogni = 2 },
+		{ t = 13, reparto = "marinesS", verso = "nvaS", colpo = "tiro", ripeti = 5, ogni = 1.6, quota = 0.7 },
+		{ t = 13.5, reparto = "marinesD", verso = "nvaD", colpo = "tiro", ripeti = 5, ogni = 1.6, quota = 0.7 },
+	},
+	mischie = { da = 21, a = 31 },
+	cadute = {
+		{ reparto = "nvaS", da = 9, a = 28, quota = 0.5 },
+		{ reparto = "nvaC", da = 9, a = 28, quota = 0.5 },
+		{ reparto = "nvaD", da = 9, a = 28, quota = 0.5 },
+		{ reparto = "marinesS", da = 10, a = 26, quota = 0.15 },
+		{ reparto = "marinesD", da = 10, a = 26, quota = 0.15 },
+	},
+	scritte = {
+		S(1, "Khe Sanh, Vietnam, 1968. The Marines' hilltop base is surrounded.", 4),
+		S(6.3, "For 77 days General Giap's army closes in."),
+		S(11.3, "Wave after wave comes out of the fog..."),
+		S(16.5, "...into the guns of the Marines...", 3.6),
+		S(21, "...but the base holds.", 3.4),
+	},
+	titolo = { t = 27, testo = "KHE SANH", sotto = "1968", motto = TIENI },
+}
+
+-- Bacino di Chosin, 1950: tu sei con i Marines nel perimetro innevato. Di notte i Cinesi di Peng Dehuai scendono
+-- dalle creste a ondate, al suono delle trombe; i Marines tengono e poi aprono la strada verso il mare.
+Dati["Chosin Reservoir"] = {
+	durata = 31,
+	musica = NOVECENTO,
+	sgombra = { { -80, -70, 80, 110 } },
+	reparti = {
+		R("marinesS", "MarineUSA", "giocatore", 6, 2, { T(0, -20, -32, 0), T(24), T(31, nil, -16) }),
+		R("marinesD", "MarineUSA", "giocatore", 6, 2, { T(0, 20, -32, 0), T(24), T(31, nil, -16) }),
+		R("m60", "MitraglieriM60", "giocatore", 1, 1, { T(0, 0, -30, 0) }),
+		R("carro", "M48Patton", "giocatore", 1, 1, { T(0, -40, -48, 20) }),
+		R("cinesiS", "FantePVA", "nemico", 6, 2, { T(0, -30, 100, 180), T(3), T(20, nil, -14) }),
+		R("cinesiC", "FantePVA", "nemico", 6, 2, { T(0, 0, 110, 180), T(4), T(21, nil, -12) }),
+		R("cinesiD", "FantePVA", "nemico", 6, 2, { T(0, 30, 100, 180), T(3.5), T(20.5, nil, -14) }),
+		R("mitraglia", "MitraglieriPVA", "nemico", 1, 1, { T(0, 0, 60, 180) }),
+		R("peng", "PengDehuai", "nemico", 1, 1, { T(0, 10, 80, 180) }),
+	},
+	inquadrature = {
+		I(0, 6, { 90, 55, -110 }, { 0, 0, 30 }, { 70, 45, -90 }, { 0, 0, 40 }, { fov = 50 }),
+		I(6, 5, { 8, 6, 72 }, { 10, 4, 80 }, { 6, 6, 66 }, { 10, 4, 80 }, { fov = 45 }),
+		I(11, 5, { 46, 9, -46 }, { 10, 3, 25 }, { 42, 9, -42 }, { 0, 3, 40 }, { fov = 50 }),
+		I(16, 8, { 0, 75, -70 }, { 0, 0, 10 }, { 0, 95, -45 }, { 0, 0, 10 }),
+		I(24, 7, { -44, 4, -40 }, { 0, 4, -20 }, { -38, 14, -60 }, { 0, 2, -20 }, { lineare = true, scossa = 0.15, fov = 60 }),
+	},
+	esplosioni = {
+		{ t = 9, x = 0, z = 50, raggio = 30, n = 5, durata = 8 },
+		{ t = 15, x = 0, z = 15, raggio = 30, n = 6, durata = 8 },
+	},
+	lanci = {
+		{ t = 8, reparto = "mitraglia", verso = "marinesS", colpo = "tiro", ripeti = 14, ogni = 0.5 },
+		{ t = 9, reparto = "m60", verso = "cinesiC", colpo = "tiro", ripeti = 18, ogni = 0.5 },
+		{ t = 10, reparto = "carro", verso = "cinesiS", colpo = "tiro", ripeti = 5, ogni = 2 },
+		{ t = 11, reparto = "cinesiS", verso = "marinesS", colpo = "tiro", ripeti = 4, ogni = 2, quota = 0.6 },
+		{ t = 11.5, reparto = "cinesiD", verso = "marinesD", colpo = "tiro", ripeti = 4, ogni = 2, quota = 0.6 },
+		{ t = 12, reparto = "marinesS", verso = "cinesiS", colpo = "tiro", ripeti = 5, ogni = 1.6, quota = 0.7 },
+		{ t = 12.5, reparto = "marinesD", verso = "cinesiD", colpo = "tiro", ripeti = 5, ogni = 1.6, quota = 0.7 },
+	},
+	mischie = { da = 20, a = 31 },
+	cadute = {
+		{ reparto = "cinesiS", da = 10, a = 28, quota = 0.5 },
+		{ reparto = "cinesiC", da = 10, a = 28, quota = 0.5 },
+		{ reparto = "cinesiD", da = 10, a = 28, quota = 0.5 },
+		{ reparto = "marinesS", da = 11, a = 27, quota = 0.25 },
+		{ reparto = "marinesD", da = 11, a = 27, quota = 0.25 },
+	},
+	scritte = {
+		S(1, "Chosin Reservoir, Korea, 1950. Thirty degrees below zero.", 4),
+		S(6.3, "Peng Dehuai's armies wait in the frozen hills."),
+		S(11.3, "At night, the bugles sound..."),
+		S(16.5, "...and the Chinese attack in waves...", 3.6),
+		S(21, "...until the Marines are surrounded.", 3.4),
+	},
+	titolo = { t = 27, testo = "CHOSIN", sotto = "1950", motto = SCRIVI },
+}
+
 -- Armate fedeli alla storia (Mattia, 18/10/2026): nelle scene non si vedono più le carte del giocatore usate per
 -- tutti, ma le truppe vere di ogni esercito (Config/Epoche). Qui si cambia solo il tipo dei reparti delle
 -- sceneggiature qui sopra (id del reparto -> tipo); posizioni e movimenti restano quelli.

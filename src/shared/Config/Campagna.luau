@@ -107,12 +107,13 @@ Campagna.Battaglie = {
 		armata = { "Granatieri", "MG42", "Panzer" } },
 	{ nome = "Paris", anno = "1944", lat = 48.86, lon = 2.35, bioma = "Pianeggiante", fiume = true, comandante = "DeGaulle", meteo = "tramonto", nemico = "the Free French",
 		armata = { "FanteFranciaLibera", "Mitragliere", "CarroArmato" } },
-	-- Era moderna. Vietnam e Afghanistan stanno fuori dalla mappa d'Europa: lat/lon qui sono il posto sulla mappa,
-	-- sul bordo a est (verso l'Asia), non quello vero (Khe Sanh 16.6 N 106.7 E, Panjshir 35.3 N 69.5 E).
-	{ nome = "Khe Sanh", trincee = true, anno = "1968", lat = 31.0, lon = 45.2, bioma = "Collinoso", comandante = "Giap", meteo = "nebbia", nemico = "the North Vietnamese",
+	-- Era moderna. Corea e Vietnam stanno fuori dalla mappa d'Europa: lat/lon qui sono il posto sulla mappa,
+	-- sul bordo a est (verso l'Asia), non quello vero (Chosin 40.4 N 127.2 E, Khe Sanh 16.6 N 106.7 E).
+	-- giungla = il campo è pieno di ostacoli naturali (alberi, canne), come nella realtà.
+	{ nome = "Chosin Reservoir", anno = "1950", lat = 36.2, lon = 45.2, bioma = "Innevato", comandante = "PengDehuai", meteo = "neve", nemico = "the Chinese",
+		luogo = "Korea", armata = { "FantePVA", "MitraglieriPVA" } },
+	{ nome = "Khe Sanh", trincee = true, giungla = true, anno = "1968", lat = 31.0, lon = 45.2, bioma = "Collinoso", comandante = "Giap", meteo = "nebbia", nemico = "the North Vietnamese",
 		luogo = "Vietnam", armata = { "FanteNVA", "MitraglieriNVA", "PT76" } },
-	{ nome = "Panjshir", anno = "1982", lat = 36.2, lon = 45.2, bioma = "Montagnoso", fiume = true, comandante = "Sokolov", meteo = "caldo", nemico = "the Soviets",
-		luogo = "Afghanistan", armata = { "VDV", "PKM", "BMP2" } },
 }
 -- Battaglie tolte quando i livelli sono scesi da 10 a 6 per epoca (i loro scenari restano in Scenari.luau,
 -- pronti per tornare): Marathon, Heraclea, Carthage, Aquae Sextiae, Manzikert, Lechfeld, Stamford Bridge,
@@ -198,9 +199,17 @@ local function generaTerreno(numero, locale, battaglia, indiceEpoca)
 	numeroOstacoli = math.min(numeroOstacoli, rigaFiume and 3 or 6)
 	-- Nelle epoche moderne gli ostacoli sono soprattutto rottami (carri bruciati, barricate, crateri).
 	local quotaNaturali = math.max(0.3, 0.6 - 0.08 * ingombro)
+	-- Giungla (Khe Sanh): il campo è pieno di alberi e canne, solo ostacoli naturali (richiesta di Mattia).
+	-- Al massimo 4 per riga della terra di nessuno, così resta sempre un passaggio.
+	local perRiga = {}
+	if battaglia.giungla then
+		numeroOstacoli = 6
+		quotaNaturali = 1
+	end
 	for _ = 1, numeroOstacoli do
 		local col, riga = casellaLibera(Campagna.RIGHE_GIOCATORE + 1, Campagna.PRIMA_RIGA_NEMICA - 1)
-		if col then
+		if col and (perRiga[riga] or 0) < 4 then
+			perRiga[riga] = (perRiga[riga] or 0) + 1
 			aggiungi(col, riga, rng:NextNumber() < quotaNaturali and "ostacolo" or "rottami")
 		end
 	end
@@ -209,7 +218,8 @@ local function generaTerreno(numero, locale, battaglia, indiceEpoca)
 		for _ = 1, math.min(3, (locale <= 2 and 1 or rng:NextInteger(1, 2)) + math.floor(ingombro / 2)) do
 			local col, riga = casellaLibera(righe[1], righe[2])
 			if col then
-				aggiungi(col, riga, rng:NextNumber() < 0.5 and "casa" or "rottami")
+				-- In giungla al posto di case e rottami ci sono alberi e macchie.
+				aggiungi(col, riga, battaglia.giungla and "ostacolo" or rng:NextNumber() < 0.5 and "casa" or "rottami")
 			end
 		end
 	end

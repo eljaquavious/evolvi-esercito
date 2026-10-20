@@ -89,11 +89,10 @@ Animatore.STILI = {
 	FanteNVA = "fucile",
 	MitraglieriNVA = "mitragliatrice",
 	PT76 = "carro",
-	VDV = "fucile",
-	PKM = "mitragliatrice",
-	BMP2 = "carro",
+	FantePVA = "fucile",
+	MitraglieriPVA = "mitragliatrice",
 	Giap = "pistola",
-	Sokolov = "pistola",
+	PengDehuai = "pistola",
 }
 
 -- Lunghezza di un passo completo (due appoggi) in studs.

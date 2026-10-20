@@ -81,19 +81,19 @@ Epoche.Lista = {
 		mazzoIniziale = { "Fante", "Fante", "Fante", "Mitragliere", "Mitragliere", "CarroArmato" },
 	},
 	{
-		-- Era moderna (richiesta di Mattia): due battaglie sole, Vietnam e Afghanistan, con armate moderne.
-		-- Il mazzo iniziale è americano; i nemici sono i Nordvietnamiti a Khe Sanh e i Sovietici nel Panjshir.
+		-- Era moderna (richiesta di Mattia): due battaglie sole, Corea e Vietnam, con armate moderne.
+		-- Il mazzo iniziale è americano (i Marines); i nemici sono i Cinesi a Chosin e i Nordvietnamiti a Khe Sanh.
 		id = "Moderna",
 		nome = "Modern Era",
 		colore = Color3.fromRGB(150, 122, 76),
 		livelli = 2,
 		truppe = {
 			"MarineUSA", "MitraglieriM60", "M48Patton",
+			"FantePVA", "MitraglieriPVA",
 			"FanteNVA", "MitraglieriNVA", "PT76",
-			"VDV", "PKM", "BMP2",
 		},
-		comandanti = { "Giap", "Sokolov" },
-		-- Il bunker di cemento del Novecento va bene anche qui (Khe Sanh, le basi sovietiche).
+		comandanti = { "PengDehuai", "Giap" },
+		-- Il bunker di cemento del Novecento va bene anche qui (le colline di Chosin, Khe Sanh).
 		fortezza = "FortezzaNovecento",
 		mazzoIniziale = { "MarineUSA", "MarineUSA", "MarineUSA", "MitraglieriM60", "MitraglieriM60", "M48Patton" },
 	},
@@ -523,18 +523,17 @@ reggimento("FanteFranciaLibera", "Novecento", "Fanteria", "France", "Free French
 Epoche.Truppe.CarroArmato.veicolo = true
 
 -- Era moderna ----------------------------------------------------------------------------------------------
--- Mazzo iniziale: i Marines americani in Vietnam.
-reggimento("MarineUSA", "Moderna", "Fanteria", "USA", "US Marines", "M16 rifles and flak jackets. Semper Fi.")
+-- Mazzo iniziale: i Marines americani, in Corea e in Vietnam.
+reggimento("MarineUSA", "Moderna", "Fanteria", "USA", "US Marines", "From Chosin to Khe Sanh. Semper Fi.")
 reggimento("MitraglieriM60", "Moderna", "Tiratore", "USA", "M60 Gun Team", "The Pig: belt-fed fire that pins the enemy down.")
 reggimento("M48Patton", "Moderna", "Cavalleria", "USA", "M48 Patton", "The Marines' tank in Vietnam. 90 mm gun.")
+-- Chosin 1950: l'Esercito popolare di volontari cinese, a ondate nella neve.
+reggimento("FantePVA", "Moderna", "Fanteria", "China", "Chinese Volunteers", "Quilted coats and night attacks in the snow.", { hp = 660, velocita = 1.15, armatura = 0.1, danno = 48 })
+reggimento("MitraglieriPVA", "Moderna", "Tiratore", "China", "Chinese Machine Gunners", "Old Maxim guns on the frozen ridges.", { danno = 17, cadenza = 2.9 })
 -- Khe Sanh 1968: l'esercito del Vietnam del Nord attorno alla base dei Marines.
 reggimento("FanteNVA", "Moderna", "Fanteria", "Vietnam", "NVA Regulars", "Pith helmets and AK-47s. Masters of the jungle.", { velocita = 1.15, armatura = 0.12, hp = 680 })
 reggimento("MitraglieriNVA", "Moderna", "Tiratore", "Vietnam", "NVA Machine Gunners", "Heavy DShK guns dug into the hills.", { danno = 20, cadenza = 2.8 })
 reggimento("PT76", "Moderna", "Cavalleria", "Vietnam", "PT-76 Tank", "Light amphibious tank that stormed Lang Vei.", { hp = 950, danno = 85, velocita = 1.3, armatura = 0.32 })
--- Panjshir 1982: le offensive sovietiche nella valle.
-reggimento("VDV", "Moderna", "Fanteria", "USSR", "Soviet Paratroopers", "The VDV: blue berets and striped shirts.", { hp = 720, danno = 52, velocita = 1.1 })
-reggimento("PKM", "Moderna", "Tiratore", "USSR", "PKM Team", "Kalashnikov's general-purpose machine gun.", { cadenza = 3.4, danno = 17 })
-reggimento("BMP2", "Moderna", "Cavalleria", "USSR", "BMP-2", "Infantry fighting vehicle with a 30 mm autocannon.", { hp = 1050, danno = 70, cadenza = 0.9, gittata = 3.0, velocita = 1.3, armatura = 0.38, area = 0.25 })
 
 -- Comandanti nuovi ---------------------------------------------------------------------------------------
 Epoche.Truppe.Saladino = {
@@ -630,23 +629,23 @@ Epoche.Truppe.Giap = {
 	armatura = 0.3,
 	aura = 0.15,
 }
-Epoche.Truppe.Sokolov = {
-	id = "Sokolov",
-	origine = "USSR",
-	abilita = { nome = "Red Army Offensive", danno = 0.2, difesa = 0.1, durata = 9 },
-	nome = "Sergei Sokolov",
+Epoche.Truppe.PengDehuai = {
+	id = "PengDehuai",
+	origine = "China",
+	abilita = { nome = "Human Wave", velocita = 0.25, danno = 0.15, durata = 9 },
+	nome = "Peng Dehuai",
 	epoca = "Moderna",
 	classe = "Fanteria",
 	comandante = true,
-	descrizione = "Marshal of the Soviet Union. Nearby allies hit much harder.",
+	descrizione = "Commander of the Chinese armies in Korea. Nearby allies hit harder.",
 	soldati = 1,
-	hp = 1200,
-	danno = 64,
+	hp = 1100,
+	danno = 60,
 	cadenza = 1.1,
 	gittata = 2.5,
-	velocita = 1.0,
-	armatura = 0.35,
-	aura = 0.2,
+	velocita = 1.1,
+	armatura = 0.3,
+	aura = 0.15,
 }
 
 -- Le carte che un giocatore può avere: reggimenti e comandanti, nell'ordine delle epoche.

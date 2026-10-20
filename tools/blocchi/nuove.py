@@ -1960,7 +1960,7 @@ SPECIALI["CannoneOttomano"] = _bombarda
 SPECIALI["Artiglieria"] = _gribeauval
 
 
-# == ERA MODERNA: Vietnam (Khe Sanh 1968) e Afghanistan (Panjshir 1982) ====================================
+# == ERA MODERNA: Corea (Chosin 1950) e Vietnam (Khe Sanh 1968) ====================================
 
 def fucile_assalto(legno="#2A2A2C", metallo="#2A2C30", curvo=False, caricatore=None, lungo=0.95):
     """Fucile d'assalto: M16 nero col caricatore dritto, AK con il legno e il caricatore curvo."""
@@ -2012,28 +2012,6 @@ def casco_coloniale(c="#7A7A4A", stella="#C82828"):
     return elmo
 
 
-def basco(c="#2E5AA8"):
-    """Basco azzurro dei paracadutisti sovietici (VDV), inclinato sulla destra."""
-    def elmo(m):
-        H = m.posizione_osso("testa")[1]
-
-        def fronte(pen):
-            pen.riempi(c)
-            pen.ellisse(0.25, 0.45, 0.4, 0.85, "#D8B048")
-        m.scatola("testa", (0.04, H + TESTA + 0.035, 0.02), (TESTA + 0.06, 0.08, TESTA + 0.06), {"tutte": tinta(c), "fronte": fronte})
-        m.scatola("testa", (0.18, H + TESTA + 0.02, 0.0), (TESTA * 0.5, 0.06, TESTA * 0.9), {"tutte": tinta(scuro(c, 0.1))})
-    return elmo
-
-
-def panama(c="#A49670"):
-    """Cappello a tesa morbida (panamka) della divisa afghanka."""
-    def elmo(m):
-        H = m.posizione_osso("testa")[1]
-        m.scatola("testa", (0, H + TESTA + 0.05, 0), (TESTA * 0.96, 0.12, TESTA * 0.96), {"tutte": tinta(c)})
-        m.scatola("testa", (0, H + TESTA * 0.94, 0), (TESTA + 0.26, 0.03, TESTA + 0.26), {"tutte": tinta(scuro(c, 0.08))})
-    return elmo
-
-
 def giubbotto(c="#4A4E36"):
     """Giubbotto antiproiettile (flak jacket) dei Marines sopra la camicia."""
     def p(pen):
@@ -2042,13 +2020,6 @@ def giubbotto(c="#4A4E36"):
         for v in (0.25, 0.45, 0.65):
             pen.rett(0.06, v, 0.94, v + 0.025, scuro(c, 0.2))
     return p
-
-
-def telnyashka(pen):
-    """Maglia a righe bianche e blu dei VDV, che si vede nello scollo."""
-    pen.poligono([(0.36, 0), (0.5, 0.22), (0.64, 0)], "#ECEAE2")
-    for v in (0.04, 0.1, 0.16):
-        pen.rett(0.4 + v * 0.3, v, 0.6 - v * 0.3, v + 0.03, "#2E4A9A")
 
 
 @fante
@@ -2071,17 +2042,6 @@ def FanteNVA():
 @fante
 def MitraglieriNVA():
     return squadra_mitraglia("MitraglieriNVA", "#6E7448", casco_coloniale(), pelle=PELLI[1], scudo=True)
-
-
-@fante
-def VDV():
-    return soldato_fucile("VDV", "#9A8E66", "#8A7E58", None, "#2A2018", basco(), pelle=PELLI[0], extra=telnyashka,
-                          cinghie="#5A4A30", arma=fucile_assalto(legno="#6A3A22", metallo="#2A2C30", curvo=True, caricatore="#6A3020"))
-
-
-@fante
-def PKM():
-    return squadra_mitraglia("PKM", "#9A8E66", panama(), arma="mg42", pelle=PELLI[3])
 
 
 def ufficiale(nome, divisa, pantaloni_c, berretto, fascia, pelle, capelli, mostrine=None, stella_eroe=False):
@@ -2123,10 +2083,32 @@ def Giap():
     return ufficiale("Giap", "#8A8656", "#7A7648", "#8A8656", "#B82820", PELLI[1], "#1A1410", mostrine="#B82820")
 
 
+def trapunta(pen):
+    """Cuciture della giubba imbottita dei volontari cinesi."""
+    for v in (0.15, 0.3, 0.45, 0.6):
+        pen.rett(0, v, 1, v + 0.015, "#7A6E44")
+
+
+def berretto_pelo(m):
+    """Berretto invernale cinese con i paraorecchie di pelo e la stella rossa."""
+    colbacco_ushanka(m, "#8A7C50", pelo="#9A8C5E", stella=True)
+
+
 @fante
-def Sokolov():
-    """Il maresciallo Sergej Sokolov: divisa verde oliva sovietica, berretto con la fascia rossa, stella d'Eroe."""
-    return ufficiale("Sokolov", "#5A5E40", "#4E5236", "#5A5E40", "#B82820", PELLI[0], "#B8B4AA", mostrine="#D8B048", stella_eroe=True)
+def FantePVA():
+    return soldato_fucile("FantePVA", "#9A8C58", "#8E8050", "#7A6E44", "#3A3024", berretto_pelo, pelle=PELLI[3],
+                          extra=trapunta, cinghie="#5A4A30", lungo=1.0)
+
+
+@fante
+def MitraglieriPVA():
+    return squadra_mitraglia("MitraglieriPVA", "#9A8C58", berretto_pelo, pelle=PELLI[3])
+
+
+@fante
+def PengDehuai():
+    """Peng Dehuai, comandante dei volontari cinesi in Corea: divisa kaki, berretto con la stella rossa."""
+    return ufficiale("PengDehuai", "#8E8456", "#7E7448", "#8E8456", "#8E8456", PELLI[3], "#2A2420", mostrine="#B82820")
 
 
 @speciale
@@ -2166,33 +2148,6 @@ def PT76():
     m.segmento("cannone", (0, 1.9, -3.9), (0, 1.9, -1.4), 0.09, 0.1, {"tutte": tinta(scuro(verde, 0.3), "metallo")}, alto=(0, 1, 0))
     for x in (-0.5, 0.5):  # idrogetti sul retro
         m.scatola("bacino", (x, 1.0, 3.2), (0.4, 0.4, 0.1), {"tutte": tinta("#2A2A26", "metallo")})
-    return m
-
-
-@speciale
-def BMP2():
-    """BMP-2 sovietico in Afghanistan: cingolato basso a cuneo, torretta con il cannoncino lungo da 30 mm e il
-    lanciamissili, verde con le macchie sabbia."""
-    m = Modello("BMP2")
-    verde = "#6A6A44"
-
-    def mimetica(pen):
-        pen.riempi(verde, "metallo")
-        for (u0, v0, u1, v1, c) in ((0.08, 0.2, 0.4, 0.6, "#9A8A5A"), (0.55, 0.45, 0.85, 0.9, "#9A8A5A"), (0.7, 0.05, 0.95, 0.3, "#4A4A30")):
-            pen.ellisse(u0, v0, u1, v1, c)
-    ossa_carro(m, 1.75, -0.8, 1.95, -1.5, -4.3)
-    for x in (-1.25, 1.25):
-        cingoli(m, x, 6.2, 0.9, 0.45, larghezza=0.5)
-    m.scatola("bacino", (0, 1.15, 0.3), (2.3, 0.8, 5.4), {"tutte": mimetica})
-    assi = np.column_stack([[1, 0, 0], [0, np.cos(1.15), -np.sin(1.15)], [0, np.sin(1.15), np.cos(1.15)]])
-    m.scatola("bacino", (0, 1.05, -2.7), (2.3, 1.2, 0.12), {"tutte": mimetica}, assi=assi)  # cuneo davanti
-    for z in (0.8, 1.8, 2.6):  # portelli dei fanti sul retro
-        for x in (-0.5, 0.5):
-            m.scatola("bacino", (x, 1.57, z), (0.7, 0.05, 0.6), {"tutte": tinta(scuro(verde, 0.15), "metallo")})
-    m.scatola("torretta", (0, 1.75, -0.8), (1.4, 0.5, 1.4), {"tutte": pannello(verde), "sopra": mimetica})
-    m.segmento("cannone", (0, 1.95, -4.3), (0, 1.95, -1.4), 0.05, 0.06, {"tutte": tinta("#2A2C28", "metallo")}, alto=(0, 1, 0))
-    m.scatola("cannone", (0, 1.95, -4.35), (0.12, 0.12, 0.25), {"tutte": tinta("#2A2C28", "metallo")})
-    m.segmento("torretta", (0.0, 2.15, -1.6), (0.0, 2.15, -0.6), 0.08, 0.08, {"tutte": tinta(scuro(verde, 0.2), "metallo")}, alto=(0, 1, 0))  # missile
     return m
 
 
