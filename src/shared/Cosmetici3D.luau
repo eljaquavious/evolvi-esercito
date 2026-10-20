@@ -620,6 +620,9 @@ local COLORI_MESH = {
 	Targa = { ROSSO, STOFFA },
 	-- Capelli corti da soldato sotto kepì e Adrian: coprono la nuca, così la testa non sembra calva.
 	CapelliCorti = { hex("#3A2A20"), Enum.Material.SmoothPlastic },
+	-- Era moderna: elmetto M1, giubbotto antiproiettile, radio da campo (tela e vernice verde oliva).
+	OlivaM1 = { hex("#56603F"), STOFFA }, OlivaScuro = { hex("#3F4630"), STOFFA }, Mimetica = { hex("#6E5E3A"), STOFFA },
+	Radio = { hex("#4E5638") }, Kaki = { hex("#8A7E58"), STOFFA },
 }
 -- Texture che hanno già il loro colore (la parte resta SmoothPlastic sotto): ciocche del crine e pelo d'ermellino.
 local TEXTURE_MESH = {

@@ -64,18 +64,21 @@ Ricompense.Cosmetici = {
 	{ id = "ElmoGrande", nome = "Great Helm", slot = "Testa", rarita = "raro", condizione = { "battaglia", 9 }, epoca = 2 },
 	{ id = "Adrian", nome = "Adrian Helmet", slot = "Testa", rarita = "raro", condizione = { "battaglia", 20 }, epoca = 4 },
 	{ id = "Kepi", nome = "Marshal's Kepi", slot = "Testa", rarita = "epico", condizione = { "stelleEpoca", 4 }, epoca = 4 },
+	{ id = "ElmoM1", nome = "M1 Helmet", slot = "Testa", rarita = "raro", condizione = { "battaglia", 25 }, epoca = 5 },
 	{ id = "Vichingo", nome = "Viking Helmet", slot = "Testa", rarita = "comune", monete = 1000 },
 	{ id = "Corona", nome = "Iron Crown", slot = "Testa", rarita = "leggendario", condizione = { "ranked", 25 } },
 	-- Corpo
 	{ id = "Lorica", nome = "Lorica Segmentata", slot = "Corpo", rarita = "epico", condizione = { "battaglia", 6 }, epoca = 1 },
 	{ id = "Piastre", nome = "Knight's Plate", slot = "Corpo", rarita = "epico", condizione = { "battaglia", 12 }, epoca = 2 },
 	{ id = "Cartucciera", nome = "Bandolier", slot = "Corpo", rarita = "epico", condizione = { "battaglia", 24 }, epoca = 4 },
+	{ id = "Giubbotto", nome = "Flak Jacket", slot = "Corpo", rarita = "epico", condizione = { "battaglia", 26 }, epoca = 5 },
 	{ id = "CorazzaOro", nome = "Golden Cuirass", slot = "Corpo", rarita = "leggendario", robux = { prezzo = 149, prodotto = 0 } },
 	-- Schiena
 	{ id = "Scudo", nome = "Roman Scutum", slot = "Schiena", rarita = "raro", condizione = { "battaglia", 3 }, epoca = 1 },
 	{ id = "Arco", nome = "English Longbow", slot = "Schiena", rarita = "raro", condizione = { "battaglia", 11 }, epoca = 2 },
 	{ id = "Mantello", nome = "Royal Cape", slot = "Schiena", rarita = "epico", condizione = { "stelleEpoca", 2 }, epoca = 2 },
 	{ id = "Fucile", nome = "Lebel Rifle", slot = "Schiena", rarita = "raro", condizione = { "battaglia", 21 }, epoca = 4 },
+	{ id = "Radio", nome = "Field Radio", slot = "Schiena", rarita = "epico", condizione = { "stelleEpoca", 5 }, epoca = 5 },
 	{ id = "Stendardo", nome = "War Banner", slot = "Schiena", rarita = "raro", monete = 2500 },
 	{ id = "Aquila", nome = "Imperial Eagle", slot = "Schiena", rarita = "leggendario", robux = { prezzo = 99, prodotto = 0 } },
 	-- Aure
