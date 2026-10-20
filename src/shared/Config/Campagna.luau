@@ -269,6 +269,7 @@ function Campagna.livello(numero)
 		nemico = battaglia.nemico or "the enemy",
 		armata = battaglia.armata or epoca.truppe,
 		citta = battaglia.citta,
+		giungla = battaglia.giungla,
 		terreno = generaTerreno(numero, locale, battaglia, indiceEpoca),
 		numeroNemici = numeroNemici,
 		maxReggimenti = math.min(numeroNemici + 1, Campagna.MAX_REGGIMENTI),

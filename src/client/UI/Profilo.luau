@@ -199,7 +199,9 @@ local function disegna()
 	testoLivello.Text = "LEVEL " .. livello
 	testoXp.Text = ("%s / %s XP"):format(Stile.numero(resto), Stile.numero(necessario))
 	barraXp:imposta(resto / necessario)
-	chipEpoca.Text = string.upper(tostring(stato.epoca or "")) .. " ERA"
+	local nomeEpoca = string.upper(tostring(stato.epoca or ""))
+	-- "MODERN ERA" e "AGE OF GUNPOWDER" hanno già la parola.
+	chipEpoca.Text = nomeEpoca .. ((string.find(nomeEpoca, "ERA") or string.find(nomeEpoca, "AGE")) and "" or " ERA")
 	local titolo = Ricompense.titolo(stato.titolo or Ricompense.TITOLO_INIZIALE) or Ricompense.titolo(Ricompense.TITOLO_INIZIALE)
 	testoTitolo.Text = "« " .. string.upper(titolo.nome) .. " »"
 	testoTitolo.TextColor3 = Color3.fromHex(Ricompense.Rarita[titolo.rarita].colore)

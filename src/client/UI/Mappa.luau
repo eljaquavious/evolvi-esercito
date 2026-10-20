@@ -395,7 +395,10 @@ local function aggiornaPannello()
 		sfumaIcona(stella, i <= stelle and 0 or 0.7)
 	end
 
-	infoLivello.Text = ("%s · %s ERA"):format(livello.anno, string.upper(livello.epoca.nome))
+	-- "MODERN ERA" e "AGE OF GUNPOWDER" hanno già la parola: niente "ERA" in più.
+	local nomeEpoca = string.upper(livello.epoca.nome)
+	local suffisso = (string.find(nomeEpoca, "ERA") or string.find(nomeEpoca, "AGE")) and "" or " ERA"
+	infoLivello.Text = ("%s · %s%s"):format(livello.anno, nomeEpoca, suffisso)
 	local fiume, trincee = false, false
 	for _, t in ipairs(livello.terreno) do
 		fiume = fiume or t.tipo == "fiume"
@@ -407,6 +410,9 @@ local function aggiornaPannello()
 	end
 	if trincee then
 		table.insert(righe, "Trenches")
+	end
+	if livello.giungla then
+		table.insert(righe, "Jungle")
 	end
 	table.insert(righe, ("Your regiments: %d"):format(livello.maxReggimenti))
 	dettagli.Text = table.concat(righe, " · ")
