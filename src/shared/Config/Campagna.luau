@@ -332,7 +332,8 @@ function Campagna.armata(livello, round, assedio)
 	-- Nei livelli con un comandante, dal secondo round guida lui l'armata.
 	if livello.comandante and round >= 2 then
 		piazza(livello.comandante, Campagna.RIGHE - 1, Campagna.RIGHE)
-		numero -= 1
+		-- Il generale non sta mai da solo: almeno un reggimento lo accompagna.
+		numero = math.max(1, numero - 1)
 	end
 	for _ = 1, numero do
 		piazzaReggimento(livello.armata[rng:NextInteger(1, #livello.armata)])

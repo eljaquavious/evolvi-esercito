@@ -19,7 +19,7 @@ local LobbyVita = {}
 
 local VELOCITA_LOBBY = 30
 local VELOCITA_TAPPETO = 58
-local VELOCITA_CAMPO = 16
+local VELOCITA_CAMPO = VELOCITA_LOBBY -- in battaglia come in lobby (Mattia: più veloce del normale)
 local FOV = 70
 local FOV_CORSA = 80
 

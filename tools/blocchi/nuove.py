@@ -2151,6 +2151,80 @@ def PT76():
     return m
 
 
+
+# == COMANDANTI A CAVALLO (Mattia: i generali prima delle armi da fuoco, se andavano a cavallo, a cavallo) =====
+
+@a_cavallo("Guglielmo")
+def Cesare(vecchio):
+    """Giulio Cesare a cavallo: corazza muscolare di bronzo dorato, tunica e paludamentum rossi, corona d'alloro,
+    gladio sguainato; gualdrappa rossa con il bordo d'oro."""
+    m = base("Cesare", vecchio, mano_l=(0.05, -0.6, -1))
+    pelle = PELLI[1]
+    oro = "#C89A40"
+    rosso = "#A02828"
+
+    def corazza(pen):
+        pen.riempi(oro, "metallo")
+        for u in (0.3, 0.7):  # pettorali
+            pen.ellisse(u - 0.17, 0.12, u + 0.17, 0.4, chiaro(oro, 0.15))
+        for v in (0.48, 0.6, 0.72):  # addominali
+            pen.rett(0.36, v, 0.64, v + 0.08, chiaro(oro, 0.1))
+        pen.rett(0, 0.84, 1, 1, rosso)  # pteryges della tunica
+        pen.rett(0.2, 0.0, 0.8, 0.06, "#ECEAE2")
+    corpo(m, {
+        "busto": corazza, "busto_retro": tinta(oro, "metallo"), "busto_lati": tinta(oro, "metallo"),
+        "omero": tinta(rosso), "avambraccio": tinta(pelle, "pelle"), "mano": tinta(pelle, "pelle"),
+        "testa": viso(pelle, bocca="decisa"), "testa_lati": capelli_lati(pelle, "#3A2A1E", 0.3),
+        "testa_retro": capelli_retro("#3A2A1E", pelle, 0.5),
+    }, gambe=False)
+    gambe(m, tinta(rosso), tinta(pelle, "pelle"), tinta("#5A3A20", "cuoio"))
+    mantello_cavaliere(m, rosso, bordo="#D8B048")
+    H = testa_y(m)
+    alloro = tinta("#557D38")
+    for x in (-1, 1):  # corona d'alloro: foglie sui lati e dietro
+        m.scatola("testa", (x * (TESTA / 2 + 0.03), H + TESTA * 0.8, 0.02), (0.05, 0.08, TESTA * 0.9), {"tutte": alloro})
+    m.scatola("testa", (0, H + TESTA * 0.8, TESTA / 2 + 0.03), (TESTA * 0.9, 0.08, 0.05), {"tutte": alloro})
+    gualdrappa(m, rosso, lambda pen: pen.rett(0, 0.72, 1, 0.84, "#D8B048"))
+    lancia(m, 0.55, 0.12, "#5A3A20", c_punta="#D0D4DC")  # il gladio alzato
+    return m
+
+
+@a_cavallo("Guglielmo")
+def Giovanna(vecchio):
+    """Giovanna d'Arco a cavallo: armatura bianca a piastre, capelli corti a caschetto, lo stendardo bianco
+    con i gigli d'oro; gualdrappa blu di Francia con i gigli."""
+    m = base("Giovanna", vecchio, mano_l=(0.05, -0.6, -1))
+    pelle = PELLI[3]
+    acciaio = "#B8BEC6"
+
+    def piastre(pen):
+        pen.riempi(acciaio, "metallo")
+        for v in (0.3, 0.52, 0.72):
+            pen.rett(0, v, 1, v + 0.025, scuro(acciaio, 0.25))
+        pen.rett(0.46, 0, 0.54, 0.9, chiaro(acciaio, 0.2))
+    corpo(m, {
+        "busto": piastre, "busto_retro": piastre, "busto_lati": tinta(acciaio, "metallo"),
+        "omero": tinta(acciaio, "metallo"), "avambraccio": tinta(acciaio, "metallo"), "mano": tinta(acciaio, "metallo"),
+        "testa": viso(pelle, bocca="seria", capelli="#4A2E1A", frangia=0.08), "testa_lati": capelli_lati(pelle, "#4A2E1A", 0.55),
+        "testa_retro": capelli_retro("#4A2E1A", pelle, 0.6),
+    }, gambe=False)
+    gambe(m, tinta(acciaio, "metallo"), tinta(acciaio, "metallo"), tinta(scuro(acciaio, 0.2), "metallo"))
+    blu = "#1E3A8A"
+
+    def gigli(pen):
+        pen.rett(0, 0.72, 1, 0.84, "#D8B048")
+        for u in (0.2, 0.5, 0.8):
+            pen.ellisse(u - 0.04, 0.3, u + 0.04, 0.5, "#D8B048")
+    gualdrappa(m, blu, gigli)
+
+    def stendardo(pen):
+        pen.riempi("#ECEAE2")
+        for u, v in ((0.3, 0.3), (0.65, 0.55), (0.35, 0.75)):
+            pen.ellisse(u - 0.06, v - 0.06, u + 0.06, v + 0.06, "#D8B048")
+    lancia(m, 1.05, 0.3, "#7A5232", pennone=stendardo)
+    return m
+
+
 # == COSTRUZIONE ===========================================================================================
 
 def costruisci_cavaliere(nome, funzione, cavallo):

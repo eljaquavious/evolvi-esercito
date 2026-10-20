@@ -555,6 +555,17 @@ function GestoreCampagna.combatti(player)
 	if sessione.numero == 0 then
 		return false, "Deploy at least one regiment first."
 	end
+	-- I generali non combattono da soli: serve almeno un reggimento che li accompagni.
+	local scortati = false
+	for _, piazzata in ipairs(sessione.piazzate) do
+		local def = Epoche.Truppe[piazzata.tipo]
+		if def and not def.comandante then
+			scortati = true
+		end
+	end
+	if not scortati then
+		return false, "A general never fights alone: deploy a regiment with him."
+	end
 	sessione.fase = "battaglia"
 	task.spawn(round, player, sessione)
 	return true

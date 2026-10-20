@@ -18,7 +18,9 @@ local ANTICA = { id = "rbxassetid://1839315075", volume = 0.7 } -- "Bravest Of T
 local MEDIEVALE = { id = "rbxassetid://1836104037", volume = 0.7 } -- "Determined Epic Theme (Alt 2)" (Marc Dall'Anese), 67,5 s
 local NOVECENTO = { id = "rbxassetid://1839466301", volume = 0.75 } -- "War Of Heroes" (Kosinus), tamburi di guerra, 36,4 s
 local POLVERE = { id = "rbxassetid://1840899338", volume = 0.7 } -- "The Regiment" (APM), marcia militare per l'età della polvere da sparo, 63,1 s
-local MODERNA = { id = "rbxassetid://9047147693", volume = 0.6 } -- "Hell Racing Squad C" (Sonoton, APM), rock d'azione con le chitarre per l'Era Moderna, 102 s
+-- Era moderna: Mattia ha bocciato il rock e voleva "Axis theme" di HOI4 (non si può usare su Roblox): archi orchestrali
+-- decisi, "Arming for Conflict - Alternate Version" (Cezame, album Contemporary History, APM), 124 s.
+local MODERNA = { id = "rbxassetid://1837293395", volume = 0.7 }
 
 -- Scorciatoie per le sceneggiature qui sotto.
 local function R(id, tipo, squadra, file, righe, tappe, passo)

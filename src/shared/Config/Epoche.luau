@@ -269,11 +269,12 @@ Epoche.Truppe = {
 	},
 	Cesare = {
 		id = "Cesare",
+		-- A cavallo, come nella storia (richiesta di Mattia).
 		origine = "Rome",
 		abilita = { nome = "Veni, Vidi, Vici", danno = 0.2, durata = 8 },
 		nome = "Julius Caesar",
 		epoca = "Antica",
-		classe = "Fanteria",
+		classe = "Cavalleria",
 		comandante = true,
 		descrizione = "Veni, vidi, vici. Nearby allies hit harder.",
 		soldati = 1,
@@ -281,8 +282,9 @@ Epoche.Truppe = {
 		danno = 36,
 		cadenza = 1.0,
 		gittata = 1.2,
-		velocita = 1.0,
+		velocita = 1.8,
 		armatura = 0.35,
+		carica = 1.8,
 		aura = 0.15,
 	},
 	Guglielmo = {
@@ -306,11 +308,12 @@ Epoche.Truppe = {
 	},
 	Giovanna = {
 		id = "Giovanna",
+		-- A cavallo, come nella storia (richiesta di Mattia).
 		origine = "France",
 		abilita = { nome = "Divine Inspiration", cura = 0.15, difesa = 0.15, durata = 8 },
 		nome = "Joan of Arc",
 		epoca = "Medievale",
-		classe = "Fanteria",
+		classe = "Cavalleria",
 		comandante = true,
 		descrizione = "The Maid of Orleans. Nearby allies hit much harder.",
 		soldati = 1,
@@ -318,8 +321,9 @@ Epoche.Truppe = {
 		danno = 40,
 		cadenza = 1.0,
 		gittata = 1.2,
-		velocita = 1.1,
+		velocita = 1.7,
 		armatura = 0.4,
+		carica = 1.8,
 		aura = 0.15,
 	},
 	Foch = {

@@ -200,17 +200,18 @@ local function pannelloCampagna(tela)
 			Stile.sfumatura(Stile.PAL[COLORI_EPOCA[i] or "blu"].t, Stile.PAL[COLORI_EPOCA[i] or "blu"].b),
 		})
 		local nomeEpoca = Stile.scritta({
-			Position = UDim2.fromOffset(16, 6),
-			Size = UDim2.fromOffset(240, 36),
+			Position = UDim2.fromOffset(16, 8),
+			-- Si ferma prima della stella (che comincia a 126 px dal bordo destro).
+			Size = UDim2.fromOffset(210, 32),
 			Text = string.upper(epoca.nome),
-			TextSize = 28,
+			TextSize = 24,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			ZIndex = 4,
 			Parent = faccia,
 		})
 		-- "AGE OF GUNPOWDER" è lungo: si rimpicciolisce per non finire sotto la stella.
 		nomeEpoca.TextScaled = true
-		Stile.crea("UITextSizeConstraint", { MaxTextSize = 28, Parent = nomeEpoca })
+		Stile.crea("UITextSizeConstraint", { MaxTextSize = 24, Parent = nomeEpoca })
 		local stella = Stile.icona("star", {
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -92, 0, 4),

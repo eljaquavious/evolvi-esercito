@@ -29,6 +29,8 @@ local PAL_EPOCA = { Antica = "arancio", Medievale = "grigio", Novecento = "oro",
 
 local LARGHEZZA_SINISTRA = 1220
 
+local carteGriglia = {} -- tipo -> { carta, nota, firma } (carte della collezione già create)
+
 local function contaNelMazzo(tipo)
 	local n = 0
 	for _, t in ipairs(mazzo) do
@@ -380,7 +382,6 @@ function disegna()
 		return
 	end
 	svuota(rigaMazzo)
-	svuota(griglia)
 	numeroMonete.Text = Stile.numero(stato.monete or 0)
 
 	-- Mazzo: sei posti, vuoti con un "+".
@@ -436,24 +437,41 @@ function disegna()
 	if selezionato == nil then
 		selezionato = mazzo[1] or tutte[1]
 	end
+	-- Le carte della collezione si creano una volta sola (sono tante: rifarle tutte a ogni carta messa o tolta
+	-- dal mazzo bloccava il gioco); si rifà solo la carta la cui nota cambia, il resto si aggiorna.
 	for ordine, tipo in ipairs(tutte) do
 		local def = Epoche.Truppe[tipo]
-		if filtro == nil or def.classe == filtro then
-			local possedute = stato.collezione[tipo] or 0
-			local nelMazzo = contaNelMazzo(tipo)
-			local nota = notaCarta(tipo)
+		local possedute = stato.collezione[tipo] or 0
+		local nelMazzo = contaNelMazzo(tipo)
+		local nota = notaCarta(tipo)
+		local voce = carteGriglia[tipo]
+		if not voce or voce.nota ~= nota then
+			if voce then
+				voce.carta:Destroy()
+			end
 			local carta = Carta.crea(tipo, { nota = nota, spenta = nota ~= nil })
 			carta.LayoutOrder = ordine
 			carta.Parent = griglia
-			if not nota then
-				distintivi(carta, nelMazzo > 0, possedute - nelMazzo)
-			end
-			Carta.seleziona(carta, tipo == selezionato)
 			carta.Activated:Connect(function()
 				selezionato = tipo
 				disegna()
 			end)
+			voce = { carta = carta, nota = nota }
+			carteGriglia[tipo] = voce
 		end
+		voce.carta.Visible = filtro == nil or def.classe == filtro
+		local firma = nota and "" or (tostring(nelMazzo > 0) .. "|" .. (possedute - nelMazzo))
+		if voce.firma ~= firma then
+			voce.firma = firma
+			local vecchi = voce.carta:FindFirstChild("Distintivi")
+			if vecchi then
+				vecchi:Destroy()
+			end
+			if not nota then
+				distintivi(voce.carta, nelMazzo > 0, possedute - nelMazzo)
+			end
+		end
+		Carta.seleziona(voce.carta, tipo == selezionato)
 	end
 	disegnaDettaglio()
 end

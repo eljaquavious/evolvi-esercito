@@ -477,6 +477,46 @@ function Battaglia:_bersaglio(u, dt)
 	return migliore
 end
 
+-- Posto del comandante: i generali non combattono mai da soli (richiesta di Mattia), stanno attaccati a un
+-- reggimento della loro squadra (il più vicino; se muore, il più vicino tra quelli rimasti) e lo seguono,
+-- appena dietro il suo centro. Restituisce x, y del posto, oppure nil se non resta nessun reggimento.
+function Battaglia:_postoComandante(u)
+	local scorta = u.scorta
+	if not (scorta and scorta.vivo) then
+		scorta = nil
+		local migliore = math.huge
+		for _, r in ipairs(self.reggimenti) do
+			if r.vivo and r.squadra == u.squadra and not r.def.comandante then
+				for _, s in ipairs(r.soldati) do
+					if s.vivo then
+						local d = distanza(u, s)
+						if d < migliore then
+							scorta, migliore = r, d
+						end
+					end
+				end
+			end
+		end
+		u.scorta = scorta
+	end
+	if not scorta then
+		return nil
+	end
+	local sx, sy, n = 0, 0, 0
+	for _, s in ipairs(scorta.soldati) do
+		if s.vivo then
+			sx, sy, n = sx + s.x, sy + s.y, n + 1
+		end
+	end
+	if n == 0 then
+		return nil
+	end
+	local avanti = u.squadra == "giocatore" and 1 or -1
+	-- Dietro alla fortezza (che è grande) un po' di più che dietro a un reggimento.
+	local dietro = scorta.def.fortezza and 0.9 or 0.45
+	return sx / n, math.clamp(sy / n - dietro * avanti, 0.6, self.righe + 0.4)
+end
+
 local function distanzaDalSegmento(px, py, x0, y0, x1, y1)
 	local dx, dy = x1 - x0, y1 - y0
 	local l2 = dx * dx + dy * dy
@@ -858,6 +898,15 @@ function Battaglia:passo(dt)
 			local ordine = self.ordini[u.squadra]
 			local mobile = u.def.velocita > 0
 			local lontanoDalPosto = (u.x - u.ax) ^ 2 + (u.y - u.ay) ^ 2
+			-- Il generale segue il suo reggimento: combatte solo chi gli arriva a tiro, non va mai all'attacco da solo.
+			local postoX, postoY
+			if u.def.comandante and mobile then
+				postoX, postoY = self:_postoComandante(u)
+				if not postoX then
+					-- Rimasto senza reggimenti: resta dov'è e si difende (il round finisce comunque entro DURATA_MASSIMA).
+					postoX, postoY = u.x, u.y
+				end
+			end
 			if ordine == "ripiega" and mobile and lontanoDalPosto > 0.15 ^ 2 then
 				-- Ritirata: chi non è ancora al suo nuovo posto ci va, senza fermarsi a combattere.
 				u.inMischia = false
@@ -899,6 +948,12 @@ function Battaglia:passo(dt)
 							ritardo = ritardo,
 							carica = carica,
 						})
+					end
+				elseif postoX then
+					if (u.x - postoX) ^ 2 + (u.y - postoY) ^ 2 > 0.3 ^ 2 then
+						self:_muovi(u, { id = "scorta" .. u.id, x = postoX, y = postoY }, dt, 0)
+					else
+						u.rivolto = math.atan2(b.x - u.x, b.y - u.y)
 					end
 				elseif mobile then
 					-- Con "tieni", dopo una ritirata e con "fianchi" (tranne la cavalleria) la linea resta ferma:

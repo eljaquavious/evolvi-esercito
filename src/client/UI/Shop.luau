@@ -308,11 +308,15 @@ function Shop.aggiorna(nuovoStato)
 		return
 	end
 	stato = nuovoStato
-	disegna()
+	-- Solo se è aperto: ridisegnarlo a ogni cambio dei dati (ogni carta del mazzo) costava.
+	if finestra.Visible then
+		disegna()
+	end
 end
 
 function Shop.apri()
 	finestra.Visible = true
+	disegna()
 end
 
 function Shop.chiudi()
@@ -321,6 +325,9 @@ end
 
 function Shop.alterna()
 	finestra.Visible = not finestra.Visible
+	if finestra.Visible then
+		disegna()
+	end
 end
 
 return Shop

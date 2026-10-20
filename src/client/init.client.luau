@@ -36,6 +36,7 @@ local gui = Stile.crea("ScreenGui", {
 Notifiche.inizializza(gui)
 require(script.UI.Preferiti).inizializza(remoti)
 require(script.Chat).inizializza()
+require(script.Suoni).musica("lobby")
 Truppe.inizializza(remoti)
 LobbyVita.inizializza(remoti)
 Mantelli.inizializza()

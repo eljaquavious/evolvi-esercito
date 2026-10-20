@@ -197,8 +197,12 @@ local function sgombra(stato, radice, zone)
 end
 
 local function controlli(attivi)
+	-- Senza aspettare: se il PlayerModule non c'è (in questo place succede) l'attesa costava 5 secondi
+	-- all'inizio della cinematica e altri 5 dopo SKIP, prima di poter schierare le truppe.
 	local ok, modulo = pcall(function()
-		return require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule", 5)):GetControls()
+		local script = player:FindFirstChild("PlayerScripts")
+		local pm = script and script:FindFirstChild("PlayerModule")
+		return pm and require(pm):GetControls()
 	end)
 	if ok and modulo then
 		if attivi then
@@ -322,6 +326,8 @@ local function creaInterfaccia(stato, suSkip)
 	margine.Parent = skip
 	skip.Parent = gui
 	skip.Activated:Connect(suSkip)
+	-- Per i collaudi da script: mettere l'attributo "Salta" sulla gui equivale a premere SKIP.
+	gui:GetAttributeChangedSignal("Salta"):Connect(suSkip)
 end
 
 local function dissolvi(oggetto, proprieta, valore, durata)
@@ -685,7 +691,10 @@ local function finisci(stato, subito)
 			musica:Destroy()
 		end)
 	end
-	stato.cartella:Destroy()
+	-- SKIP può arrivare mentre la scena si prepara ancora: la cartella dei soldati può non esserci.
+	if stato.cartella then
+		stato.cartella:Destroy()
+	end
 	Effetti.pulisci()
 	for _, pezzo in ipairs(stato.nascosti) do
 		if pezzo.Parent then

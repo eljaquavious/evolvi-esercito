@@ -737,6 +737,7 @@ end
 local function esci(ripristinaVista)
 	fase = "lobby"
 	Suoni.fermaMusica()
+	Suoni.musica("lobby")
 	info = nil
 	arena = nil
 	mostraPiazzamento(false)
@@ -1460,6 +1461,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 			if inizioLivello and fase ~= "cinematica" and Cinematica.daMostrare(dati.nome, dati.livello) then
 				fase = "cinematica"
 				info = nil
+				Suoni.musica(nil) -- la cinematica ha la sua musica
 				impostaCielo(dati)
 				local campo = workspace:WaitForChild("Arene"):WaitForChild(dati.arena, 10)
 				Cinematica.riproduci(dati.nome, dati.centro, campo, function()

@@ -20,7 +20,7 @@ local function gruppo(nome, volume)
 	return g
 end
 
-local gruppoEffetti = gruppo("Effetti", 1)
+local gruppoEffetti = gruppo("Effetti", 0.4) -- ben sotto la musica (UI/Impostazioni lo rimette a 0.4 o a 0)
 local gruppoMusica = gruppo("Musica", 1)
 
 local function id(n)
@@ -119,6 +119,9 @@ local MUSICA = {
 	schieramento = { volume = 0.32, ids = { 9041879299, 91611560835347 } },
 	-- "Battleground", "On the Warpath", "Drums of Combat a", "Fight For A Tomorrow" (APM).
 	battaglia = { volume = 0.3, ids = { 9048541013, 1837240654, 1841476670, 1848108091 } },
+	-- Lobby e mappa: musica tranquilla (Mattia voleva qualcosa come "Morning of D-Day" di HOI4, che non si può
+	-- usare su Roblox): "Mountainside Awakening - Leads Only", "Soleil Levant", "Slow Movement" (APM).
+	lobby = { volume = 0.22, ids = { 9043694722, 1837591314, 1836331268 } },
 }
 
 local DISSOLVENZA = 1.6

@@ -8,6 +8,9 @@ local Cosmetici3D = {}
 
 local RIFERIMENTO = { Testa = "Testa", Corpo = "Busto", Schiena = "Busto" }
 local MISURA = { Testa = 1.2 } -- larghezza della testa standard (il busto standard è 2 x 1.6 x 1)
+local ALZA_TESTA = 0.12 -- di quanto si alzano i copricapi sopra la posizione disegnata in Blender (testa standard)
+-- In più per i copricapi con la tesa o la visiera sul davanti, che scendono sugli occhi.
+local ALZA_EXTRA = { Kepi = 0.3, Adrian = 0.3, ElmoM1 = 0.26, Vichingo = 0.12 }
 
 local function hex(h)
 	return Color3.fromHex(h)
@@ -642,6 +645,12 @@ local SUPERFICI = {
 	BluOrizzonte = { "Satinato", hex("#6F8296") }, BluOrizzonteScuro = { "Satinato", hex("#5A6B7E") },
 	Alloro = { "Satinato", VERDE_ALLORO }, AlloroChiaro = { "Satinato", hex("#6E9A48") },
 }
+-- Armature che col metallo splendente sembravano chiare e piatte (riflettono il cielo anche al chiuso, senza ombre):
+-- Mattia le ha bocciate il 20/10/2026. Qui hanno la superficie satinata con i colori dell'acciaio scuro.
+local METALLO_OPACO = {
+	Piastre = { Acciaio = hex("#4E535A"), Ottone = hex("#6A4E1E"), Ferro = hex("#464B51"), FerroScuro = hex("#24272B") },
+	Lorica = { Ferro = hex("#4A4F55"), FerroScuro = hex("#222529"), Ottone = hex("#6A4E1E") },
+}
 -- Eccezioni per un solo cosmetico: la visiera del kepì è di cuoio verniciato.
 local SUPERFICI_DI = { Kepi = { Nero = { "Lucido", hex("#15141A") } } }
 
@@ -671,6 +680,11 @@ local function daBlender(id)
 				p.Material = Enum.Material.SmoothPlastic
 			end
 			local sup = (SUPERFICI_DI[id] or {})[colore] or SUPERFICI[colore]
+			local opaco = METALLO_OPACO[id] and METALLO_OPACO[id][colore]
+			if opaco then
+				-- Superficie satinata (non a specchio) scura: ha le ombre e non riflette il cielo azzurro.
+				sup = { "Satinato", opaco }
+			end
 			local stampoSup = sup and superfici and superfici:FindFirstChild(sup[1])
 			if stampoSup then
 				local s = stampoSup:Clone()
@@ -744,6 +758,8 @@ local function parteDelCorpo(personaggio, riferimento)
 		if r6 then
 			su = 0.15 * k -- la faccia R6 ha gli occhi più in alto: il bordo degli elmi li copriva (provato in Studio)
 		end
+		-- Tutti i copricapi un po' più su: coprivano gli occhi di quasi ogni faccia (Mattia, 20/10/2026).
+		su += ALZA_TESTA * k
 		return testa, Vector3.new(k, k, k), su
 	end
 	local busto = personaggio:FindFirstChild("UpperTorso") or personaggio:FindFirstChild("Torso")
@@ -808,6 +824,9 @@ function Cosmetici3D.indossa(personaggio, id, slot)
 		return nil
 	end
 	local corpo, k, su = parteDelCorpo(personaggio, riferimento)
+	if riferimento == "Testa" and su then
+		su += (ALZA_EXTRA[id] or 0) * k.Y
+	end
 	if not corpo then
 		modello:Destroy()
 		return nil

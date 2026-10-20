@@ -51,7 +51,8 @@ end
 
 local function applica()
 	gruppo("Musica").Volume = valori.musica and 1 or 0
-	gruppo("Effetti").Volume = valori.effetti and 1 or 0
+	-- Effetti ben sotto la musica (richiesta di Mattia): 0.4 invece di 1.
+	gruppo("Effetti").Volume = valori.effetti and 0.4 or 0
 	if valori.prestazioni then
 		applicaLuci()
 	else
