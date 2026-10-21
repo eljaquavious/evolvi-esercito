@@ -197,6 +197,15 @@ function Shop.acquista(player, id)
 	return true
 end
 
+-- Regala una cassa (vittoria in campagna o in ranked): si apre come una comprata, senza pagare.
+function Shop.regala(player, id)
+	local cassa, tipo = Casse.trova(id)
+	if not cassa or not Dati.ottieni(player) then
+		return false
+	end
+	return apri(player, cassa, tipo)
+end
+
 function Shop.inizializza(r)
 	remoti = r
 	remoti.AcquistaCassa.OnServerInvoke = Shop.acquista

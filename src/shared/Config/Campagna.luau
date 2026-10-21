@@ -257,7 +257,19 @@ function Campagna.livello(numero)
 	-- Più si va avanti nella campagna, più reggimenti ci sono in campo (richiesta di Mattia): il conto non
 	-- riparte da capo a ogni epoca ma cresce dall'inizio alla fine, da 1 nemico contro 2 fino a 6 contro 6.
 	local avanzamento = (numero - 1) / math.max(1, Campagna.TOTALE - 1)
-	local numeroNemici = math.clamp(1 + math.floor(avanzamento * 5 + 0.5), 1, Campagna.MAX_REGGIMENTI)
+	-- Dal livello 2 si schierano più truppe (Mattia, 21/10/2026: "troppe poche all'inizio"): il giocatore ne ha
+	-- due più del nemico (non più una) e anche il nemico parte da 2. Il primo livello resta 2 contro 1 (tutorial).
+	-- Livello 2: 4 contro 2; 6: 5 contro 3; 11: 6 contro 4; 16: 6 contro 5; dal 21: 6 contro 6.
+	local numeroNemici, maxReggimenti
+	if numero == 1 then
+		numeroNemici, maxReggimenti = 1, 2
+	else
+		numeroNemici = math.clamp(2 + math.floor(avanzamento * 5 + 0.5), 2, Campagna.MAX_REGGIMENTI)
+		maxReggimenti = math.min(numeroNemici + 2, Campagna.MAX_REGGIMENTI)
+	end
+	-- Per bilanciare i reggimenti in più del giocatore, quelli nemici sono un po' più forti: +8% per ogni
+	-- reggimento di vantaggio oltre il primo.
+	local vantaggio = math.max(0, maxReggimenti - numeroNemici - 1)
 
 	return {
 		numero = numero,
@@ -276,9 +288,9 @@ function Campagna.livello(numero)
 		giungla = battaglia.giungla,
 		terreno = generaTerreno(numero, locale, battaglia, indiceEpoca),
 		numeroNemici = numeroNemici,
-		maxReggimenti = math.min(numeroNemici + 1, Campagna.MAX_REGGIMENTI),
+		maxReggimenti = maxReggimenti,
 		-- A parità di reggimenti (in fondo alla campagna) i nemici sono un po' più deboli.
-		forzaNemici = (1 + 0.025 * (grado - 1)) * (numeroNemici >= Campagna.MAX_REGGIMENTI and 0.93 or 1),
+		forzaNemici = (1 + 0.025 * (grado - 1)) * (numeroNemici >= Campagna.MAX_REGGIMENTI and 0.93 or 1) * (1 + 0.08 * vantaggio),
 		ricompensa = math.floor(40 + 15 * grado + 60 * (indiceEpoca - 1)),
 		-- Prima vittoria: il comandante del livello, oppure una carta dell'epoca a rotazione.
 		-- premio = la carta della prima vittoria quando non è né il boss né una dell'armata (gli Spartani alle Termopili).

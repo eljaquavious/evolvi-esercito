@@ -24,6 +24,7 @@ local Cinematica = require(script.Parent.Parent.Cinematica)
 local Suoni = require(script.Parent.Parent.Suoni)
 local Preferiti = require(script.Parent.Preferiti)
 local Tutorial = require(script.Parent.Tutorial)
+local FineRanked = require(script.Parent.FineRanked)
 
 local Partita = {}
 
@@ -67,7 +68,8 @@ local inviando = false -- una richiesta di schieramento alla volta
 
 -- Tabellone in alto: targhe YOU / Round / ENEMY con i pallini dei round vinti.
 local intestazione, titoloLivello, titoloRound, sottotitolo, puntiTu, puntiNemico, timer
-local contatore, avviso, bottoneLobby
+local contatore, avviso, bottoneLobby, nomeNemico
+local versioneTimer = 0 -- il conto alla rovescia dello schieramento in ranked si ferma se cambia
 local barraMazzo, carteMazzo, bottoneCombatti, scrittaConto, esploratori, righeEsploratori, bannerRound
 local risultato, scheda, raggi, rotazioneRaggi, stelleRisultato, targaRisultato, titoloRisultato, codeTarga
 local battagliaRisultato, pannelloPremi, testoMonete, testoEsperienza, dettaglioRisultato, spazioPremio
@@ -107,7 +109,9 @@ local function impostaCamera()
 		player.CameraMaxZoomDistance = 160
 		player.CameraMinZoomDistance = zoomOriginale and zoomOriginale[1] or 0.5
 	end)
-	workspace.CurrentCamera.CFrame = CFrame.lookAt(info.centro + Vector3.new(0, 34, -112), info.centro + Vector3.new(0, 0, -16))
+	-- In ranked il secondo giocatore sta dall'altra parte del campo (info.girato): la telecamera si gira.
+	local verso = info.girato and -1 or 1
+	workspace.CurrentCamera.CFrame = CFrame.lookAt(info.centro + Vector3.new(0, 34, -112 * verso), info.centro + Vector3.new(0, 0, -16 * verso))
 end
 
 -- Torna alla telecamera normale, riavvicinata: dal campo si poteva essere molto lontani.
@@ -224,6 +228,10 @@ local function costruisciMazzo()
 	carte, idPerIndice, bottoniAbilita = {}, {}, {}
 	if suggerimento then
 		suggerimento.Text = "CLICK A CARD TO DEPLOY OR RECALL IT"
+	end
+	local layout = carteMazzo:FindFirstChildOfClass("UIListLayout")
+	if layout then
+		layout.Padding = UDim.new(0, #info.mazzo > 7 and 12 or 56)
 	end
 	for indice, tipo in ipairs(info.mazzo) do
 		local carta = Carta.crea(tipo)
@@ -401,7 +409,12 @@ local function entraPiazzamento(dati)
 		impostaCamera()
 	end
 	impostaCielo(dati)
-	titoloLivello.Text = ("%d. %s  ·  %s"):format(dati.livello, string.upper(dati.nome), dati.anno)
+	if dati.ranked then
+		titoloLivello.Text = ("RANKED  ·  %s"):format(string.upper(dati.nome))
+	else
+		titoloLivello.Text = ("%d. %s  ·  %s"):format(dati.livello, string.upper(dati.nome), dati.anno)
+	end
+	nomeNemico.Text = dati.ranked and string.upper(dati.avversario or "ENEMY") or "ENEMY"
 	aggiornaPunteggio(dati)
 	sottotitolo.Text = dati.assedio and "SIEGE! STORM THE FORTRESS" or "DEPLOY YOUR ARMY"
 	sottotitolo.TextColor3 = dati.assedio and Stile.Colori.Oro or AZZURRO
@@ -411,7 +424,11 @@ local function entraPiazzamento(dati)
 	costruisciFormazioni()
 	mostraEsploratori(dati.esploratori)
 	bannerRound.Visible = false
-	if dati.assedio then
+	if dati.ranked then
+		avviso.Text = dati.round == 1 and ("RANKED vs %s: pick any of your cards and a formation, then press FIGHT!"):format(dati.avversario or "your opponent")
+			or "Next round! Change your army or press FIGHT!"
+		avviso.TextColor3 = Stile.Colori.Testo
+	elseif dati.assedio then
 		avviso.Text = "SIEGE! The enemy hides in a fortress: destroy it and win the battle."
 		avviso.TextColor3 = Stile.Colori.Oro
 	elseif dati.round == 1 and dati.fiume then
@@ -425,7 +442,24 @@ local function entraPiazzamento(dati)
 		avviso.TextColor3 = Stile.Colori.Testo
 	end
 	mostraPiazzamento(true)
+	if dati.ranked then
+		-- Gli esploratori non vedono l'armata dell'avversario.
+		esploratori.Visible = false
+	end
 	mostraTimer(nil)
+	versioneTimer += 1
+	if dati.limite then
+		-- Ranked: tempo per schierarsi, poi si combatte comunque.
+		local versione = versioneTimer
+		local fineTempo = os.clock() + dati.limite
+		task.spawn(function()
+			while fase == "piazzamento" and versione == versioneTimer do
+				local resto = math.max(0, math.ceil(fineTempo - os.clock()))
+				mostraTimer(("0:%02d"):format(resto))
+				task.wait(0.25)
+			end
+		end)
+	end
 	mostraVinci(true)
 	-- Prima battaglia: tutorial passo passo.
 	if dati.tutorial and dati.round == 1 and not Tutorial.attivo() then
@@ -718,7 +752,8 @@ local function mostraRound(dati)
 	if dati.vittoria then
 		Suoni.musica(dati.finita and "vittoria" or "roundVinto")
 	end
-	if info and info.centro then
+	-- In ranked niente cinematica tra i round (Mattia): solo la scritta col punteggio.
+	if info and info.centro and not dati.ranked then
 		bannerRound.Visible = false
 		Intermezzo.riproduci(dati, info.centro)
 		return
@@ -727,7 +762,7 @@ local function mostraRound(dati)
 	local titolo = bannerRound:FindFirstChild("Titolo")
 	titolo.Text = dati.vittoria and "ROUND WON!" or "ROUND LOST"
 	titolo.TextColor3 = dati.vittoria and Stile.PAL.oro.t or Stile.PAL.rosso.t
-	bannerRound:FindFirstChild("Punteggio").Text = ("YOU  %d - %d  ENEMY"):format(dati.vinti, dati.persi)
+	bannerRound:FindFirstChild("Punteggio").Text = ("YOU  %d - %d  %s"):format(dati.vinti, dati.persi, dati.ranked and string.upper(dati.avversario or "ENEMY") or "ENEMY")
 	pop(bannerRound, 0.6)
 end
 
@@ -742,6 +777,18 @@ local function coloraStella(stella, accesa)
 end
 
 local function mostraRisultato(dati)
+	if dati.ranked then
+		fase = "risultato"
+		mostraPiazzamento(false)
+		mostraVinci(false)
+		pannelloOrdini.Visible = false
+		scrittaConto.Visible = false
+		bannerRound.Visible = false
+		mostraTimer(nil)
+		Suoni.musica("vittoria")
+		FineRanked.mostra(dati)
+		return
+	end
 	fase = "risultato"
 	Tutorial.evento("risultato")
 	if dati.vittoria then
@@ -799,6 +846,9 @@ local function mostraRisultato(dati)
 			dati.persiReggimenti or 0
 		),
 	}
+	if dati.cassa then
+		table.insert(righe, "BONUS: you earned a Small Crate!")
+	end
 	if dati.nuovoLivelloGiocatore then
 		table.insert(righe, ("LEVEL UP! You are now level %d."):format(dati.nuovoLivelloGiocatore))
 	end
@@ -873,6 +923,7 @@ local function esci(ripristinaVista)
 	bannerRound.Visible = false
 	pannelloOrdini.Visible = false
 	Intermezzo.ferma()
+	FineRanked.chiudi()
 	ripristinaCielo()
 	if ripristinaVista then
 		ripristinaCamera()
@@ -983,13 +1034,15 @@ function Partita.inizializza(gui, r, callbackLobby)
 		ZIndex = 1,
 		Parent = tabellone,
 	}, Stile.PAL.rosso)
-	Stile.scritta({
-		Position = UDim2.fromOffset(0, 6),
-		Size = UDim2.new(1, 0, 0, 44),
+	nomeNemico = Stile.scritta({
+		Position = UDim2.fromOffset(8, 6),
+		Size = UDim2.new(1, -16, 0, 44),
 		Text = "ENEMY",
 		TextSize = 40,
 		Parent = nemico,
 	})
+	nomeNemico.TextScaled = true
+	Stile.crea("UITextSizeConstraint", { MaxTextSize = 40, Parent = nomeNemico })
 	puntiNemico = filaPuntini(nemico)
 	local centro = Stile.crea("Frame", {
 		Name = "Centro",
@@ -1116,11 +1169,17 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Parent = barraMazzo,
 	})
 	Stile.crea("UITextSizeConstraint", { MaxTextSize = 24, Parent = suggerimento })
-	carteMazzo = Stile.crea("Frame", {
+	-- Scorre di lato quando le carte sono tante (in ranked si sceglie da tutta la collezione).
+	carteMazzo = Stile.crea("ScrollingFrame", {
 		Name = "Carte",
-		Position = UDim2.fromOffset(20, 70),
-		Size = UDim2.new(1, -40, 0, 164),
+		Position = UDim2.fromOffset(20, 66),
+		Size = UDim2.new(1, -40, 0, 176),
 		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 8,
+		ScrollingDirection = Enum.ScrollingDirection.X,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.X,
 		Parent = barraMazzo,
 	}, {
 		Stile.crea("UIListLayout", {
@@ -1152,8 +1211,9 @@ function Partita.inizializza(gui, r, callbackLobby)
 	})
 	bottoneCombatti.Activated:Connect(function()
 		local ok, messaggio = remoti.Combatti:InvokeServer()
-		if not ok and messaggio then
-			Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+		if messaggio then
+			-- In ranked: "Ready! Waiting for your opponent..."
+			Notifiche.mostra(messaggio, not ok and Stile.Colori.Rosso or nil)
 		end
 	end)
 
@@ -1590,6 +1650,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		remoti.TornaLobby:InvokeServer()
 	end)
 
+	FineRanked.inizializza(gui, remoti)
 	Tutorial.inizializza(tela, {
 		mazzo = function()
 			return barraMazzo
@@ -1651,7 +1712,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		if dati.fase == "piazzamento" then
 			-- All'inizio di un livello, prima del piazzamento, la cinematica della battaglia.
 			local inizioLivello = dati.round == 1 and dati.vinti == 0 and dati.persi == 0
-			if inizioLivello and fase ~= "cinematica" and Cinematica.daMostrare(dati.nome, dati.livello) then
+			if inizioLivello and not dati.ranked and fase ~= "cinematica" and Cinematica.daMostrare(dati.nome, dati.livello) then
 				fase = "cinematica"
 				info = nil
 				Suoni.musica(nil) -- la cinematica ha la sua musica

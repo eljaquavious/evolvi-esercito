@@ -326,14 +326,7 @@ function Hud.inizializza(gui, a)
 	riquadro(0, 0, "rosso", "shop", "Shop", azioni.shop)
 	riquadro(200, 0, "blu", "army", "Army", azioni.esercito)
 	riquadro(0, 206, "viola", "profile", "Profile", azioni.profilo)
-	local ranked = riquadro(200, 206, "oro", "ranked", "Ranked", azioni.ranked)
-	Stile.nastro({
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(1, -36, 0, 4),
-		Size = UDim2.fromOffset(104, 38),
-		ZIndex = 8,
-		Parent = ranked,
-	}, "rosa", "SOON", 24)
+	riquadro(200, 206, "oro", "ranked", "Ranked", azioni.ranked)
 	local locker = riquadro(0, 412, "acqua", "locker", "Locker", azioni.armadio)
 	avvisoLocker = Stile.avviso(locker)
 	avvisoLocker.Visible = false

@@ -250,7 +250,9 @@ local function schieramento(dati)
 			schierati[chiave] = gruppo
 			-- Il generale con la sua guardia del corpo, come in battaglia.
 			for _, posto in ipairs(Battaglia.composizione(def)) do
-				local s = nuovoSoldato(posto.def.id, "giocatore", punto(r.x + posto.x, r.y + posto.y), 0)
+				-- In ranked il secondo giocatore schiera in alto, rivolto verso il basso (dati.angolo = pi).
+				local verso = (dati.angolo or 0) == 0 and 1 or -1
+				local s = nuovoSoldato(posto.def.id, "giocatore", punto(r.x + posto.x * verso, r.y + posto.y * verso), dati.angolo or 0)
 				if schierati[chiave] ~= gruppo then
 					togli(s, true)
 					break
@@ -306,7 +308,7 @@ local function inizio(dati)
 	local numero = numeroBattaglia
 	velocitaBattaglia = dati.velocita or 0.75
 	for i, d in ipairs(dati.soldati) do
-		local angolo = d.squadra == "giocatore" and 0 or math.pi
+		local angolo = d.angolo or (d.squadra == "giocatore" and 0 or math.pi)
 		local s = nuovoSoldato(d.tipo, d.squadra, punto(d.x, d.y), angolo)
 		if numero ~= numeroBattaglia then
 			-- Mentre si costruiva il modello il campo è stato svuotato o è partita un'altra battaglia.

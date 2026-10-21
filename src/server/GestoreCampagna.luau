@@ -15,6 +15,7 @@ local Arena = require(script.Parent.Arena)
 local Dati = require(script.Parent.Dati)
 local Lobby = require(script.Parent.Lobby)
 local MappaCampagna = require(script.Parent.MappaCampagna)
+local Shop = require(script.Parent.Shop)
 
 local GestoreCampagna = {}
 
@@ -405,6 +406,10 @@ end
 -- Fine del livello: stelle, monete, esperienza, carta premio, avanzamento.
 -- Rigiocando una battaglia vinta, probabilità che cada una carta della sua armata.
 local PROBABILITA_BOTTINO = 0.4
+-- Vincendo un livello si riceve una Small Crate (Mattia, 21/10/2026): sempre la prima volta, rigiocandolo
+-- con questa probabilità (altrimenti si rigiocherebbe il livello 1 all'infinito per le casse).
+local PROBABILITA_CASSA_RIGIOCANDO = 0.25
+local CASSA_VITTORIA = "CassaPiccola"
 
 -- Una carta dell'armata di una battaglia: prima quelle che il giocatore non ha ancora.
 local function cartaDellArmata(dati, armata)
@@ -475,6 +480,7 @@ local function fineLivello(player, sessione)
 			end
 		end
 	end)
+	local cassa = vittoria and (stellePrima == 0 or math.random() < PROBABILITA_CASSA_RIGIOCANDO)
 	sessione.fase = "risultato"
 	local dopo = Dati.ottieni(player)
 	remoti.Fase:FireClient(player, {
@@ -491,6 +497,7 @@ local function fineLivello(player, sessione)
 		esperienza = esperienza,
 		nuovoLivelloGiocatore = Progressi.livello(dopo.esperienza) > livelloPrima and Progressi.livello(dopo.esperienza) or nil,
 		premio = premio,
+		cassa = cassa or nil,
 		nuovaEpoca = nuovaEpoca,
 		sconfitti = sessione.sconfitti,
 		persiReggimenti = sessione.caduti,
@@ -505,6 +512,14 @@ local function fineLivello(player, sessione)
 			return nomi
 		end)(),
 	})
+	if cassa then
+		-- La cassa si apre dopo che il risultato è comparso.
+		task.delay(2.5, function()
+			if player.Parent then
+				Shop.regala(player, CASSA_VITTORIA)
+			end
+		end)
+	end
 end
 
 -- Un round: battaglia, punteggio, poi il round successivo (che parte quando il giocatore preme FIGHT!) o la fine.
@@ -661,6 +676,12 @@ function GestoreCampagna.tornaLobby(player)
 	teletrasporta(player, Lobby.SPAWN, false)
 	remoti.Fase:FireClient(player, { fase = "lobby" })
 	return true
+end
+
+-- Il giocatore è in una battaglia della campagna (anche solo nello schieramento)?
+function GestoreCampagna.occupato(player)
+	local sessione = sessioni[player]
+	return sessione ~= nil and sessione.fase ~= "risultato"
 end
 
 function GestoreCampagna.giocatoreUscito(player)

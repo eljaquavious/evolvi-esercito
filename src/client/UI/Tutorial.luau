@@ -129,13 +129,15 @@ local function seguiBersaglio()
 end
 
 local faseAttuale
-local diLato = false -- dopo la prima carta schierata il riquadro va in basso a sinistra (Mattia: "occupa lo schermo")
+-- Dopo la prima carta schierata il riquadro va a sinistra, a metà altezza (Mattia: prima "occupa lo schermo",
+-- poi il 21/10/2026 "al centro a sinistra" invece che in basso), accanto al pannello degli esploratori.
+local diLato = false
 
--- Due misure del riquadro: grande al centro (benvenuto e prima carta), piccolo in basso a sinistra (il resto).
+-- Due misure del riquadro: grande al centro (benvenuto e prima carta), piccolo a sinistra a metà altezza (il resto).
 local function impostaLayout()
 	if diLato then
-		riquadro.AnchorPoint = Vector2.new(0, 1)
-		riquadro.Position = UDim2.new(0, 28, 1, -28)
+		riquadro.AnchorPoint = Vector2.new(0, 0.5)
+		riquadro.Position = UDim2.new(0, 380, 0.5, 0)
 		riquadro.Size = UDim2.fromOffset(290, 330)
 		titolo.Size = UDim2.new(1, -40, 0, 60)
 		titolo.TextWrapped = true

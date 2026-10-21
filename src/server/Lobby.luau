@@ -3,7 +3,7 @@
 -- d'Europa e le bandierine delle battaglie); da lì quattro ali, ognuna con il suo colore e il suo tappeto
 -- che porta dritto all'ingresso:
 --   nord (blu)   Galleria delle Epoche: tre sale (Antichità, Medioevo, Novecento) e il portale CAMPAIGN;
---   est (rosso)  Arena Ranked: gradinate, podio e il portale RANKED (ancora chiuso);
+--   est (rosso)  Arena Ranked: gradinate, podio e il portale RANKED (1 contro 1);
 --   ovest (oro)  Armeria: casse dello shop sui piedistalli, rastrelliere, bancone SHOP;
 --   sud (verde)  Sala degli Eroi: le statue dei sei comandanti e il tavolo ARMY.
 -- Qui solo la struttura ferma. Il client (LobbyVita) ci mette i soldati e le statue (attributo
@@ -17,7 +17,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MappaEuropa = require(ReplicatedStorage.Shared.Config.MappaEuropa)
 local Campagna = require(ReplicatedStorage.Shared.Config.Campagna)
 local Epoche = require(ReplicatedStorage.Shared.Config.Epoche)
-local Casse = require(ReplicatedStorage.Shared.Config.Casse)
 
 local Lobby = {}
 
@@ -1028,8 +1027,8 @@ local function arena(lobby, callback)
 		local dir = Vector3.new(math.cos(a), 0, math.sin(a))
 		braciere(m, centro + dir * 23.5, 1)
 	end
-	-- Il portale ranked (chiuso finché le ranked non ci sono).
-	portale(m, "PortaleRanked", CFrame.lookAt(centro + Vector3.new(R - 8, 0, 0), centro), ROSSO, "RANKED", "Coming soon", callback, true)
+	-- Il portale ranked: entrandoci si cerca un avversario (Server/Ranked).
+	portale(m, "PortaleRanked", CFrame.lookAt(centro + Vector3.new(R - 8, 0, 0), centro), ROSSO, "RANKED", "1v1 · Best of 3", callback, false)
 	m.Parent = lobby
 end
 
@@ -1099,29 +1098,7 @@ local function armeria(lobby, callback)
 	end
 	tappeto(m, Vector3.new(-48, 0, 0), Vector3.new(-104, 0, 0), 7, GIALLO, "a")
 
-	-- Le tre casse delle truppe su piedistalli illuminati (il client le fa girare).
-	for i, info in ipairs(Casse.Truppe) do
-		local z = (i - 2) * 14
-		local x = -80
-		local pos = Vector3.new(x, 0, z + (i == 2 and 0 or 0))
-		colonna(m, 1.6, 9, pos + Vector3.new(0, PAVIMENTO + 0.8, 0), PIETRA_SCURA, Enum.Material.Slate)
-		colonna(m, 0.5, 7.6, pos + Vector3.new(0, PAVIMENTO + 1.85, 0), info.colore, Enum.Material.Neon).Transparency = 0.2
-		local scatolone = Instance.new("Model")
-		scatolone.Name = "Cassa"
-		local corpo = scatola(scatolone, Vector3.new(4.4, 3.6, 3.4), pos + Vector3.new(0, PAVIMENTO + 5.4, 0), info.colore, Enum.Material.WoodPlanks)
-		scatola(scatolone, Vector3.new(4.6, 1.2, 3.6), pos + Vector3.new(0, PAVIMENTO + 7.6, 0), info.colore:Lerp(Color3.new(0, 0, 0), 0.25), Enum.Material.WoodPlanks)
-		for _, dx in ipairs({ -1.6, 1.6 }) do
-			scatola(scatolone, Vector3.new(0.4, 4.9, 3.7), pos + Vector3.new(dx, PAVIMENTO + 5.9, 0), FERRO, Enum.Material.Metal)
-		end
-		scatola(scatolone, Vector3.new(0.9, 1, 0.3), pos + Vector3.new(0, PAVIMENTO + 6.9, -1.85), ORO, Enum.Material.Slate)
-		scatolone.PrimaryPart = corpo
-		scatolone:SetAttribute("Gira", 30 + i * 6)
-		scatolone.Parent = m
-		local raggi = scatola(m, Vector3.new(1, 1, 1), pos + Vector3.new(0, PAVIMENTO + ALTO - 3, 0), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, { Transparency = 1, CanCollide = false })
-		faretto(raggi, info.colore:Lerp(Color3.new(1, 1, 1), 0.5), 40, 3, 24)
-		local cartellino = scatola(m, Vector3.new(7, 1.4, 0.4), CFrame.lookAt(pos + Vector3.new(4.6, PAVIMENTO + 1.6, 0), pos + Vector3.new(12, PAVIMENTO + 0.6, 0)), LEGNO_SCURO, Enum.Material.Wood)
-		insegna(cartellino, info.nome:upper(), ORO)
-	end
+	-- Le tre grandi casse sui piedistalli sono state tolte (Mattia, 21/10/2026): resta il bancone dello shop.
 
 	-- Bancone in fondo con l'insegna e le monete.
 	local banco = scatola(m, Vector3.new(4, 4.4, 22), Vector3.new(-110, PAVIMENTO + 2.2, 0), LEGNO, Enum.Material.WoodPlanks)

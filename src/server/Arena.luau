@@ -675,6 +675,10 @@ function Arena.crea(player, livello)
 	local zArrivo = -META_CAMPO - 22
 	local arrivo = arena.origine + Vector3.new(0, quota(arena, 0, zArrivo) + 4, zArrivo)
 	arena.arrivo = CFrame.lookAt(arrivo, arrivo + Vector3.zAxis)
+	-- Dal lato opposto (il secondo giocatore della ranked), rivolto verso il primo.
+	local zOpposto = META_CAMPO + 22
+	local opposto = arena.origine + Vector3.new(0, quota(arena, 0, zOpposto) + 4, zOpposto)
+	arena.arrivoOpposto = CFrame.lookAt(opposto, opposto - Vector3.zAxis)
 	return arena
 end
 

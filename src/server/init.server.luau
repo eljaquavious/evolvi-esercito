@@ -19,6 +19,7 @@ local Ricompense = require(script.Ricompense)
 local Aspetto = require(script.Aspetto)
 local Acquisti = require(script.Acquisti)
 local Feedback = require(script.Feedback)
+local Ranked = require(script.Ranked)
 
 -- Crea gli eventi tra server e client.
 local cartellaRemoti = Instance.new("Folder")
@@ -80,12 +81,8 @@ remoti.ChiediStato.OnServerInvoke = function(player)
 	return dati and stato(dati)
 end
 
-local function ranked(player)
-	remoti.Notifica:FireClient(player, "Ranked is not available yet: coming soon!")
-end
 remoti.Ranked.OnServerInvoke = function(player)
-	ranked(player)
-	return false
+	return Ranked.richiesta(player)
 end
 
 -- Menu Settings: si salvano con i progressi, così valgono anche la volta dopo.
@@ -108,6 +105,34 @@ Acquisti.inizializza()
 Ricompense.inizializza(remoti)
 Shop.inizializza(remoti)
 Feedback.inizializza(remoti)
+Ranked.inizializza(remoti, GestoreCampagna.occupato)
+
+-- Durante una ranked i comandi della partita vanno a Ranked, altrimenti alla campagna.
+-- (OnServerInvoke non si può leggere: si rimettono le funzioni della campagna.)
+for nome, coppia in pairs({
+	Schiera = { Ranked.schiera, GestoreCampagna.schiera },
+	Combatti = { Ranked.combatti, GestoreCampagna.combatti },
+	Ordine = { Ranked.ordine, GestoreCampagna.ordine },
+	Abilita = { Ranked.abilita, GestoreCampagna.abilita },
+	Bersaglio = { Ranked.bersaglio, GestoreCampagna.bersaglio },
+	VinciRound = { Ranked.vinciRound, GestoreCampagna.vinciRound },
+	TornaLobby = { Ranked.tornaLobby, GestoreCampagna.tornaLobby },
+}) do
+	remoti[nome].OnServerInvoke = function(player, ...)
+		if Ranked.inPartita(player) then
+			return coppia[1](player, ...)
+		end
+		return coppia[2](player, ...)
+	end
+end
+for nome, campagna in pairs({ ApriMappa = GestoreCampagna.apriMappa, AvviaCampagna = GestoreCampagna.avvia }) do
+	remoti[nome].OnServerInvoke = function(player, ...)
+		if Ranked.inPartita(player) then
+			return false, "Finish the ranked match first."
+		end
+		return campagna(player, ...)
+	end
+end
 Aspetto.inizializza(Dati.ottieni)
 
 Lobby.costruisci({
@@ -117,7 +142,9 @@ Lobby.costruisci({
 			remoti.Notifica:FireClient(player, messaggio)
 		end
 	end,
-	ranked = ranked,
+	ranked = function(player)
+		Ranked.richiesta(player, true)
+	end,
 	shop = function(player)
 		remoti.ApriShop:FireClient(player)
 	end,
