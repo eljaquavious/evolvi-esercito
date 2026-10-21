@@ -13,6 +13,10 @@ local Ricompense = require(ReplicatedStorage.Shared.Config.Ricompense)
 local Dati = {}
 
 local COPIE_IN_PROVA = 3 -- copie di ogni reggimento in modalità prova (i comandanti sono unici)
+-- Modalità prova in Studio: true = si parte con tutti i livelli, tutte le carte, i titoli, i cosmetici e
+-- 20000 monete ("godmode"); false = si parte da zero come un giocatore nuovo (Mattia, 21/10/2026).
+-- I progressi in Studio non si salvano comunque: a ogni Play si riparte dall'inizio.
+local SBLOCCA_TUTTO_IN_PROVA = false
 
 local function predefiniti()
 	local iniziale = Epoche.Lista[1].mazzoIniziale
@@ -102,7 +106,7 @@ function Dati.carica(player)
 	end
 	-- I livelli della campagna sono stati ridotti: chi era più avanti riparte dall'ultimo che esiste.
 	dati.livello = math.clamp(dati.livello, 1, Campagna.TOTALE)
-	if Prova then
+	if Prova and SBLOCCA_TUTTO_IN_PROVA then
 		-- Modalità prova (solo in Studio): tutti i livelli aperti e tutte le carte, per collaudare qualsiasi cosa.
 		dati.livello = Campagna.TOTALE
 		for _, tipo in ipairs(Epoche.carte()) do
