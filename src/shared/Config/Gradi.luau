@@ -1,6 +1,6 @@
 -- Gradi della ranked (Mattia, 22/10/2026): Bronze I-III, Silver I-III, Gold I-III, Diamond I-III, Ruby I-III,
--- Master, Grandmaster. Si sale con i punti ranked (RP): +30 a vittoria, -20 a sconfitta (mai sotto 0).
--- Ogni divisione vale 100 RP; Master da 1500, Grandmaster da 2000.
+-- Master, Champion (prima "Grandmaster": nome troppo lungo, Mattia 22/10/2026). Si sale con i punti ranked (RP): +30 a vittoria, -20 a sconfitta (mai sotto 0).
+-- Ogni divisione vale 100 RP; Master da 1500, Champion da 2000.
 
 local Gradi = {}
 
@@ -15,7 +15,7 @@ Gradi.Fasce = {
 	{ id = "diamond", nome = "Diamond", colore = Color3.fromHex("#5CE1FF"), divisioni = 3 },
 	{ id = "ruby", nome = "Ruby", colore = Color3.fromHex("#FF4A6A"), divisioni = 3 },
 	{ id = "master", nome = "Master", colore = Color3.fromHex("#C77DFF"), divisioni = 1, punti = 500 },
-	{ id = "grandmaster", nome = "Grandmaster", colore = Color3.fromHex("#FF8A1F"), divisioni = 1 },
+	{ id = "grandmaster", nome = "Champion", colore = Color3.fromHex("#FF8A1F"), divisioni = 1 },
 }
 
 local ROMANI = { "I", "II", "III" }
