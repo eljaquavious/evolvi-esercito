@@ -1,5 +1,5 @@
--- Gradi della ranked (Mattia, 22/10/2026): Bronze I-III, Silver I-III, Gold I-III, Diamond I-III, Ruby I-III,
--- Master, Champion (prima "Grandmaster": nome troppo lungo, Mattia 22/10/2026). Si sale con i punti ranked (RP): +30 a vittoria, -20 a sconfitta (mai sotto 0).
+-- Gradi della ranked (Mattia, 21/10/2026): Bronze I-III, Silver I-III, Gold I-III, Diamond I-III, Ruby I-III,
+-- Master, Champion (prima "Grandmaster": nome troppo lungo, Mattia 21/10/2026). Si sale con i punti ranked (RP): +30 a vittoria, -20 a sconfitta (mai sotto 0).
 -- Ogni divisione vale 100 RP; Master da 1500, Champion da 2000.
 
 local Gradi = {}

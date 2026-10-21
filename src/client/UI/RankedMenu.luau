@@ -1,4 +1,4 @@
--- Finestra RANKED (Mattia, 22/10/2026): si apre dal pulsante Ranked o dal portale della lobby.
+-- Finestra RANKED (Mattia, 21/10/2026): si apre dal pulsante Ranked o dal portale della lobby.
 --   PLAY        il tuo grado con l'avanzamento verso il prossimo, il mazzo ARMY che porterai in battaglia
 --               (con il rimando al menu ARMY per cambiarlo) e il pulsante per cercare un avversario.
 --   LEADERBOARD classifica settimanale (RP guadagnati da lunedì) e di sempre (RP attuali).

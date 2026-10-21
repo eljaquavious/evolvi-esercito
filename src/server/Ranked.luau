@@ -66,7 +66,7 @@ local function teletrasporta(player, destinazione)
 	radice.AssemblyLinearVelocity = Vector3.zero
 end
 
--- Mazzo della ranked: le carte equipaggiate nel menu ARMY (Mattia, 22/10/2026).
+-- Mazzo della ranked: le carte equipaggiate nel menu ARMY (Mattia, 21/10/2026).
 local function mazzoDa(dati)
 	return table.clone(dati.mazzo)
 end
