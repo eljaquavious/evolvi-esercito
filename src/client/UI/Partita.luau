@@ -78,6 +78,9 @@ local bottoneContinua, testoContinua, bottoneLobbyRisultato
 local prossimoLivello
 local aspettaCassa = false -- risultato con una cassa vinta: i pulsanti compaiono quando la cassa è stata aperta
 local bottoneVinci -- modalità prova (solo in Studio): vince subito il round
+-- Il pulsante WIN ROUND si vede solo se è true (Mattia, 21/10/2026: in Studio si gioca come un giocatore vero).
+-- Il remoto VinciRound resta per i collaudi automatici.
+local MOSTRA_WIN_ROUND = false
 
 local ZOOM_INIZIALE = 30
 local ZOOM_LOBBY = 14
@@ -1232,7 +1235,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		end
 	end)
 
-	if Prova then
+	if Prova and MOSTRA_WIN_ROUND then
 		bottoneVinci = Stile.pulsante({
 			Name = "VinciRound",
 			AnchorPoint = Vector2.new(1, 0),
@@ -1740,6 +1743,15 @@ function Partita.inizializza(gui, r, callbackLobby)
 			if inizioLivello and not dati.ranked and fase ~= "cinematica" and Cinematica.daMostrare(dati.nome, dati.livello) then
 				fase = "cinematica"
 				info = nil
+				-- Da NEXT BATTLE: la schermata del risultato non deve restare sopra la cinematica (bug, Mattia 21/10/2026).
+				risultato.Visible = false
+				bannerRound.Visible = false
+				mostraPiazzamento(false)
+				mostraVinci(false)
+				pannelloOrdini.Visible = false
+				scrittaConto.Visible = false
+				mostraTimer(nil)
+				FineRanked.chiudi()
 				Suoni.musica(nil) -- la cinematica ha la sua musica
 				impostaCielo(dati)
 				local campo = workspace:WaitForChild("Arene"):WaitForChild(dati.arena, 10)

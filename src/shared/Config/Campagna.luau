@@ -257,19 +257,21 @@ function Campagna.livello(numero)
 	-- Più si va avanti nella campagna, più reggimenti ci sono in campo (richiesta di Mattia): il conto non
 	-- riparte da capo a ogni epoca ma cresce dall'inizio alla fine, da 1 nemico contro 2 fino a 6 contro 6.
 	local avanzamento = (numero - 1) / math.max(1, Campagna.TOTALE - 1)
-	-- Dal livello 2 si schierano più truppe (Mattia, 21/10/2026: "troppe poche all'inizio"): il giocatore ne ha
-	-- due più del nemico (non più una) e anche il nemico parte da 2. Il primo livello resta 2 contro 1 (tutorial).
-	-- Livello 2: 4 contro 2; 6: 5 contro 3; 11: 6 contro 4; 16: 6 contro 5; dal 21: 6 contro 6.
+	-- Dal livello 2 si schierano più truppe (Mattia, 21/10/2026: "troppe poche all'inizio"), ma l'IA deve
+	-- reggere (Mattia: "nel primo livello ci sta che sia scarsa, dopo deve durare"). Il primo livello resta
+	-- 2 contro 1 (tutorial); poi il giocatore ne ha 4, 5 (dal livello 6) e 6 (dal livello 14) e il nemico uno in
+	-- meno fino a metà campagna, poi pari. Livello 2: 4 contro 3; 6: 5 contro 4; 14: 6 contro 6.
+	-- Misurato con la simulazione (mazzo iniziale, formazione in linea, senza ordini): vince circa 6 volte su 10,
+	-- battaglie da 20 a 50 secondi.
 	local numeroNemici, maxReggimenti
 	if numero == 1 then
 		numeroNemici, maxReggimenti = 1, 2
 	else
-		numeroNemici = math.clamp(2 + math.floor(avanzamento * 5 + 0.5), 2, Campagna.MAX_REGGIMENTI)
-		maxReggimenti = math.min(numeroNemici + 2, Campagna.MAX_REGGIMENTI)
+		maxReggimenti = math.clamp(4 + math.floor(avanzamento * 3 + 0.5), 4, Campagna.MAX_REGGIMENTI)
+		numeroNemici = avanzamento < 0.5 and maxReggimenti - 1 or maxReggimenti
 	end
-	-- Per bilanciare i reggimenti in più del giocatore, quelli nemici sono un po' più forti: +8% per ogni
-	-- reggimento di vantaggio oltre il primo.
-	local vantaggio = math.max(0, maxReggimenti - numeroNemici - 1)
+	-- Per bilanciare il reggimento in più del giocatore, quelli nemici sono più forti: +12% per reggimento di vantaggio.
+	local vantaggio = math.max(0, maxReggimenti - numeroNemici)
 
 	return {
 		numero = numero,
@@ -290,7 +292,7 @@ function Campagna.livello(numero)
 		numeroNemici = numeroNemici,
 		maxReggimenti = maxReggimenti,
 		-- A parità di reggimenti (in fondo alla campagna) i nemici sono un po' più deboli.
-		forzaNemici = (1 + 0.025 * (grado - 1)) * (numeroNemici >= Campagna.MAX_REGGIMENTI and 0.93 or 1) * (1 + 0.08 * vantaggio),
+		forzaNemici = (1 + 0.025 * (grado - 1)) * (numeroNemici >= Campagna.MAX_REGGIMENTI and 0.93 or 1) * (1 + 0.12 * vantaggio),
 		ricompensa = math.floor(40 + 15 * grado + 60 * (indiceEpoca - 1)),
 		-- Prima vittoria: il comandante del livello, oppure una carta dell'epoca a rotazione.
 		-- premio = la carta della prima vittoria quando non è né il boss né una dell'armata (gli Spartani alle Termopili).
