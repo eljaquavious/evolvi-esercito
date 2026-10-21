@@ -43,4 +43,14 @@ end
 
 Carte.ORDINE_STATISTICHE = { "ATK", "HP", "SPD", "RNG", "DEF" }
 
+-- Rarità della carta: dipende dall'epoca (Antichità bronzo, Medioevo e Polvere argento,
+-- Novecento ed Era Moderna oro); i comandanti sono leggendari. La usano la grafica delle carte e le casse.
+Carte.RARITA = { "bronze", "silver", "gold", "legend" }
+Carte.NOMI_RARITA = { bronze = "Bronze", silver = "Silver", gold = "Gold", legend = "Legend" }
+local PER_EPOCA = { Antica = "bronze", Medievale = "silver", Polvere = "silver", Novecento = "gold", Moderna = "gold" }
+
+function Carte.rarita(def)
+	return def.comandante and "legend" or PER_EPOCA[def.epoca] or "silver"
+end
+
 return Carte

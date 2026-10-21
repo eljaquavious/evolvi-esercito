@@ -54,6 +54,12 @@ Ricompense.Titoli = {
 	{ id = "Fedele", nome = "Loyal Ally", rarita = "raro", condizione = { "preferito" } },
 	{ id = "Magnifico", nome = "The Magnificent", rarita = "leggendario", robux = { prezzo = 99, prodotto = 0 } },
 	{ id = "Fondatore", nome = "Founder", rarita = "esclusivo", soloCodice = true },
+	-- In vendita nello shop (sezione Titles).
+	{ id = "Sergente", nome = "Drill Sergeant", rarita = "raro", monete = 2500 },
+	{ id = "Profittatore", nome = "War Profiteer", rarita = "epico", monete = 7500 },
+	{ id = "Guerrafondaio", nome = "Warmonger", rarita = "epico", robux = { prezzo = 49, prodotto = 0 } },
+	{ id = "Indistruttibile", nome = "The Unbreakable", rarita = "leggendario", robux = { prezzo = 149, prodotto = 0 } },
+	{ id = "SignoreGuerra", nome = "Lord of War", rarita = "leggendario", robux = { prezzo = 249, prodotto = 0 } },
 }
 
 -- I modelli 3D sono in Shared.Cosmetici3D (stesso id).
@@ -81,6 +87,25 @@ Ricompense.Cosmetici = {
 	{ id = "Radio", nome = "Field Radio", slot = "Schiena", rarita = "epico", condizione = { "stelleEpoca", 5 }, epoca = 5 },
 	{ id = "Stendardo", nome = "War Banner", slot = "Schiena", rarita = "raro", monete = 2500 },
 	{ id = "Aquila", nome = "Imperial Eagle", slot = "Schiena", rarita = "leggendario", robux = { prezzo = 99, prodotto = 0 } },
+	-- Solo dalle casse dell'armeria (Config/Casse.Cosmetici): epoche mischiate, i leggendari sono accesi e fantascientifici.
+	{ id = "BerrettoFrigio", nome = "Phrygian Cap", slot = "Testa", rarita = "comune", cassa = true },
+	{ id = "Tricorno", nome = "Tricorne", slot = "Testa", rarita = "comune", cassa = true },
+	{ id = "MascheraGas", nome = "Gas Mask", slot = "Testa", rarita = "comune", cassa = true, lasciaCapelli = true },
+	{ id = "Gambeson", nome = "Quilted Gambeson", slot = "Corpo", rarita = "comune", cassa = true },
+	{ id = "Faretra", nome = "Arrow Quiver", slot = "Schiena", rarita = "comune", cassa = true },
+	{ id = "Zaino", nome = "Field Pack", slot = "Schiena", rarita = "comune", cassa = true },
+	{ id = "ElmoCorinzio", nome = "Corinthian Helm", slot = "Testa", rarita = "raro", cassa = true },
+	{ id = "Pickelhaube", nome = "Pickelhaube", slot = "Testa", rarita = "raro", cassa = true },
+	{ id = "Squame", nome = "Scale Armor", slot = "Corpo", rarita = "raro", cassa = true },
+	{ id = "Pelliccia", nome = "Hussar Pelisse", slot = "Corpo", rarita = "raro", cassa = true },
+	{ id = "Sciabole", nome = "Crossed Sabres", slot = "Schiena", rarita = "raro", cassa = true },
+	{ id = "ElmoSutton", nome = "Sutton Hoo Helm", slot = "Testa", rarita = "epico", cassa = true },
+	{ id = "AliUssaro", nome = "Hussar Wings", slot = "Schiena", rarita = "epico", cassa = true },
+	{ id = "CorazzaBrace", nome = "Ember Plate", slot = "Corpo", rarita = "epico", cassa = true },
+	{ id = "SpadaFiamme", nome = "Flame Greatsword", slot = "Schiena", rarita = "epico", cassa = true },
+	{ id = "VisorePlasma", nome = "Plasma Visor", slot = "Testa", rarita = "leggendario", cassa = true },
+	{ id = "EsoArmatura", nome = "Titan Exo-Plate", slot = "Corpo", rarita = "leggendario", cassa = true },
+	{ id = "AliFenice", nome = "Phoenix Wings", slot = "Schiena", rarita = "leggendario", cassa = true },
 	-- Aure
 	{ id = "AuraFedele", nome = "Loyal Aura", slot = "Aura", rarita = "epico", condizione = { "preferito" } },
 	{ id = "AuraBrace", nome = "Ember Aura", slot = "Aura", rarita = "raro", monete = 3000 },
@@ -191,6 +216,8 @@ function Ricompense.comeSbloccare(oggetto)
 		return "Every commander starts here."
 	elseif oggetto.soloCodice then
 		return "Only from a special code."
+	elseif oggetto.cassa then
+		return "Found only in Armory Crates (Shop)."
 	elseif oggetto.monete then
 		return "Buy it with coins."
 	elseif oggetto.robux then

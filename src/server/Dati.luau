@@ -35,6 +35,9 @@ local function predefiniti()
 		indossati = {}, -- slot (Testa, Corpo, Schiena) -> id del cosmetico
 		codiciUsati = {}, -- CODICE -> true
 		preferito = false, -- ha messo il gioco nei Preferiti (titolo e aura in regalo)
+		feedbackPremiato = false, -- ha già ricevuto il premio per il primo feedback (Server/Feedback)
+		ricevute = {}, -- ultimi PurchaseId degli acquisti in Robux già consegnati (Server/Acquisti)
+		casseAperte = 0,
 		-- Menu Settings: musica, effetti sonori, modalità prestazioni (meno ombre ed effetti).
 		impostazioni = { musica = true, effetti = true, prestazioni = false },
 		statistiche = {

@@ -25,12 +25,11 @@ local RARITA = {
 	gold = { stop = { hex("#FFF7B8"), hex("#FFD23F"), hex("#E68700") }, fondo = { hex("#FFFBE0"), hex("#FFC233") } },
 	legend = { stop = { hex("#FF6AD5"), hex("#9B5CFF"), hex("#36C8FF") }, fondo = { hex("#FFD6F6"), hex("#8C4BFF") } },
 }
-local PER_EPOCA = { Antica = "bronze", Medievale = "silver", Novecento = "gold", Moderna = "gold" }
 
 local ICONE_CLASSE = { Fanteria = "cls_inf", Cavalleria = "cls_cav", Tiratore = "cls_rng", Fortezza = "cls_fort" }
 
 function Carta.rarita(def)
-	return def.comandante and "legend" or PER_EPOCA[def.epoca] or "silver"
+	return Carte.rarita(def)
 end
 
 function Carta.iconaClasse(def)

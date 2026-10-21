@@ -9,6 +9,7 @@ return {
 		"Fase", -- server -> client: lobby, mappa, piazzamento, battaglia, round, risultato
 		"Truppe", -- server -> client: soldati da disegnare (schieramento, inizio, passo, fine, pulisci)
 		"Sblocco", -- server -> client: titoli e cosmetici appena ottenuti { { tipo, id } }
+		"CassaAperta", -- server -> client: cosa è uscito da una cassa o pacchetto { tipo, id, nuova, quante, cassa }
 	},
 	Funzioni = {
 		"ChiediStato",
@@ -21,7 +22,10 @@ return {
 		"Bersaglio", -- in battaglia: bersaglio (classe, "Comandante", id di un reggimento nemico o nil) e reggimento tuo (nil = tutti)
 		"VinciRound", -- modalità prova (solo in Studio): il round in corso è vinto subito
 		"TornaLobby",
-		"AcquistaCassa",
+		"AcquistaCassa", -- id di una cassa o di un pacchetto di monete (Config/Casse)
+		"InviaFeedback", -- testo del feedback (finestra Codes)
+		"LeggiFeedback", -- solo il proprietario del gioco: ultimi feedback
+		"SonoAdmin", -- il giocatore può leggere i feedback?
 		"Ranked",
 		"SalvaMazzo",
 		"Equipaggia", -- tipo ("titolo"/"cosmetico"), id (nil = togli), slot

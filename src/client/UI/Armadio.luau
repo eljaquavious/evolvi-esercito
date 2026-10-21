@@ -26,7 +26,7 @@ local grigliaCosmetici, grigliaTitoli, chipFiltri = nil, nil, {}
 local slotUi = {} -- slot -> { nome, togli }
 local anteprimaVp, anteprimaMondo, anteprimaCamera, angolo = nil, nil, nil, 0
 local targhettaTitolo, targhettaNome, testoTitoloScelto
-local casellaCodice, esitoCodice
+local casellaCodice, esitoCodice, testoPremioFeedback
 local nuovi = {} -- id -> true: ottenuti in questa sessione e non ancora visti (per il "!" e il nastro NEW)
 local inCoda = {} -- sblocchi da festeggiare quando si torna in lobby
 local puoMostrare = function()
@@ -106,6 +106,8 @@ local function anteprimaCosmetico(oggetto, proprieta)
 	end
 	return vp
 end
+
+Armadio.anteprimaCosmetico = anteprimaCosmetico
 
 -- Il personaggio del giocatore, copiato con i cosmetici addosso, che gira lentamente.
 local function aggiornaManichino()
@@ -211,6 +213,8 @@ local function pulsanteOggetto(tipo, oggetto, proprieta, testoSize)
 			testo = ("%s / %s"):format(Stile.numero(math.min(attuale, obiettivo)), Stile.numero(obiettivo))
 		elseif oggetto.soloCodice then
 			testo = "CODE ONLY"
+		elseif oggetto.cassa then
+			testo = "CRATES"
 		end
 		bottone = Stile.pulsante(proprieta, "grigio", {
 			Testo = testo,
@@ -222,6 +226,9 @@ local function pulsanteOggetto(tipo, oggetto, proprieta, testoSize)
 		})
 		bottone.Activated:Connect(function()
 			Notifiche.mostra(Config.comeSbloccare(oggetto))
+			if oggetto.cassa and Armadio.apriShop then
+				Armadio.apriShop()
+			end
 			if oggetto.condizione and oggetto.condizione[1] == "preferito" then
 				Preferiti.chiedi()
 			end
@@ -705,58 +712,192 @@ local function riscatta()
 	end
 end
 
-local function paginaCodici(pagina)
-	local riquadro = Stile.crea("Frame", {
+-- Finestra dei feedback (solo per il proprietario del gioco): i più recenti in alto.
+local function apriInbox()
+	local tela = Stile.radice(gui)
+	local velo = Stile.crea("TextButton", {
+		Name = "Inbox",
+		Text = "",
+		AutoButtonColor = false,
+		Position = UDim2.fromOffset(0, -200),
+		Size = UDim2.new(1, 0, 1, 400),
+		BackgroundColor3 = Stile.CONTORNO,
+		BackgroundTransparency = 0.35,
+		ZIndex = 70,
+		Parent = tela,
+	})
+	local pannello = Stile.crea("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(1040, 640),
+		Size = UDim2.fromOffset(1400, 860),
+		BackgroundColor3 = Color3.fromHex("#F4F6FF"),
+		ZIndex = 71,
+		Parent = velo,
+	}, { Stile.angoli(36), Stile.bordo(Stile.CONTORNO, 7) })
+	Stile.scritta({
+		Position = UDim2.fromOffset(40, 20),
+		Size = UDim2.fromOffset(900, 70),
+		Text = "Feedback Inbox",
+		TextSize = 60,
+		Contorno = 6,
+		TextColor3 = Stile.Colori.Oro,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 72,
+		Parent = pannello,
+	})
+	local chiudi = Stile.chiudi({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(1, -16, 0, 20),
+		ZIndex = 80,
+		Parent = pannello,
+	})
+	chiudi.Activated:Connect(function()
+		velo:Destroy()
+	end)
+	local lista = Stile.crea("ScrollingFrame", {
+		Position = UDim2.fromOffset(30, 110),
+		Size = UDim2.new(1, -60, 1, -140),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 12,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ZIndex = 72,
+		Parent = pannello,
+	}, {
+		Stile.crea("UIListLayout", { Padding = UDim.new(0, 14), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	local attesa = Stile.testo({
+		Size = UDim2.new(1, 0, 0, 40),
+		Text = "Loading...",
+		TextSize = 30,
+		TextScaled = false,
+		ZIndex = 73,
+		Parent = lista,
+	})
+	local voci = remoti.LeggiFeedback:InvokeServer() or {}
+	attesa.Text = #voci == 0 and "No feedback in the last 14 days." or (#voci .. " feedback (last 14 days)")
+	for i, v in ipairs(voci) do
+		local scheda = Stile.crea("Frame", {
+			Size = UDim2.new(1, -20, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			LayoutOrder = i,
+			BackgroundColor3 = Stile.BIANCO,
+			ZIndex = 73,
+			Parent = lista,
+		}, {
+			Stile.angoli(20),
+			Stile.bordo(Stile.CONTORNO, 4),
+			Stile.crea("UIPadding", {
+				PaddingTop = UDim.new(0, 12),
+				PaddingBottom = UDim.new(0, 14),
+				PaddingLeft = UDim.new(0, 20),
+				PaddingRight = UDim.new(0, 20),
+			}),
+			Stile.crea("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+		})
+		Stile.testo({
+			Size = UDim2.new(1, 0, 0, 28),
+			Text = ("%s  ·  campaign Lv.%s  ·  %s UTC"):format(tostring(v.nome), tostring(v.livello), os.date("!%d/%m/%Y %H:%M", v.t or 0)),
+			TextSize = 24,
+			TextScaled = false,
+			TextColor3 = Stile.Colori.TestoSecondario,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			LayoutOrder = 1,
+			ZIndex = 74,
+			Parent = scheda,
+		})
+		Stile.testo({
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			Text = tostring(v.testo),
+			TextSize = 28,
+			TextScaled = false,
+			TextWrapped = true,
+			FontFace = Stile.FontTesto,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			LayoutOrder = 2,
+			ZIndex = 74,
+			Parent = scheda,
+		})
+	end
+end
+
+local function paginaCodici(pagina)
+	local LATO_X, LATO_Y = 820, 660
+	local riga = Stile.crea("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(LATO_X * 2 + 40, LATO_Y),
 		BackgroundTransparency = 1,
 		Parent = pagina,
+	}, {
+		Stile.crea("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 40),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
 	})
-	local _, faccia = tessera(riquadro, Stile.PAL.rosa, { Size = UDim2.fromScale(1, 1) })
-	faccia:FindFirstChildOfClass("UIGradient").Color = ColorSequence.new(Stile.PAL.rosa.t, Stile.PAL.viola.b)
-	-- Alone chiaro dietro l'icona.
-	for i, lato in ipairs({ 260, 200 }) do
-		Stile.crea("Frame", {
+
+	-- Riquadro colorato con alone, icona, titolo e sottotitolo. Restituisce la faccia, il sottotitolo e la cornice.
+	local function riquadro(ordine, palA, palB, icona, titolo, sottotitolo)
+		local cornice = Stile.crea("Frame", {
+			Size = UDim2.fromOffset(LATO_X, LATO_Y),
+			LayoutOrder = ordine,
+			BackgroundTransparency = 1,
+			Parent = riga,
+		})
+		local _, faccia = tessera(cornice, palA, { Size = UDim2.fromScale(1, 1) })
+		faccia:FindFirstChildOfClass("UIGradient").Color = ColorSequence.new(palA.t, palB.b)
+		for i, lato in ipairs({ 210, 160 }) do
+			Stile.crea("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0.5, 0, 0, 104),
+				Size = UDim2.fromOffset(lato, lato),
+				BackgroundColor3 = Stile.BIANCO,
+				BackgroundTransparency = 0.82 - i * 0.08,
+				Parent = faccia,
+			}, { Stile.tondo() })
+		end
+		Stile.icona(icona, {
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(0.5, 0, 0, 140),
-			Size = UDim2.fromOffset(lato, lato),
-			BackgroundColor3 = Stile.BIANCO,
-			BackgroundTransparency = 0.82 - i * 0.08,
+			Position = UDim2.new(0.5, 0, 0, 104),
+			Size = UDim2.fromOffset(160, 160),
+			ZIndex = 2,
 			Parent = faccia,
-		}, { Stile.tondo() })
+		})
+		Stile.scritta({
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 0, 186),
+			Size = UDim2.new(1, -60, 0, 66),
+			Text = titolo,
+			TextSize = 60,
+			Contorno = 6,
+			ZIndex = 2,
+			Parent = faccia,
+		})
+		local sotto = Stile.testo({
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 0, 254),
+			Size = UDim2.new(1, -80, 0, 64),
+			Text = sottotitolo,
+			TextSize = 26,
+			TextScaled = false,
+			TextWrapped = true,
+			TextColor3 = Color3.fromHex("#FFF2FB"),
+			TextYAlignment = Enum.TextYAlignment.Top,
+			ZIndex = 2,
+			Parent = faccia,
+		})
+		return faccia, sotto, cornice
 	end
-	Stile.icona("codes", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0, 140),
-		Size = UDim2.fromOffset(200, 200),
-		ZIndex = 2,
-		Parent = faccia,
-	})
-	Stile.scritta({
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 250),
-		Size = UDim2.new(1, -60, 0, 70),
-		Text = "Redeem a Code",
-		TextSize = 64,
-		Contorno = 6,
-		ZIndex = 2,
-		Parent = faccia,
-	})
-	Stile.testo({
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 324),
-		Size = UDim2.new(1, -120, 0, 34),
-		Text = "New codes drop with every update. Follow us so you don't miss them!",
-		TextSize = 26,
-		TextScaled = false,
-		TextColor3 = Color3.fromHex("#FFE6F7"),
-		ZIndex = 2,
-		Parent = faccia,
-	})
+
+	-- CODICI ------------------------------------------------------------------------------------
+	local faccia = riquadro(1, Stile.PAL.rosa, Stile.PAL.viola, "codes", "Redeem a Code",
+		"New codes drop with every update. Follow us so you don't miss them!")
 	local campo = Stile.crea("Frame", {
-		Position = UDim2.fromOffset(60, 392),
-		Size = UDim2.new(1, -420, 0, 104),
+		Position = UDim2.fromOffset(50, 330),
+		Size = UDim2.new(1, -100, 0, 104),
 		BackgroundColor3 = Stile.BIANCO,
 		ZIndex = 2,
 		Parent = faccia,
@@ -782,23 +923,127 @@ local function paginaCodici(pagina)
 		end
 	end)
 	local bottone = Stile.pulsante({
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -60, 0, 386),
-		Size = UDim2.fromOffset(320, 116),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 456),
+		Size = UDim2.fromOffset(360, 110),
 		ZIndex = 2,
 		Parent = faccia,
 	}, "verde", { Testo = "REDEEM", TestoSize = 54, Icona = "check", IconaSize = 66, IconaX = 16, Raggio = 26 })
 	bottone.Activated:Connect(riscatta)
 	esitoCodice = Stile.scritta({
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 530),
-		Size = UDim2.new(1, -80, 0, 44),
+		Position = UDim2.new(0.5, 0, 0, 586),
+		Size = UDim2.new(1, -60, 0, 40),
 		Text = "",
-		TextSize = 34,
+		TextSize = 30,
 		Contorno = 4,
 		ZIndex = 2,
 		Parent = faccia,
 	})
+	esitoCodice.TextScaled = true
+	Stile.crea("UITextSizeConstraint", { MaxTextSize = 30, Parent = esitoCodice })
+
+	-- FEEDBACK ----------------------------------------------------------------------------------
+	local facciaF, sottoF, corniceF = riquadro(2, Stile.PAL.acqua, Stile.PAL.blu, "feedback", "Send Feedback",
+		"Tell us what you love and what to fix. Your first feedback earns +150 coins!")
+	testoPremioFeedback = sottoF
+	local campoF = Stile.crea("Frame", {
+		Position = UDim2.fromOffset(50, 322),
+		Size = UDim2.new(1, -100, 0, 132),
+		BackgroundColor3 = Stile.BIANCO,
+		ZIndex = 2,
+		Parent = facciaF,
+	}, { Stile.angoli(24), Stile.bordo(Stile.CONTORNO, 6) })
+	local casellaF = Stile.crea("TextBox", {
+		Position = UDim2.fromOffset(20, 10),
+		Size = UDim2.new(1, -40, 1, -34),
+		BackgroundTransparency = 1,
+		Text = "",
+		PlaceholderText = "Your feedback...",
+		PlaceholderColor3 = Color3.fromHex("#A7A9C7"),
+		TextColor3 = Stile.Colori.TestoScuro,
+		FontFace = Stile.FontTesto,
+		TextSize = 26,
+		MultiLine = true,
+		TextWrapped = true,
+		ClearTextOnFocus = false,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		ZIndex = 3,
+		Parent = campoF,
+	})
+	local contaF = Stile.testo({
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -16, 1, -4),
+		Size = UDim2.fromOffset(120, 22),
+		Text = "0/500",
+		TextSize = 20,
+		TextScaled = false,
+		TextColor3 = Color3.fromHex("#A7A9C7"),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		ZIndex = 3,
+		Parent = campoF,
+	})
+	casellaF:GetPropertyChangedSignal("Text"):Connect(function()
+		if #casellaF.Text > 500 then
+			casellaF.Text = string.sub(casellaF.Text, 1, 500)
+		end
+		contaF.Text = #casellaF.Text .. "/500"
+	end)
+	local esitoF = Stile.scritta({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 586),
+		Size = UDim2.new(1, -60, 0, 40),
+		Text = "",
+		TextSize = 30,
+		Contorno = 4,
+		ZIndex = 2,
+		Parent = facciaF,
+	})
+	esitoF.TextScaled = true
+	Stile.crea("UITextSizeConstraint", { MaxTextSize = 30, Parent = esitoF })
+	local invia = Stile.pulsante({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 466),
+		Size = UDim2.fromOffset(360, 100),
+		ZIndex = 2,
+		Parent = facciaF,
+	}, "verde", { Testo = "SEND", TestoSize = 52, Icona = "feedback", IconaSize = 64, IconaX = 16, Raggio = 26 })
+	local inviando = false
+	invia.Activated:Connect(function()
+		if inviando then
+			return
+		end
+		inviando = true
+		esitoF.Text = "Sending..."
+		esitoF.TextColor3 = Stile.BIANCO
+		local ok, messaggio = remoti.InviaFeedback:InvokeServer(casellaF.Text)
+		esitoF.Text = messaggio or ""
+		esitoF.TextColor3 = ok and Stile.PAL.verde.t or Stile.BIANCO
+		if ok then
+			casellaF.Text = ""
+			Notifiche.mostra(messaggio, Stile.Colori.Verde)
+		end
+		inviando = false
+	end)
+
+	-- Solo il proprietario del gioco: pulsante INBOX per leggere i feedback.
+	task.spawn(function()
+		local ok, admin = pcall(function()
+			return remoti.SonoAdmin:InvokeServer()
+		end)
+		if not (ok and admin) then
+			return
+		end
+		local inbox = Stile.pulsante({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -10, 0, -20),
+			Size = UDim2.fromOffset(200, 70),
+			ZIndex = 6,
+			Parent = corniceF,
+		}, "oro", { Testo = "INBOX", TestoSize = 32, Icona = "inbox", IconaSize = 50, IconaX = 10, Raggio = 22, Profondita = 6 })
+		inbox.Activated:Connect(apriInbox)
+	end)
 end
 
 -- ===================================================================== finestra
@@ -941,6 +1186,10 @@ function Armadio.aggiorna(nuovoStato)
 	end
 	local prima = stato
 	stato = nuovoStato
+	if testoPremioFeedback then
+		testoPremioFeedback.Text = stato.feedbackPremiato and "Tell us what you love and what to fix. We read every message!"
+			or "Tell us what you love and what to fix. Your first feedback earns +150 coins!"
+	end
 	if finestra.Visible then
 		disegna()
 		-- I cosmetici addosso sono cambiati: il manichino si rifà quando il server li ha messi.
@@ -977,6 +1226,12 @@ end
 
 function Armadio.aperta()
 	return finestra.Visible
+end
+
+-- Un cosmetico appena trovato in una cassa: nastro NEW nel Locker e "!" sul riquadro della lobby.
+function Armadio.segnaNuovo(id)
+	nuovi[id] = true
+	aggiornaNovita()
 end
 
 function Armadio.collegaNovita(funzione)

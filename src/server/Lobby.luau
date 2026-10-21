@@ -1099,8 +1099,8 @@ local function armeria(lobby, callback)
 	end
 	tappeto(m, Vector3.new(-48, 0, 0), Vector3.new(-104, 0, 0), 7, GIALLO, "a")
 
-	-- Le tre casse dello shop su piedistalli illuminati (il client le fa girare).
-	for i, info in ipairs(Casse.Lista) do
+	-- Le tre casse delle truppe su piedistalli illuminati (il client le fa girare).
+	for i, info in ipairs(Casse.Truppe) do
 		local z = (i - 2) * 14
 		local x = -80
 		local pos = Vector3.new(x, 0, z + (i == 2 and 0 or 0))

@@ -628,6 +628,29 @@ local COLORI_MESH = {
 	OlivaM1 = { hex("#56603F"), STOFFA }, OlivaScuro = { hex("#3F4630"), STOFFA }, Mimetica = { hex("#6E5E3A"), STOFFA },
 	Radio = { hex("#4E5638") }, Kaki = { hex("#8A7E58"), STOFFA },
 }
+-- Casse dell'armeria (shop): stoffe, cuoio, e le parti al neon degli epici e dei leggendari (si illuminano).
+local NEON = Enum.Material.Neon
+for colore, aspetto in pairs({
+	RossoFrigio = { hex("#A3262A"), STOFFA }, Bronzo = { hex("#B5803A") }, Gomma = { hex("#4A5038"), Enum.Material.Rubber },
+	Vetro = { hex("#1E2A30"), Enum.Material.Glass }, Lino = { hex("#C9B48A"), STOFFA }, Cuciture = { hex("#8F7A52"), STOFFA },
+	Coperta = { hex("#6E5E4C"), STOFFA }, CuoioNero = { hex("#1B1A1E") }, BluUssaro = { hex("#1F3A7A"), STOFFA },
+	Pelo = { hex("#4A3626"), STOFFA }, Argento = { hex("#C9CED6") }, AcciaioNero = { hex("#2A2C32") },
+	Corazza = { hex("#E8ECF2") }, Grafite = { hex("#2A2E38") }, Coccarda = { hex("#2B4C9B"), STOFFA },
+	BraceNeon = { hex("#FF6A1A"), NEON }, FiammaNeon = { hex("#FF7A1A"), NEON }, FiammaGialla = { hex("#FFC23F"), NEON },
+	NeonCiano = { hex("#36E8FF"), NEON }, NeonMagenta = { hex("#FF3FD0"), NEON },
+}) do
+	COLORI_MESH[colore] = aspetto
+end
+-- Effetti addosso (particelle e luce) dei cosmetici delle casse: escono dalla parte di quel colore.
+-- Nelle finestre (ViewportFrame) le particelle non si vedono: lì basta il neon.
+local EFFETTI_MESH = {
+	CorazzaBrace = { colore = "BraceNeon", luce = hex("#FF6A1A"), particelle = { "rbxasset://textures/particles/sparkles_main.dds", hex("#FFB040"), hex("#FF3A0A"), 6, 0.15, 1.2, 2 } },
+	SpadaFiamme = { colore = "FiammaNeon", luce = hex("#FF7A1A"), particelle = { "rbxasset://textures/particles/fire_main.dds", hex("#FFB040"), hex("#B21E0A"), 18, 0.7, 0.7, 2.5 } },
+	VisorePlasma = { colore = "NeonCiano", luce = hex("#36E8FF") },
+	EsoArmatura = { colore = "NeonCiano", luce = hex("#36E8FF"), particelle = { "rbxasset://textures/particles/sparkles_main.dds", hex("#9FF4FF"), hex("#36A8FF"), 5, 0.18, 1.4, 1 } },
+	AliFenice = { colore = "FiammaNeon", luce = hex("#FF8A2A"), particelle = { "rbxasset://textures/particles/fire_main.dds", hex("#FFD040"), hex("#FF2A6A"), 22, 0.9, 0.8, 2 } },
+}
+
 -- Texture che hanno già il loro colore (la parte resta SmoothPlastic sotto): ciocche del crine e pelo d'ermellino.
 local TEXTURE_MESH = {
 	Crine = "rbxassetid://76896273696498",
@@ -643,6 +666,9 @@ local SUPERFICI = {
 	Oro = { "Metallo", hex("#D9A93A") }, OroScuro = { "Metallo", hex("#A07A26") },
 	Rubino = { "Lucido", hex("#B3182E") }, Zaffiro = { "Lucido", hex("#1F5FB8") }, Perla = { "Lucido", hex("#F2EEE4") },
 	Avorio = { "Satinato", hex("#E6DCC2") }, CornoPunta = { "Satinato", hex("#4A3A2A") },
+	Bronzo = { "Metallo", hex("#B5803A") }, Argento = { "Metallo", hex("#C9CED6") },
+	CuoioNero = { "Lucido", hex("#1B1A1E") }, Vetro = { "Lucido", hex("#1E2A30") }, Corazza = { "Lucido", hex("#E8ECF2") },
+	AcciaioNero = { "Satinato", hex("#2A2C32") }, Grafite = { "Satinato", hex("#2A2E38") },
 	BluOrizzonte = { "Satinato", hex("#6F8296") }, BluOrizzonteScuro = { "Satinato", hex("#5A6B7E") },
 	Alloro = { "Satinato", VERDE_ALLORO }, AlloroChiaro = { "Satinato", hex("#6E9A48") },
 }
@@ -703,6 +729,39 @@ local function daBlender(id)
 				scrittaSPQR(p)
 			end
 			p.CastShadow = true
+		end
+	end
+	local effetto = EFFETTI_MESH[id]
+	if effetto then
+		local fonte
+		for _, p in ipairs(modello:GetDescendants()) do
+			if p:IsA("MeshPart") and string.match(p.Name, "^[^_]+_([^_]+)") == effetto.colore then
+				fonte = p
+				break
+			end
+		end
+		if fonte then
+			local luce = Instance.new("PointLight")
+			luce.Color = effetto.luce
+			luce.Brightness = 1.5
+			luce.Range = 8
+			luce.Parent = fonte
+			local d = effetto.particelle
+			if d then
+				local e = Instance.new("ParticleEmitter")
+				e.Name = "Effetto"
+				e.Texture = d[1]
+				e.Color = ColorSequence.new(d[2], d[3])
+				e.Rate = d[4]
+				e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, d[5]), NumberSequenceKeypoint.new(1, 0) })
+				e.Lifetime = NumberRange.new(d[6] * 0.7, d[6])
+				e.Speed = NumberRange.new(d[7] * 0.5, d[7])
+				e.SpreadAngle = Vector2.new(25, 25)
+				e.Acceleration = Vector3.new(0, 2, 0)
+				e.LightEmission = 1
+				e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+				e.Parent = fonte
+			end
 		end
 	end
 	for i, punto in ipairs(CERNIERE_MESH[id] or {}) do

@@ -1,13 +1,13 @@
 -- Titoli, cosmetici e codici: sblocchi giocando, acquisti (monete e Robux), oggetti indossati, codici.
 -- Quello che esiste e come si sblocca è in Shared/Config/Ricompense.luau; i codici in ListaCodici.luau.
 
-local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config.Ricompense)
 local Dati = require(script.Parent.Dati)
 local Aspetto = require(script.Parent.Aspetto)
 local ListaCodici = require(script.Parent.ListaCodici)
+local Acquisti = require(script.Parent.Acquisti)
 
 local Ricompense = {}
 
@@ -105,39 +105,23 @@ function Ricompense.acquista(player, tipo, id)
 		end)
 		return true, "You got " .. oggetto.nome .. "!"
 	elseif oggetto.robux then
-		if not oggetto.robux.prodotto or oggetto.robux.prodotto == 0 then
-			return false, "Robux purchases are coming soon!"
-		end
-		MarketplaceService:PromptProductPurchase(player, oggetto.robux.prodotto)
-		return true
+		return Acquisti.chiedi(player, oggetto.robux.prodotto, function(p)
+			return Ricompense.consegna(p, tipo, oggetto.id)
+		end)
 	end
 	return false, "This can't be bought: " .. Config.comeSbloccare(oggetto)
 end
 
--- Ricevuta di un acquisto in Robux: dà l'oggetto e salva subito.
-local function trovaProdotto(numero)
-	for _, tipo in ipairs({ "titolo", "cosmetico" }) do
-		for _, oggetto in ipairs(elenco(tipo)) do
-			if oggetto.robux and oggetto.robux.prodotto == numero and numero ~= 0 then
-				return tipo, oggetto
-			end
-		end
-	end
-	return nil
-end
-
-local function ricevuta(info)
-	local player = game:GetService("Players"):GetPlayerByUserId(info.PlayerId)
-	local tipo, oggetto = trovaProdotto(info.ProductId)
-	if not player or not tipo or not Dati.ottieni(player) then
-		return Enum.ProductPurchaseDecision.NotProcessedYet
+-- Acquisto in Robux andato a buon fine (Server/Acquisti): dà l'oggetto e lo annuncia.
+function Ricompense.consegna(player, tipo, id)
+	if not Dati.ottieni(player) then
+		return false
 	end
 	Dati.modifica(player, function(d)
-		dai(d, tipo, oggetto.id)
+		dai(d, tipo, id)
 	end)
-	Dati.salva(player)
-	remoti.Sblocco:FireClient(player, { { tipo = tipo, id = oggetto.id } })
-	return Enum.ProductPurchaseDecision.PurchaseGranted
+	remoti.Sblocco:FireClient(player, { { tipo = tipo, id = id } })
+	return true
 end
 
 -- "2027-03-31" -> fine di quel giorno (UTC); nil se la data è scritta male.
@@ -226,7 +210,15 @@ function Ricompense.inizializza(r)
 		end)
 		return true
 	end
-	MarketplaceService.ProcessReceipt = ricevuta
+	for _, tipo in ipairs({ "titolo", "cosmetico" }) do
+		for _, oggetto in ipairs(elenco(tipo)) do
+			if oggetto.robux then
+				Acquisti.registra(oggetto.robux.prodotto, function(p)
+					return Ricompense.consegna(p, tipo, oggetto.id)
+				end)
+			end
+		end
+	end
 end
 
 return Ricompense

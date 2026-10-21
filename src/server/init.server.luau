@@ -17,6 +17,8 @@ local Shop = require(script.Shop)
 local MappaCampagna = require(script.MappaCampagna)
 local Ricompense = require(script.Ricompense)
 local Aspetto = require(script.Aspetto)
+local Acquisti = require(script.Acquisti)
+local Feedback = require(script.Feedback)
 
 -- Crea gli eventi tra server e client.
 local cartellaRemoti = Instance.new("Folder")
@@ -56,6 +58,7 @@ local function stato(dati)
 		cosmetici = dati.cosmetici,
 		indossati = dati.indossati,
 		preferito = dati.preferito,
+		feedbackPremiato = dati.feedbackPremiato,
 		impostazioni = dati.impostazioni,
 	}
 end
@@ -101,8 +104,10 @@ ModelliAsset.carica()
 Ambiente.imposta()
 GestoreCampagna.inizializza(remoti)
 Collezione.inizializza(remoti)
-Shop.inizializza(remoti)
+Acquisti.inizializza()
 Ricompense.inizializza(remoti)
+Shop.inizializza(remoti)
+Feedback.inizializza(remoti)
 Aspetto.inizializza(Dati.ottieni)
 
 Lobby.costruisci({
