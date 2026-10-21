@@ -117,45 +117,48 @@ local function estraiCosmetico(dati, cassa)
 end
 
 -- Apre la cassa (già pagata) e manda il risultato al client. Restituisce true se ha dato qualcosa.
+-- Il risultato parte PRIMA di cambiare i dati: così il client sa che sta per aprire una cassa e non mostra
+-- la novità negli elenchi (shop, locker) prima dell'animazione (Mattia: "mi spoilera cosa ho trovato").
 local function apri(player, cassa, tipo)
 	local dati = Dati.ottieni(player)
 	if not dati then
 		return false
 	end
-	local risultato
+	local risultato, cambia
 	if tipo == "truppe" then
 		local carta, nuova = estraiTruppa(dati, cassa)
 		if not carta then
 			return false
 		end
-		Dati.modifica(player, function(d)
+		risultato = { tipo = "truppa", id = carta, nuova = nuova, copie = (dati.collezione[carta] or 0) + 1 }
+		cambia = function(d)
 			Dati.aggiungiCarta(d, carta)
 			d.casseAperte += 1
-		end)
-		risultato = { tipo = "truppa", id = carta, nuova = nuova, copie = Dati.ottieni(player).collezione[carta] }
+		end
 	elseif tipo == "cosmetici" then
 		local id = estraiCosmetico(dati, cassa)
 		if not id then
 			-- Ha già tutto (può succedere solo se ha comprato con Robux mentre gli mancava l'ultimo): monete.
-			Dati.modifica(player, function(d)
-				d.monete += 1500
-			end)
 			risultato = { tipo = "monete", quante = 1500 }
+			cambia = function(d)
+				d.monete += 1500
+			end
 		else
-			Dati.modifica(player, function(d)
+			risultato = { tipo = "cosmetico", id = id }
+			cambia = function(d)
 				d.cosmetici[id] = true
 				d.casseAperte += 1
-			end)
-			risultato = { tipo = "cosmetico", id = id }
+			end
 		end
 	elseif tipo == "monete" then
-		Dati.modifica(player, function(d)
-			d.monete += cassa.monete
-		end)
 		risultato = { tipo = "monete", quante = cassa.monete }
+		cambia = function(d)
+			d.monete += cassa.monete
+		end
 	end
 	risultato.cassa = cassa.id
 	remoti.CassaAperta:FireClient(player, risultato)
+	Dati.modifica(player, cambia)
 	return true
 end
 

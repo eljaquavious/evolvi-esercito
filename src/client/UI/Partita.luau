@@ -25,6 +25,7 @@ local Suoni = require(script.Parent.Parent.Suoni)
 local Preferiti = require(script.Parent.Preferiti)
 local Tutorial = require(script.Parent.Tutorial)
 local FineRanked = require(script.Parent.FineRanked)
+local AperturaCassa = require(script.Parent.AperturaCassa)
 
 local Partita = {}
 
@@ -75,6 +76,7 @@ local risultato, scheda, raggi, rotazioneRaggi, stelleRisultato, targaRisultato,
 local battagliaRisultato, pannelloPremi, testoMonete, testoEsperienza, dettaglioRisultato, spazioPremio
 local bottoneContinua, testoContinua, bottoneLobbyRisultato
 local prossimoLivello
+local aspettaCassa = false -- risultato con una cassa vinta: i pulsanti compaiono quando la cassa è stata aperta
 local bottoneVinci -- modalità prova (solo in Studio): vince subito il round
 
 local ZOOM_INIZIALE = 30
@@ -425,7 +427,7 @@ local function entraPiazzamento(dati)
 	mostraEsploratori(dati.esploratori)
 	bannerRound.Visible = false
 	if dati.ranked then
-		avviso.Text = dati.round == 1 and ("RANKED vs %s: pick any of your cards and a formation, then press FIGHT!"):format(dati.avversario or "your opponent")
+		avviso.Text = dati.round == 1 and ("RANKED vs %s: deploy your ARMY deck, pick a formation, then press FIGHT!"):format(dati.avversario or "your opponent")
 			or "Next round! Change your army or press FIGHT!"
 		avviso.TextColor3 = Stile.Colori.Testo
 	elseif dati.assedio then
@@ -895,6 +897,19 @@ local function mostraRisultato(dati)
 		end)
 	end
 
+	-- Con una cassa vinta, prima si apre la cassa (qui, sul risultato), poi si può andare avanti.
+	bottoneContinua.Visible = not dati.cassa
+	bottoneLobbyRisultato.Visible = not dati.cassa
+	aspettaCassa = dati.cassa == true
+	if dati.cassa then
+		task.delay(15, function()
+			if aspettaCassa and fase == "risultato" then
+				aspettaCassa = false
+				bottoneContinua.Visible = true
+				bottoneLobbyRisultato.Visible = true
+			end
+		end)
+	end
 	if dati.vittoria then
 		Preferiti.dopoVittoria()
 		testoContinua.Text = dati.prossimo == dati.numero and "PLAY AGAIN" or "NEXT BATTLE"
@@ -1651,6 +1666,16 @@ function Partita.inizializza(gui, r, callbackLobby)
 	end)
 
 	FineRanked.inizializza(gui, remoti)
+	AperturaCassa.alTermine(function()
+		if aspettaCassa and fase == "risultato" then
+			aspettaCassa = false
+			bottoneContinua.Visible = true
+			bottoneLobbyRisultato.Visible = true
+			pop(bottoneContinua, 0.6, 0.3)
+			pop(bottoneLobbyRisultato, 0.6, 0.3)
+		end
+		FineRanked.cassaAperta()
+	end)
 	Tutorial.inizializza(tela, {
 		mazzo = function()
 			return barraMazzo

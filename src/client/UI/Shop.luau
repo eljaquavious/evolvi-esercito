@@ -16,6 +16,7 @@ local Stile = require(script.Parent.Stile)
 local Icone = require(script.Parent.Icone)
 local Notifiche = require(script.Parent.Notifiche)
 local Armadio = require(script.Parent.Armadio)
+local AperturaCassa = require(script.Parent.AperturaCassa)
 
 local Shop = {}
 
@@ -643,6 +644,11 @@ end
 
 function Shop.inizializza(gui, remoti)
 	remotiShop = remoti
+	AperturaCassa.alTermine(function()
+		if finestra.Visible then
+			aggiornaDinamici()
+		end
+	end)
 	local contenuto, fascia
 	finestra, contenuto, fascia = Stile.finestra(gui, "Shop", "Shop", "verde", "shop")
 
@@ -732,7 +738,8 @@ function Shop.aggiorna(nuovoStato)
 		return
 	end
 	stato = nuovoStato
-	if finestra.Visible then
+	-- Mentre si apre una cassa l'elenco non cambia: la novità si vede alla fine dell'animazione.
+	if finestra.Visible and not AperturaCassa.inCorso() then
 		aggiornaDinamici()
 	end
 end

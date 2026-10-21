@@ -9,6 +9,7 @@ return {
 		"Fase", -- server -> client: lobby, mappa, piazzamento, battaglia, round, risultato
 		"Truppe", -- server -> client: soldati da disegnare (schieramento, inizio, passo, fine, pulisci)
 		"Sblocco", -- server -> client: titoli e cosmetici appena ottenuti { { tipo, id } }
+		"ApriRanked", -- server -> client: il portale della lobby apre la finestra RANKED
 		"CassaAperta", -- server -> client: cosa è uscito da una cassa o pacchetto { tipo, id, nuova, quante, cassa }
 	},
 	Funzioni = {
@@ -26,6 +27,7 @@ return {
 		"InviaFeedback", -- testo del feedback (finestra Codes)
 		"LeggiFeedback", -- solo il proprietario del gioco: ultimi feedback
 		"SonoAdmin", -- il giocatore può leggere i feedback?
+		"LeggiClassifica", -- "settimana" o "sempre": prime 50 posizioni della ranked
 		"Ranked",
 		"SalvaMazzo",
 		"Equipaggia", -- tipo ("titolo"/"cosmetico"), id (nil = togli), slot

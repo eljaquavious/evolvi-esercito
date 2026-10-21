@@ -1,6 +1,6 @@
 -- Ranked: 1 contro 1 tra due giocatori dello stesso server, al meglio dei 3 round (Mattia, 21/10/2026).
 -- Mappa a caso tra quelle della campagna (con gli ostacoli resi simmetrici, così nessuno parte avvantaggiato),
--- si schiera qualunque carta della propria collezione, fino al massimo dell'ultimo livello della campagna.
+-- si schierano le carte del proprio mazzo (menu ARMY), fino al massimo dell'ultimo livello della campagna.
 -- Niente cinematiche tra i round; alla fine il client mostra l'avatar del vincitore con la musica.
 -- Chi vince riceve una Small Crate.
 --
@@ -17,7 +17,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Battaglia = require(Shared.Battaglia)
 local Campagna = require(Shared.Config.Campagna)
-local Carte = require(Shared.Config.Carte)
 local Epoche = require(Shared.Config.Epoche)
 local Formazioni = require(Shared.Config.Formazioni)
 local Prova = require(Shared.Prova)
@@ -25,6 +24,8 @@ local Arena = require(script.Parent.Arena)
 local Dati = require(script.Parent.Dati)
 local Lobby = require(script.Parent.Lobby)
 local Shop = require(script.Parent.Shop)
+local Classifica = require(script.Parent.Classifica)
+local Gradi = require(Shared.Config.Gradi)
 
 local Ranked = {}
 
@@ -34,10 +35,9 @@ local TEMPO_SCHIERAMENTO_DOPO = 25 -- ai round successivi
 local PAUSA_TRA_ROUND = 3.5
 local TICK = 0.1
 local VELOCITA_BATTAGLIA = 0.75
-local COPIE_MASSIME = 3 -- copie di una stessa carta che si possono schierare
 local ATTESA_BOT = 6 -- secondi da soli in coda prima del bot (solo in Studio)
 local CASSA_VITTORIA = "CassaPiccola"
-local DURATA_FINALE = 7 -- secondi di animazione del vincitore prima della cassa
+local DURATA_FINALE = 4 -- secondi di animazione del vincitore prima che si apra la cassa
 
 local remoti
 local occupato -- funzione(player): true se è in una partita della campagna (la imposta init.server)
@@ -66,28 +66,9 @@ local function teletrasporta(player, destinazione)
 	radice.AssemblyLinearVelocity = Vector3.zero
 end
 
--- Mazzo della ranked: tutte le carte della collezione (fino a COPIE_MASSIME copie di ognuna), dalla più forte.
+-- Mazzo della ranked: le carte equipaggiate nel menu ARMY (Mattia, 22/10/2026).
 local function mazzoDa(dati)
-	local tipi = {}
-	for tipo, copie in pairs(dati.collezione) do
-		if Epoche.Truppe[tipo] and copie > 0 then
-			table.insert(tipi, tipo)
-		end
-	end
-	table.sort(tipi, function(a, b)
-		local va, vb = Carte.valutazioni(Epoche.Truppe[a]).OVR, Carte.valutazioni(Epoche.Truppe[b]).OVR
-		if va ~= vb then
-			return va > vb
-		end
-		return a < b
-	end)
-	local mazzo = {}
-	for _, tipo in ipairs(tipi) do
-		for _ = 1, math.min(dati.collezione[tipo], COPIE_MASSIME) do
-			table.insert(mazzo, tipo)
-		end
-	end
-	return mazzo
+	return table.clone(dati.mazzo)
 end
 
 -- Terreno della mappa reso simmetrico (girato di 180° attorno al centro): vale la metà del giocatore in basso
@@ -405,17 +386,37 @@ local function fine(partita, vincitore, ritirato)
 	partita.fase = "risultato"
 	partita.attiva = false
 	local perdente = avversarioDi(partita, vincitore)
-	if not vincitore.bot and Dati.ottieni(vincitore.player) then
-		Dati.modifica(vincitore.player, function(d)
-			d.statistiche.vittorieRanked += 1
+	-- Punti ranked (Config/Gradi): +30 a chi vince, -20 a chi perde (mai sotto 0), anche settimanali.
+	local settimana = Gradi.settimana()
+	local function punti(l, vinto)
+		if l.bot or not Dati.ottieni(l.player) then
+			return
+		end
+		local prima = Dati.ottieni(l.player).ranked.punti
+		Dati.modifica(l.player, function(d)
+			local r = d.ranked
+			if r.settimana ~= settimana then
+				r.settimana = settimana
+				r.puntiSettimana = 0
+			end
+			local cambio = vinto and Gradi.PUNTI_VITTORIA or -Gradi.PUNTI_SCONFITTA
+			r.punti = math.max(0, r.punti + cambio)
+			r.puntiSettimana = math.max(0, r.puntiSettimana + cambio)
+			if vinto then
+				r.vittorie += 1
+				d.statistiche.vittorieRanked += 1
+			else
+				r.sconfitte += 1
+			end
 			d.statistiche.battaglie += 1
 		end)
+		local r = Dati.ottieni(l.player).ranked
+		l.puntiPrima, l.puntiDopo = prima, r.punti
+		Classifica.registra(l.player, r.punti, r.puntiSettimana)
 	end
-	if not perdente.bot and perdente.player.Parent and Dati.ottieni(perdente.player) then
-		Dati.modifica(perdente.player, function(d)
-			d.statistiche.battaglie += 1
-		end)
-	end
+	punti(vincitore, true)
+	-- Anche chi è uscito a metà perde i punti (se i suoi dati sono ancora qui).
+	punti(perdente, false)
 	for _, lato in ipairs(partita.lati) do
 		if not lato.bot and lato.player.Parent then
 			local altro = avversarioDi(partita, lato)
@@ -429,7 +430,9 @@ local function fine(partita, vincitore, ritirato)
 				vinti = lato.punti,
 				persi = altro.punti,
 				ritirato = ritirato or nil,
-				cassa = lato == vincitore,
+				cassa = lato == vincitore and not vincitore.bot,
+				puntiPrima = lato.puntiPrima,
+				puntiDopo = lato.puntiDopo,
 				durata = DURATA_FINALE,
 			})
 		end
@@ -665,6 +668,10 @@ function Ranked.richiesta(player, soloEntra)
 		notifica(player, "Finish your campaign battle first.")
 		return false
 	end
+	if #dati.mazzo == 0 then
+		notifica(player, "Your ARMY deck is empty: add some cards first.")
+		return false
+	end
 	table.insert(coda, player)
 	codaDal[player] = os.clock()
 	notifica(player, "Searching for an opponent... (press RANKED again to cancel)")
@@ -679,6 +686,10 @@ function Ranked.richiesta(player, soloEntra)
 		end)
 	end
 	return true
+end
+
+function Ranked.inCoda(player)
+	return table.find(coda, player) ~= nil
 end
 
 function Ranked.inPartita(player)

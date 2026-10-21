@@ -7,6 +7,7 @@ local Notifiche = require(script.UI.Notifiche)
 local Hud = require(script.UI.Hud)
 local Shop = require(script.UI.Shop)
 local AperturaCassa = require(script.UI.AperturaCassa)
+local RankedMenu = require(script.UI.RankedMenu)
 local Inventario = require(script.UI.Inventario)
 local Profilo = require(script.UI.Profilo)
 local Partita = require(script.UI.Partita)
@@ -56,7 +57,7 @@ Armadio.inizializza(gui, remoti, {
 })
 
 -- Una sola finestra aperta alla volta.
-local finestre = { Shop, Inventario, Profilo, Armadio, Impostazioni }
+local finestre = { Shop, Inventario, Profilo, Armadio, Impostazioni, RankedMenu }
 local function chiudiFinestre(tranne)
 	for _, finestra in ipairs(finestre) do
 		if finestra ~= tranne then
@@ -70,6 +71,11 @@ local function alterna(finestra)
 		finestra.alterna()
 	end
 end
+-- La finestra RANKED rimanda al menu ARMY per cambiare il mazzo.
+RankedMenu.inizializza(gui, remoti, function()
+	chiudiFinestre(Inventario)
+	Inventario.apri()
+end)
 
 local function notificaSeFallisce(ok, messaggio)
 	if not ok and messaggio then
@@ -86,9 +92,7 @@ Hud.inizializza(gui, {
 	shop = alterna(Shop),
 	profilo = alterna(Profilo),
 	impostazioni = alterna(Impostazioni),
-	ranked = function()
-		remoti.Ranked:InvokeServer()
-	end,
+	ranked = alterna(RankedMenu),
 	armadio = function()
 		chiudiFinestre(Armadio)
 		Armadio.alterna("COSMETICS")
@@ -112,6 +116,7 @@ local function aggiornaStato(stato)
 	Impostazioni.aggiorna(stato)
 	Hud.aggiorna(stato)
 	Shop.aggiorna(stato)
+	RankedMenu.aggiorna(stato)
 	Inventario.aggiorna(stato)
 	Profilo.aggiorna(stato)
 	Armadio.aggiorna(stato)
@@ -140,6 +145,7 @@ local function apriDallaLobby(finestra)
 	end
 end
 remoti.ApriShop.OnClientEvent:Connect(apriDallaLobby(Shop))
+remoti.ApriRanked.OnClientEvent:Connect(apriDallaLobby(RankedMenu))
 remoti.ApriEsercito.OnClientEvent:Connect(apriDallaLobby(Inventario))
 
 task.spawn(function()

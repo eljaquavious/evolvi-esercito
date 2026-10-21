@@ -433,5 +433,123 @@ def main():
     inbox()
 
 
+# ------------------------------------------------------------------ stemmi dei gradi della ranked (Config/Gradi)
+
+def scudo_punti(cx, cy, w, h):
+    """Scudo a punta: lati dritti in alto, curva fino alla punta in basso."""
+    pts = []
+    for i in range(0, 21):
+        t = i / 20
+        x = cx - w / 2 + w * t
+        pts.append((x, cy - h / 2 + 30 * math.sin(math.pi * t) * -1 + 30))
+    for i in range(0, 31):
+        t = i / 30
+        a = math.pi * t
+        x = cx + (w / 2) * math.cos(a)
+        y = cy + h * 0.05 + (h * 0.45) * math.sin(a) ** 0.9 * (1 + 0.35 * math.sin(a))
+        pts.append((x, min(y, cy + h / 2)))
+    return pts
+
+
+def gemma(img, cx, cy, r, alto, basso, facce=6):
+    pts = [(cx + r * math.cos(math.pi / 2 + 2 * math.pi * k / facce), cy - r * math.sin(math.pi / 2 + 2 * math.pi * k / facce)) for k in range(facce)]
+    m = maschera_poligono(pts)
+    sfumatura(img, m, alto, basso)
+    d = ImageDraw.Draw(img)
+    d.polygon(pts, outline=CONTORNO, width=14)
+    velo(img, lambda v: v.polygon([(cx, cy - r), (cx + r * 0.5, cy - r * 0.2), (cx, cy + r * 0.1), (cx - r * 0.5, cy - r * 0.2)], fill=(255, 255, 255, 120)))
+
+
+def ali(img, cx, cy, colore_a, colore_b, apertura=1.0):
+    """Due ali a ventaglio dietro lo scudo: cinque penne per lato, dalla più alta alla più bassa."""
+    for s in (-1, 1):
+        for k in range(5):
+            ang = math.radians(62 - 22 * k)
+            lung = (330 - 30 * k) * apertura
+            base = (cx + s * 170, cy + 10 + 30 * k)
+            dx, dy = s * math.cos(ang), -math.sin(ang)
+            punta = (base[0] + dx * lung, base[1] + dy * lung)
+            nx, ny = -dy, dx
+            larg = 52
+            pts = [(base[0] + nx * larg * 0.6, base[1] + ny * larg * 0.6),
+                   (base[0] + dx * lung * 0.55 + nx * larg, base[1] + dy * lung * 0.55 + ny * larg),
+                   punta,
+                   (base[0] + dx * lung * 0.55 - nx * larg * 0.7, base[1] + dy * lung * 0.55 - ny * larg * 0.7),
+                   (base[0] - nx * larg * 0.6, base[1] - ny * larg * 0.6)]
+            m = maschera_poligono(pts)
+            sfumatura(img, m, colore_a, colore_b)
+            ImageDraw.Draw(img).polygon(pts, outline=CONTORNO, width=12)
+
+
+def corona(img, cx, cy):
+    pts = [(cx - 150, cy + 60), (cx - 170, cy - 70), (cx - 90, cy - 10), (cx, cy - 110), (cx + 90, cy - 10), (cx + 170, cy - 70), (cx + 150, cy + 60)]
+    m = maschera_poligono(pts)
+    sfumatura(img, m, hexc("#FFF06A"), hexc("#FFA51F"))
+    d = ImageDraw.Draw(img)
+    d.polygon(pts, outline=CONTORNO, width=14)
+    for x, y in ((cx - 170, cy - 70), (cx, cy - 110), (cx + 170, cy - 70)):
+        d.ellipse([x - 22, y - 22, x + 22, y + 22], fill=hexc("#FF4A6A"), outline=CONTORNO, width=8)
+
+
+def stemma(nome, alto, basso, bordo_a, bordo_b, centro, extra_dietro=None, extra_sopra=None, bagliore=None):
+    img = nuova()
+    if extra_dietro:
+        extra_dietro(img)
+    pts = scudo_punti(512, 520, 560, 640)
+    m = maschera_poligono(pts)
+    sfumatura(img, m, bordo_a, bordo_b)
+    interno = scudo_punti(512, 525, 450, 520)
+    mi = maschera_poligono(interno)
+    sfumatura(img, mi, alto, basso)
+    d = ImageDraw.Draw(img)
+    d.polygon(interno, outline=CONTORNO, width=10)
+    velo(img, lambda v: v.polygon([(330, 300), (694, 300), (660, 380), (364, 380)], fill=(255, 255, 255, 70)))
+    centro(img)
+    img = contorno(img, m)
+    if extra_sopra:
+        extra_sopra(img)
+    if bagliore:
+        img = alone(img, bagliore, 400)
+    d = ImageDraw.Draw(img)
+    scintilla(d, 860, 220, 54)
+    salva(img, "rank_" + nome)
+
+
+def stella_centro(img, colore_a, colore_b, r=150):
+    punti = []
+    for k in range(10):
+        ang = k * math.pi / 5 - math.pi / 2
+        rr = r if k % 2 == 0 else r * 0.45
+        punti.append((512 + math.cos(ang) * rr, 520 + math.sin(ang) * rr))
+    ms = maschera_poligono(punti)
+    sfumatura(img, ms, colore_a, colore_b)
+    ImageDraw.Draw(img).polygon(punti, outline=CONTORNO, width=14)
+
+
+def gradi():
+    stemma("bronze", hexc("#F0A462"), hexc("#A95A24"), hexc("#FFD9A8"), hexc("#8A4A1A"),
+           lambda img: stella_centro(img, hexc("#FFE0BC"), hexc("#C8752F")))
+    stemma("silver", hexc("#E6EEFA"), hexc("#7D91BD"), hexc("#FFFFFF"), hexc("#5A6A90"),
+           lambda img: stella_centro(img, hexc("#FFFFFF"), hexc("#9BB0D6")))
+    stemma("gold", hexc("#FFE45C"), hexc("#E68700"), hexc("#FFF7B8"), hexc("#B35A00"),
+           lambda img: stella_centro(img, hexc("#FFFBE0"), hexc("#FFC233")), bagliore=hexc("#FFD23F", 90))
+    stemma("diamond", hexc("#5CE1FF"), hexc("#1E6FD0"), hexc("#D8F6FF"), hexc("#1A4FA0"),
+           lambda img: gemma(img, 512, 520, 160, hexc("#E8FBFF"), hexc("#36A8FF")), bagliore=hexc("#5CE1FF", 100))
+    stemma("ruby", hexc("#FF6A8A"), hexc("#A0122E"), hexc("#FFD0DA"), hexc("#7A0E20"),
+           lambda img: gemma(img, 512, 520, 160, hexc("#FFB0C0"), hexc("#E5213B"), 8), bagliore=hexc("#FF4A6A", 110))
+    stemma("master", hexc("#C77DFF"), hexc("#5A1BA8"), hexc("#F0D8FF"), hexc("#3A0E70"),
+           lambda img: gemma(img, 512, 520, 150, hexc("#F0D8FF"), hexc("#9B5CFF"), 8),
+           extra_dietro=lambda img: ali(img, 512, 470, hexc("#E8D0FF"), hexc("#8A4AE0")), bagliore=hexc("#C77DFF", 120))
+    stemma("grandmaster", hexc("#FF8A1F"), hexc("#B01428"), hexc("#FFF06A"), hexc("#B35A00"),
+           lambda img: gemma(img, 512, 540, 140, hexc("#FFF06A"), hexc("#FF3A3A"), 8),
+           extra_dietro=lambda img: ali(img, 512, 470, hexc("#FFE45C"), hexc("#FF6A1A"), 1.15),
+           extra_sopra=lambda img: corona(img, 512, 215), bagliore=hexc("#FF8A1F", 140))
+
+
 if __name__ == "__main__":
-    main()
+    import sys as _sys
+    if len(_sys.argv) > 1 and _sys.argv[1] == "gradi":
+        gradi()
+    else:
+        main()
+        gradi()

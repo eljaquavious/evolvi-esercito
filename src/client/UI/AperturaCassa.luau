@@ -19,6 +19,24 @@ local AperturaCassa = {}
 local gui, remoti
 local coda = {}
 local occupato = false
+local allaFine = {} -- funzioni chiamate quando l'ultima cassa in coda è stata chiusa
+
+-- Una cassa sta per aprirsi o è aperta: gli elenchi (shop, locker) aspettano a mostrare la novità.
+function AperturaCassa.inCorso()
+	return occupato or #coda > 0
+end
+
+function AperturaCassa.alTermine(funzione)
+	table.insert(allaFine, funzione)
+end
+
+local function finito()
+	if #coda == 0 then
+		for _, f in ipairs(allaFine) do
+			task.spawn(f)
+		end
+	end
+end
 
 -- Colori della rarità della carta per l'alone.
 local PAL_CARTE = { bronze = "arancio", silver = "blu", gold = "oro", legend = "viola" }
@@ -251,6 +269,7 @@ local function mostra(risultato)
 		giro:Disconnect()
 		velo:Destroy()
 		occupato = false
+		finito()
 	end
 	if risultato.tipo == "cosmetico" then
 		local indossa = Stile.pulsante({ Size = UDim2.fromOffset(260, 96), ZIndex = 89, Parent = bottoni }, "verde", {
@@ -285,6 +304,7 @@ function AperturaCassa.inizializza(g, r)
 				if not ok then
 					warn("[AperturaCassa] " .. tostring(errore))
 					occupato = false
+					finito()
 				end
 			end
 		end

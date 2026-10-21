@@ -20,6 +20,7 @@ local Aspetto = require(script.Aspetto)
 local Acquisti = require(script.Acquisti)
 local Feedback = require(script.Feedback)
 local Ranked = require(script.Ranked)
+local Classifica = require(script.Classifica)
 
 -- Crea gli eventi tra server e client.
 local cartellaRemoti = Instance.new("Folder")
@@ -60,6 +61,7 @@ local function stato(dati)
 		indossati = dati.indossati,
 		preferito = dati.preferito,
 		feedbackPremiato = dati.feedbackPremiato,
+		ranked = dati.ranked,
 		impostazioni = dati.impostazioni,
 	}
 end
@@ -81,8 +83,13 @@ remoti.ChiediStato.OnServerInvoke = function(player)
 	return dati and stato(dati)
 end
 
-remoti.Ranked.OnServerInvoke = function(player)
-	return Ranked.richiesta(player)
+-- Finestra RANKED: "cerca" entra in coda o ne esce; "stato" dice solo se si è in coda. Restituisce inCoda.
+remoti.Ranked.OnServerInvoke = function(player, azione)
+	if azione == "stato" then
+		return Ranked.inCoda(player)
+	end
+	Ranked.richiesta(player)
+	return Ranked.inCoda(player)
 end
 
 -- Menu Settings: si salvano con i progressi, così valgono anche la volta dopo.
@@ -106,6 +113,7 @@ Ricompense.inizializza(remoti)
 Shop.inizializza(remoti)
 Feedback.inizializza(remoti)
 Ranked.inizializza(remoti, GestoreCampagna.occupato)
+Classifica.inizializza(remoti)
 
 -- Durante una ranked i comandi della partita vanno a Ranked, altrimenti alla campagna.
 -- (OnServerInvoke non si può leggere: si rimettono le funzioni della campagna.)
@@ -142,8 +150,9 @@ Lobby.costruisci({
 			remoti.Notifica:FireClient(player, messaggio)
 		end
 	end,
+	-- Il portale apre la finestra RANKED (classifiche, grado, ricerca dell'avversario).
 	ranked = function(player)
-		Ranked.richiesta(player, true)
+		remoti.ApriRanked:FireClient(player)
 	end,
 	shop = function(player)
 		remoti.ApriShop:FireClient(player)

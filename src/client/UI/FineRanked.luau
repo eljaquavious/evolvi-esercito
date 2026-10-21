@@ -13,6 +13,7 @@ local FineRanked = {}
 
 local gui, remoti
 local velo, giro
+local bottoneLobby -- nascosto finché la cassa vinta non è stata aperta
 
 local COLORI_CORIANDOLI = { "#FFD23F", "#5CC8FF", "#FF6B6B", "#7CF56E", "#C77DFF", "#FF8AD8" }
 
@@ -172,14 +173,23 @@ function FineRanked.mostra(dati)
 		ZIndex = 80,
 		Parent = centro,
 	})
-	local lobby = Stile.pulsante({
+	bottoneLobby = Stile.pulsante({
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.fromOffset(0, 430),
 		Size = UDim2.fromOffset(320, 110),
 		ZIndex = 81,
+		Visible = not dati.cassa,
 		Parent = centro,
 	}, "verde", { Testo = "LOBBY", TestoSize = 54, Icona = "army", IconaSize = 80, Profondita = 10, Raggio = 26 })
-	lobby.Activated:Connect(function()
+	if dati.cassa then
+		local questo = bottoneLobby
+		task.delay(15, function()
+			if questo.Parent then
+				questo.Visible = true
+			end
+		end)
+	end
+	bottoneLobby.Activated:Connect(function()
 		remoti.TornaLobby:InvokeServer()
 	end)
 
@@ -221,6 +231,13 @@ function FineRanked.mostra(dati)
 			c.frame.Rotation += c.giro * dt
 		end
 	end)
+end
+
+-- La cassa vinta è stata aperta: compare il pulsante LOBBY.
+function FineRanked.cassaAperta()
+	if bottoneLobby and bottoneLobby.Parent then
+		bottoneLobby.Visible = true
+	end
 end
 
 function FineRanked.inizializza(g, r)
