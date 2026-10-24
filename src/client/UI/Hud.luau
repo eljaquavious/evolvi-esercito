@@ -22,6 +22,7 @@ local numeroMonete, numeroStelle, barraXp, numeroLivello, sottotitoloPlay
 local mazzoCarte, mediaOvr, epocheUi, prossima, chipStelle
 local mazzoMostrato -- per non ricostruire le carte se il mazzo non cambia
 local avvisoLocker
+local avvisoGiornaliero
 
 local COLORI_EPOCA = { "oro", "blu", "rosso", "verde", "viola" }
 
@@ -266,7 +267,7 @@ local function pannelloCampagna(tela)
 	})
 end
 
--- azioni: { play, esercito, shop, profilo, ranked, armadio, codici } (funzioni)
+-- azioni: { play, esercito, shop, profilo, ranked, armadio, codici, giornaliero } (funzioni)
 function Hud.inizializza(gui, a)
 	azioni = a
 	local tela = Stile.radice(gui)
@@ -306,11 +307,11 @@ function Hud.inizializza(gui, a)
 		ingranaggio.Activated:Connect(azioni.impostazioni)
 	end
 
-	-- Sei riquadri a sinistra.
+	-- Sette riquadri a sinistra (il settimo, Daily, sotto gli altri).
 	local menu = nascondibile(Stile.crea("Frame", {
 		Name = "Menu",
 		Position = UDim2.fromOffset(30, 168),
-		Size = UDim2.fromOffset(380, 596),
+		Size = UDim2.fromOffset(380, 804),
 		BackgroundTransparency = 1,
 		Parent = tela,
 	}))
@@ -331,6 +332,9 @@ function Hud.inizializza(gui, a)
 	avvisoLocker = Stile.avviso(locker)
 	avvisoLocker.Visible = false
 	riquadro(200, 412, "rosa", "codes", "Codes", azioni.codici)
+	local giornaliero = riquadro(0, 618, "verde", "daily", "Daily", azioni.giornaliero)
+	avvisoGiornaliero = Stile.avviso(giornaliero)
+	avvisoGiornaliero.Visible = false
 
 	pannelloCampagna(tela)
 
@@ -513,6 +517,13 @@ function Hud.aggiorna(stato)
 end
 
 -- Il "!" sul riquadro Locker: ci sono titoli o cosmetici nuovi da vedere.
+-- Il "!" sul riquadro Daily: c'è un premio giornaliero da ritirare.
+function Hud.mostraGiornaliero(visibile)
+	if avvisoGiornaliero then
+		avvisoGiornaliero.Visible = visibile
+	end
+end
+
 function Hud.mostraNovita(visibile)
 	if avvisoLocker then
 		avvisoLocker.Visible = visibile

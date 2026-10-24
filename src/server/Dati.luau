@@ -42,6 +42,8 @@ local function predefiniti()
 		feedbackPremiato = false, -- ha già ricevuto il premio per il primo feedback (Server/Feedback)
 		ricevute = {}, -- ultimi PurchaseId degli acquisti in Robux già consegnati (Server/Acquisti)
 		casseAperte = 0,
+		-- Premio giornaliero (Server/Giornaliero): premi ritirati nel giro di 7 (0-6), giorno UTC dell'ultimo ritiro.
+		giornaliero = { giorno = 0, ultimo = -1 },
 		-- Ranked: punti RP (Config/Gradi), vittorie e sconfitte, punti della settimana in corso (per la classifica).
 		ranked = { punti = 0, vittorie = 0, sconfitte = 0, settimana = 0, puntiSettimana = 0 },
 		-- Menu Settings: musica, effetti sonori, modalità prestazioni (meno ombre ed effetti).

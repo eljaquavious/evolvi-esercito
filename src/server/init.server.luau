@@ -21,6 +21,7 @@ local Acquisti = require(script.Acquisti)
 local Feedback = require(script.Feedback)
 local Ranked = require(script.Ranked)
 local Classifica = require(script.Classifica)
+local Giornaliero = require(script.Giornaliero)
 
 -- Crea gli eventi tra server e client.
 local cartellaRemoti = Instance.new("Folder")
@@ -63,6 +64,7 @@ local function stato(dati)
 		feedbackPremiato = dati.feedbackPremiato,
 		ranked = dati.ranked,
 		impostazioni = dati.impostazioni,
+		giornaliero = Giornaliero.stato(dati),
 	}
 end
 
@@ -114,6 +116,7 @@ Shop.inizializza(remoti)
 Feedback.inizializza(remoti)
 Ranked.inizializza(remoti, GestoreCampagna.occupato)
 Classifica.inizializza(remoti)
+Giornaliero.inizializza(remoti)
 
 -- Durante una ranked i comandi della partita vanno a Ranked, altrimenti alla campagna.
 -- (OnServerInvoke non si può leggere: si rimettono le funzioni della campagna.)

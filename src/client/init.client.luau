@@ -14,6 +14,7 @@ local Partita = require(script.UI.Partita)
 local Mappa = require(script.UI.Mappa)
 local Armadio = require(script.UI.Armadio)
 local Impostazioni = require(script.UI.Impostazioni)
+local Giornaliero = require(script.UI.Giornaliero)
 local Truppe = require(script.Truppe)
 local Paesaggio = require(script.Paesaggio)
 local LobbyVita = require(script.LobbyVita)
@@ -48,6 +49,7 @@ AperturaCassa.inizializza(gui, remoti)
 Inventario.inizializza(gui, remoti)
 Profilo.inizializza(gui)
 Impostazioni.inizializza(gui, remoti)
+Giornaliero.inizializza(gui, remoti)
 Mappa.inizializza(gui, remoti)
 Armadio.inizializza(gui, remoti, {
 	-- Gli sblocchi si festeggiano in lobby, non in mezzo a una battaglia o sulla mappa.
@@ -57,7 +59,7 @@ Armadio.inizializza(gui, remoti, {
 })
 
 -- Una sola finestra aperta alla volta.
-local finestre = { Shop, Inventario, Profilo, Armadio, Impostazioni, RankedMenu }
+local finestre = { Shop, Inventario, Profilo, Armadio, Impostazioni, RankedMenu, Giornaliero }
 local function chiudiFinestre(tranne)
 	for _, finestra in ipairs(finestre) do
 		if finestra ~= tranne then
@@ -92,6 +94,7 @@ Hud.inizializza(gui, {
 	shop = alterna(Shop),
 	profilo = alterna(Profilo),
 	impostazioni = alterna(Impostazioni),
+	giornaliero = alterna(Giornaliero),
 	ranked = alterna(RankedMenu),
 	armadio = function()
 		chiudiFinestre(Armadio)
@@ -112,8 +115,26 @@ Partita.inizializza(gui, remoti, function()
 	Hud.mostraLobby(true)
 end)
 
+-- Il premio giornaliero si propone da solo una volta per sessione, in lobby e con nessuna finestra aperta.
+local giornalieroProposto = false
+local function proponiGiornaliero()
+	if giornalieroProposto or not Giornaliero.disponibile() then
+		return
+	end
+	giornalieroProposto = true
+	task.delay(3, function()
+		if Giornaliero.disponibile() and not Partita.inCorso() and not Mappa.aperta() and not Cinematica.inCorso() then
+			chiudiFinestre(Giornaliero)
+			Giornaliero.apri()
+		end
+	end)
+end
+
 local function aggiornaStato(stato)
 	Impostazioni.aggiorna(stato)
+	Giornaliero.aggiorna(stato)
+	Hud.mostraGiornaliero(Giornaliero.disponibile())
+	proponiGiornaliero()
 	Hud.aggiorna(stato)
 	Shop.aggiorna(stato)
 	RankedMenu.aggiorna(stato)
