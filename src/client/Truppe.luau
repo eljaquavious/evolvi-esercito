@@ -42,19 +42,32 @@ parametriTerreno.FilterType = Enum.RaycastFilterType.Include
 parametriTerreno.FilterDescendantsInstances = { workspace.Terrain }
 parametriTerreno.IgnoreWater = true
 
-local function quota(x, z)
-	local chiave = math.floor(x / 2) .. "," .. math.floor(z / 2)
+-- Quota in un nodo della griglia di 2 studs (nil se il terreno lì non è ancora caricato).
+local function quotaNodo(i, k)
+	local chiave = i .. "," .. k
 	local q = quote[chiave]
 	if not q then
-		local colpo = workspace:Raycast(Vector3.new(x, campo.origine.Y + 120, z), Vector3.new(0, -260, 0), parametriTerreno)
+		local colpo = workspace:Raycast(Vector3.new(i * 2, campo.origine.Y + 120, k * 2), Vector3.new(0, -260, 0), parametriTerreno)
 		if not colpo then
-			-- Terreno non ancora caricato: si riprova la prossima volta.
-			return campo.origine.Y + 3
+			return nil
 		end
 		q = colpo.Position.Y
 		quote[chiave] = q
 	end
 	return q
+end
+
+-- Quota del terreno: media pesata dei 4 nodi attorno al punto. Con un solo valore per cella, sui pendii
+-- ripidi (argini, colline) i piedi finivano fino a quasi 2 studs sotto terra.
+local function quota(x, z)
+	local i, k = math.floor(x / 2), math.floor(z / 2)
+	local fx, fz = x / 2 - i, z / 2 - k
+	local a, b, c, d = quotaNodo(i, k), quotaNodo(i + 1, k), quotaNodo(i, k + 1), quotaNodo(i + 1, k + 1)
+	if not (a and b and c and d) then
+		-- Terreno non ancora caricato: si riprova la prossima volta.
+		return a or b or c or d or campo.origine.Y + 3
+	end
+	return (a * (1 - fx) + b * fx) * (1 - fz) + (c * (1 - fx) + d * fx) * fz
 end
 
 -- Punto a terra per coordinate del campo (colonna, riga), anche non intere.
@@ -226,9 +239,10 @@ local function svuotaBattaglia(subito)
 end
 
 local function impostaCampo(dati)
-	if not campo or campo.origine ~= dati.origine then
-		quote = {}
-	end
+	-- Le arene si costruiscono sempre nello stesso posto (uno per giocatore): con la stessa origine il terreno
+	-- può essere un altro (livello nuovo, colline diverse). Le quote in cache vanno rifatte ogni volta,
+	-- altrimenti i soldati camminano alle altezze della mappa di prima e passano dentro le colline.
+	quote = {}
 	campo = { origine = dati.origine, colonne = dati.colonne, righe = dati.righe }
 end
 
