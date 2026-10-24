@@ -63,7 +63,7 @@ I nomi dei menu sono quelli di Roblox Studio e del Creator Dashboard (create.rob
 ## Fase 5 — Pagina del gioco: testi e immagini (le facciamo insieme)
 17. [C] Descrizione in inglese (e titolo breve per la ricerca).
 18. [C+M] Icona 512x512: Claude la prepara (render da Studio + grafica).
-19. [C+M] Miniature 1920x1080 (fino a 10): Claude le prepara da Studio (battaglie, lobby, shop, carte).
+19. [C] FATTO (24/10): 3 miniature 1920x1080 generate con ForgeGUI in assets/pagina/ (miniatura1_battaglia, miniatura2_epoche, miniatura3_ranked). [M] le carica: Creator Dashboard > il gioco > Places > Thumbnails (o Studio > Game Settings > Basic Info).
 20. [M] Trailer (facoltativo, fino a 30 secondi): Claude scrive il copione delle scene, Mattia registra con
     il registratore di Roblox (Esc > Record) o con OBS. Si carica come video nelle miniature.
 21. [C] Crediti dei modelli CC0 (assets-foto/crediti.txt) nella descrizione o in un cartello nella lobby.
