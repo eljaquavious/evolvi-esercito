@@ -72,3 +72,21 @@ I nomi dei menu sono quelli di Roblox Studio e del Creator Dashboard (create.rob
 22. [M] Game Settings > Permissions: Public. Salva e ripubblica.
 23. [C] Codici per il lancio in src/server/ListaCodici.luau (ci sono WELCOME e FOUNDER).
 24. [M] Condividi il link. I feedback arrivano in Codes > INBOX.
+
+## Descrizione della pagina (pronta, 852 caratteri su 1000)
+
+```
+⚔️ Lead history's greatest armies to victory!
+
+Command real regiments in 26 legendary battles, from Thermopylae and Cannae to Waterloo, Verdun and Khe Sanh. Your army EVOLVES through 5 eras: Antiquity, Middle Ages, Age of Gunpowder, 20th Century and the Modern Era.
+
+🃏 Collect regiment cards: legionaries, knights, musketeers, tanks and more
+🎖️ Defeat famous commanders and recruit them: Hannibal, Caesar, Joan of Arc, Napoleon, Rommel...
+🛡️ Choose a historical formation and give orders live: Advance, Hold the Line, Flank, Charge!
+🏆 Ranked 1v1, best of 3: climb from Bronze to Champion on the weekly and all-time leaderboards
+📦 Open crates for new troops and rare gear, unlock titles and cosmetics
+
+Infantry beats Cavalry, Cavalry beats Ranged, Ranged beats Infantry. Read the scouts' report and counter the enemy!
+
+🎁 Use code WELCOME for free coins!
+```
