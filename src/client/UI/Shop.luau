@@ -7,6 +7,8 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local PolicyService = game:GetService("PolicyService")
 
 local Casse = require(ReplicatedStorage.Shared.Config.Casse)
 local Carte = require(ReplicatedStorage.Shared.Config.Carte)
@@ -27,6 +29,9 @@ local costruita = false
 local sezioni = {} -- nome scheda -> Frame dell'intestazione (per saltarci)
 local schede = {} -- { bottone, nome }
 local dinamici = {} -- funzioni che aggiornano le parti che cambiano con lo stato (posseduti, monete)
+-- Paesi dove Roblox vieta le casse a pagamento (PolicyService): i prezzi delle casse diventano grigi.
+-- Il blocco vero è sul server (Server/Shop); qui si mostra soltanto.
+local casseVietate = false
 
 local LARGHEZZA = 1690 -- contenuto della pagina (1708 meno la barra di scorrimento)
 
@@ -93,7 +98,7 @@ local function pulsantePrezzo(proprieta, voce, sotto)
 	local robux = voce.robux ~= nil
 	local prezzo = robux and voce.robux.prezzo or voce.monete
 	local alto = proprieta.Size.Y.Offset
-	local bottone = Stile.pulsante(proprieta, "verde", {
+	local bottone, etichetta, _, sotto = Stile.pulsante(proprieta, "verde", {
 		Testo = Stile.numero(prezzo),
 		TestoSize = math.floor(alto * 0.5),
 		Icona = robux and "robux" or "coin",
@@ -103,7 +108,7 @@ local function pulsantePrezzo(proprieta, voce, sotto)
 		SottoSize = sotto and math.floor(alto * 0.2) or nil,
 		Raggio = 22,
 	})
-	return bottone
+	return bottone, etichetta, sotto
 end
 
 local function intestazione(testo, chiave, ordine)
@@ -327,13 +332,22 @@ local function banner(cassa, tipo, ordine)
 	end
 
 	-- Prezzo a destra: "1 Regiment" / "1 Item" sotto, come una confezione.
-	local bottone = pulsantePrezzo({
+	local bottone, etichettaPrezzo, sottoPrezzo = pulsantePrezzo({
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, -30, 1, -30),
 		Size = UDim2.fromOffset(360, 130),
 		ZIndex = 4,
 		Parent = faccia,
 	}, cassa, tipo == "truppe" and "1 Regiment" or "1 Item")
+	table.insert(dinamici, function()
+		if casseVietate then
+			Stile.coloraPulsante(bottone, "grigio")
+			etichettaPrezzo.Text = "N/A"
+			if sottoPrezzo then
+				sottoPrezzo.Text = "Not in your country"
+			end
+		end
+	end)
 	bottone.Activated:Connect(function()
 		compra(cassa.id)
 	end)
@@ -644,6 +658,13 @@ end
 
 function Shop.inizializza(gui, remoti)
 	remotiShop = remoti
+	task.spawn(function()
+		local ok, info = pcall(PolicyService.GetPolicyInfoForPlayerAsync, PolicyService, Players.LocalPlayer)
+		if ok and typeof(info) == "table" and info.ArePaidRandomItemsRestricted then
+			casseVietate = true
+			aggiornaDinamici()
+		end
+	end)
 	AperturaCassa.alTermine(function()
 		if finestra.Visible then
 			aggiornaDinamici()

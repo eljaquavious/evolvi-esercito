@@ -3,6 +3,7 @@
 -- Il risultato arriva al client con l'evento CassaAperta (anche dopo un acquisto in Robux).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PolicyService = game:GetService("PolicyService")
 
 local Casse = require(ReplicatedStorage.Shared.Config.Casse)
 local Carte = require(ReplicatedStorage.Shared.Config.Carte)
@@ -162,11 +163,29 @@ local function apri(player, cassa, tipo)
 	return true
 end
 
+-- Casse a pagamento (oggetti casuali comprati con Robux o con monete, che si comprano con Robux): in alcuni paesi
+-- Roblox le vieta e lo dice PolicyService (ArePaidRandomItemsRestricted). Le casse regalate (vittorie, premio
+-- giornaliero) non sono a pagamento e restano. Se la risposta non arriva, nel dubbio si vietano e si riprova dopo.
+local vietate = {} -- player -> true/false
+local function casseVietate(player)
+	if vietate[player] == nil then
+		local ok, info = pcall(PolicyService.GetPolicyInfoForPlayerAsync, PolicyService, player)
+		if not ok or typeof(info) ~= "table" then
+			return true
+		end
+		vietate[player] = info.ArePaidRandomItemsRestricted == true
+	end
+	return vietate[player]
+end
+
 function Shop.acquista(player, id)
 	local cassa, tipo = Casse.trova(id)
 	local dati = Dati.ottieni(player)
 	if not cassa or not dati then
 		return false, "Item not found."
+	end
+	if tipo ~= "monete" and casseVietate(player) then
+		return false, "Crates can't be bought in your country."
 	end
 	local adesso = os.clock()
 	if ultimo[player] and adesso - ultimo[player] < 1 then
@@ -223,6 +242,7 @@ function Shop.inizializza(r)
 	end
 	game:GetService("Players").PlayerRemoving:Connect(function(player)
 		ultimo[player] = nil
+		vietate[player] = nil
 	end)
 end
 
