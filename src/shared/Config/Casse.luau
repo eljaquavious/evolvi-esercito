@@ -66,7 +66,8 @@ Casse.Cosmetici = {
 		id = "ArmeriaMedia",
 		nome = "Medium Armory Crate",
 		descrizione = "Better odds of epic and legendary gear.",
-		robux = { prezzo = 49, prodotto = 0 },
+		-- 69 e non 49 (24/10/2026): a 49 costava meno della Small comprata con le monete (600 monete = circa 45 R$).
+		robux = { prezzo = 69, prodotto = 0 },
 		pesi = { comune = 35, raro = 38, epico = 21, leggendario = 6 },
 		icona = "chest_medium",
 		colore = Color3.fromRGB(150, 70, 230), -- piedistallo nella lobby
