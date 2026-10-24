@@ -57,7 +57,7 @@ Ricompense.Titoli = {
 	-- In vendita nello shop (sezione Titles).
 	{ id = "Sergente", nome = "Drill Sergeant", rarita = "raro", monete = 2500 },
 	{ id = "Profittatore", nome = "War Profiteer", rarita = "epico", monete = 7500 },
-	{ id = "Guerrafondaio", nome = "Warmonger", rarita = "epico", robux = { prezzo = 49, prodotto = 0 } },
+	{ id = "Guerrafondaio", nome = "Warmonger", rarita = "epico", robux = { prezzo = 89, prodotto = 0 } },
 	{ id = "Indistruttibile", nome = "The Unbreakable", rarita = "leggendario", robux = { prezzo = 149, prodotto = 0 } },
 	{ id = "SignoreGuerra", nome = "Lord of War", rarita = "leggendario", robux = { prezzo = 249, prodotto = 0 } },
 }

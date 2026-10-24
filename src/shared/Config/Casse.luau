@@ -66,8 +66,8 @@ Casse.Cosmetici = {
 		id = "ArmeriaMedia",
 		nome = "Medium Armory Crate",
 		descrizione = "Better odds of epic and legendary gear.",
-		-- 69 e non 49 (24/10/2026): a 49 costava meno della Small comprata con le monete (600 monete = circa 45 R$).
-		robux = { prezzo = 69, prodotto = 0 },
+		-- Ogni cosa costa almeno 80 R$, circa 1 euro (Mattia, 24/10/2026).
+		robux = { prezzo = 89, prodotto = 0 },
 		pesi = { comune = 35, raro = 38, epico = 21, leggendario = 6 },
 		icona = "chest_medium",
 		colore = Color3.fromRGB(150, 70, 230), -- piedistallo nella lobby
@@ -85,12 +85,13 @@ Casse.Cosmetici = {
 	},
 }
 
--- Pacchetti di monete (solo Robux).
+-- Pacchetti di monete (solo Robux). Il più piccolo costa 80 R$ (circa 1 euro, il minimo voluto da Mattia);
+-- più grande è il pacchetto, più monete per ogni Robux (da 12,5 a 22).
 Casse.Monete = {
-	{ id = "Monete1", monete = 300, robux = { prezzo = 25, prodotto = 0 }, icona = "coins_1" },
-	{ id = "Monete2", monete = 1000, robux = { prezzo = 75, prodotto = 0 }, icona = "coins_2" },
-	{ id = "Monete3", monete = 2500, robux = { prezzo = 169, prodotto = 0 }, icona = "coins_3" },
-	{ id = "Monete4", monete = 6000, robux = { prezzo = 369, prodotto = 0 }, icona = "coins_4" },
+	{ id = "Monete1", monete = 1000, robux = { prezzo = 80, prodotto = 0 }, icona = "coins_1" },
+	{ id = "Monete2", monete = 2500, robux = { prezzo = 169, prodotto = 0 }, icona = "coins_2" },
+	{ id = "Monete3", monete = 6000, robux = { prezzo = 369, prodotto = 0 }, icona = "coins_3" },
+	{ id = "Monete4", monete = 10000, robux = { prezzo = 599, prodotto = 0 }, icona = "coins_4" },
 	{ id = "Monete5", monete = 15000, robux = { prezzo = 799, prodotto = 0 }, icona = "coins_5" },
 	{ id = "Monete6", monete = 40000, robux = { prezzo = 1799, prodotto = 0 }, icona = "coins_6", migliore = true },
 }
