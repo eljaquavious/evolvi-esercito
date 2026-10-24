@@ -254,6 +254,11 @@ function Tutorial.inizializza(t, elementi)
 	}, "verde", { Testo = "NEXT", TestoSize = 28, Profondita = 5, Raggio = 12, Contorno = 3 })
 	testoAvanti = bottoneAvanti:FindFirstChild("Testo", true)
 	bottoneAvanti.Activated:Connect(avanti)
+	bottoneAvanti:GetPropertyChangedSignal("Visible"):Connect(function()
+		if bottoneAvanti.Visible then
+			Stile.seleziona(bottoneAvanti)
+		end
+	end)
 	contorno = Stile.crea("Frame", {
 		Name = "TutorialContorno",
 		BackgroundTransparency = 1,

@@ -1390,6 +1390,7 @@ function Armadio.festeggia()
 		chiudi()
 	end)
 	bene.Activated:Connect(chiudi)
+	Stile.seleziona(bene)
 end
 
 return Armadio

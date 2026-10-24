@@ -232,7 +232,9 @@ local function costruisciMazzo()
 	end
 	carte, idPerIndice, bottoniAbilita = {}, {}, {}
 	if suggerimento then
-		suggerimento.Text = "CLICK A CARD TO DEPLOY OR RECALL IT"
+		suggerimento.Text = Stile.gamepad() and "SELECT A CARD TO DEPLOY OR RECALL IT  ·  Y: FIGHT!"
+			or Stile.touch() and "TAP A CARD TO DEPLOY OR RECALL IT"
+			or "CLICK A CARD TO DEPLOY OR RECALL IT"
 	end
 	local layout = carteMazzo:FindFirstChildOfClass("UIListLayout")
 	if layout then
@@ -427,6 +429,7 @@ local function entraPiazzamento(dati)
 	costruisciMazzo()
 	aggiornaCarte()
 	costruisciFormazioni()
+	Stile.seleziona(carte[1] or bottoneCombatti)
 	mostraEsploratori(dati.esploratori)
 	bannerRound.Visible = false
 	if dati.ranked then
@@ -568,7 +571,13 @@ local function costruisciBarraBattaglia(reggimenti)
 		carte[r.indice] = carta
 	end
 	contatore.Text = "REGIMENTS"
-	suggerimento.Text = "CLICK A CARD, THEN A TARGET  ·  CLICK AN ENEMY TO ATTACK IT"
+	if Stile.gamepad() then
+		suggerimento.Text = "D-PAD / Y: ORDERS  ·  L1 / R1: TARGET  ·  SELECT A CARD FOR ONE REGIMENT"
+	elseif Stile.touch() then
+		suggerimento.Text = "TAP A CARD, THEN A TARGET  ·  TAP AN ENEMY TO ATTACK IT"
+	else
+		suggerimento.Text = "CLICK A CARD, THEN A TARGET  ·  CLICK AN ENEMY TO ATTACK IT"
+	end
 end
 
 -- Cosa fa ogni ordine, per l'avviso sotto il tabellone.
@@ -913,6 +922,9 @@ local function mostraRisultato(dati)
 			end
 		end)
 	end
+	if not dati.cassa then
+		Stile.seleziona(bottoneContinua)
+	end
 	if dati.vittoria then
 		Preferiti.dopoVittoria()
 		testoContinua.Text = dati.prossimo == dati.numero and "PLAY AGAIN" or "NEXT BATTLE"
@@ -1209,10 +1221,11 @@ function Partita.inizializza(gui, r, callbackLobby)
 		}),
 	})
 
+	-- Su telefono e tablet FIGHT! e ORDERS stanno più a sinistra, lontano dal pulsante del salto.
 	bottoneCombatti = Stile.pulsante({
 		Name = "Combatti",
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -28, 1, -28),
+		Position = UDim2.new(1, Stile.destra(28), 1, -28),
 		Size = UDim2.fromOffset(410, 186),
 		Visible = false,
 		ZIndex = 6,
@@ -1360,7 +1373,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 	pannelloOrdini = Stile.crea("Frame", {
 		Name = "Ordini",
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -28, 1, -28),
+		Position = UDim2.new(1, Stile.destra(28), 1, -28),
 		Size = UDim2.fromOffset(330, 72 + #Battaglia.ORDINI * 58 + 18 + 40 + 3 * 50),
 		BackgroundColor3 = Stile.BIANCO,
 		Visible = false,
@@ -1675,6 +1688,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 			bottoneContinua.Visible = true
 			bottoneLobbyRisultato.Visible = true
 			pop(bottoneContinua, 0.6, 0.3)
+			Stile.seleziona(bottoneContinua)
 			pop(bottoneLobbyRisultato, 0.6, 0.3)
 		end
 		FineRanked.cassaAperta()
@@ -1699,7 +1713,31 @@ function Partita.inizializza(gui, r, callbackLobby)
 
 	local TASTI = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five }
 	local TASTI_MIRA = { Enum.KeyCode.Six, Enum.KeyCode.Seven, Enum.KeyCode.Eight, Enum.KeyCode.Nine, Enum.KeyCode.Zero }
+	-- Controller (console): croce direzionale e Y per i cinque ordini, Y anche per FIGHT! nello schieramento,
+	-- dorsali L1/R1 per cambiare il bersaglio di tutta l'armata.
+	local TASTI_PAD = { Enum.KeyCode.DPadUp, Enum.KeyCode.DPadDown, Enum.KeyCode.DPadLeft, Enum.KeyCode.DPadRight, Enum.KeyCode.ButtonY }
+	local miraPad = #BERSAGLI
 	UserInputService.InputBegan:Connect(function(input, usatoDaGui)
+		if fase == "piazzamento" and input.KeyCode == Enum.KeyCode.ButtonY and bottoneCombatti.Visible then
+			local ok, messaggio = remoti.Combatti:InvokeServer()
+			if messaggio then
+				Notifiche.mostra(messaggio, not ok and Stile.Colori.Rosso or nil)
+			end
+			return
+		end
+		if fase == "battaglia" then
+			local pad = table.find(TASTI_PAD, input.KeyCode)
+			if pad and Battaglia.ORDINI[pad] then
+				daiOrdine(Battaglia.ORDINI[pad])
+				return
+			end
+			if input.KeyCode == Enum.KeyCode.ButtonR1 or input.KeyCode == Enum.KeyCode.ButtonL1 then
+				local passo = input.KeyCode == Enum.KeyCode.ButtonR1 and 1 or -1
+				miraPad = (miraPad - 1 + passo) % #BERSAGLI + 1
+				daiBersaglio(BERSAGLI[miraPad].filtro)
+				return
+			end
+		end
 		if usatoDaGui or fase ~= "battaglia" then
 			return
 		end

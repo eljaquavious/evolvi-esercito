@@ -186,6 +186,7 @@ function FineRanked.mostra(dati)
 		task.delay(15, function()
 			if questo.Parent then
 				questo.Visible = true
+				Stile.seleziona(questo)
 			end
 		end)
 	end
@@ -237,6 +238,7 @@ end
 function FineRanked.cassaAperta()
 	if bottoneLobby and bottoneLobby.Parent then
 		bottoneLobby.Visible = true
+		Stile.seleziona(bottoneLobby)
 	end
 end
 

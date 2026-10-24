@@ -288,6 +288,7 @@ local function mostra(risultato)
 		Raggio = 24,
 	})
 	bene.Activated:Connect(chiudi)
+	Stile.seleziona(bene)
 end
 
 function AperturaCassa.inizializza(g, r)

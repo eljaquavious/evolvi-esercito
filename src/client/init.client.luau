@@ -146,6 +146,13 @@ local function apriDallaLobby(finestra)
 end
 remoti.ApriShop.OnClientEvent:Connect(apriDallaLobby(Shop))
 remoti.ApriRanked.OnClientEvent:Connect(apriDallaLobby(RankedMenu))
+
+-- Controller: B chiude le finestre aperte (la selezione la toglie Stile.finestra).
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.ButtonB then
+		chiudiFinestre()
+	end
+end)
 remoti.ApriEsercito.OnClientEvent:Connect(apriDallaLobby(Inventario))
 
 task.spawn(function()

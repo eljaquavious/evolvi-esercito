@@ -376,11 +376,11 @@ function Hud.inizializza(gui, a)
 		}),
 	})
 
-	-- PLAY in basso a destra.
+	-- PLAY in basso a destra (su telefono e tablet più a sinistra, lontano dal pulsante del salto).
 	local play, _, _, sotto = Stile.pulsante({
 		Name = "Play",
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -30, 1, -48),
+		Position = UDim2.new(1, Stile.destra(30), 1, -48),
 		Size = UDim2.fromOffset(424, 186),
 		Parent = tela,
 	}, "verde", {

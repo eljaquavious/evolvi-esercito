@@ -3,6 +3,8 @@
 -- un UIScale adatta la tela allo schermo, così misure, contorni e testi restano proporzionati.
 
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
 
 local Icone = require(script.Parent.Icone)
 
@@ -676,9 +678,70 @@ function Stile.finestra(gui, nome, titolo, pal, icona)
 			scala.Scale = 0.9
 			TweenService:Create(scala, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
 				:Play()
+			-- Col controller la selezione parte dal primo pulsante della finestra (le schede in alto).
+			if Stile.gamepad() then
+				task.delay(0.1, function()
+					Stile.seleziona(Stile.primoPulsante(contenuto))
+				end)
+			end
+		elseif GuiService.SelectedObject and GuiService.SelectedObject:IsDescendantOf(finestra) then
+			GuiService.SelectedObject = nil
 		end
 	end)
 	return finestra, contenuto, fascia
+end
+
+-- ===================================================================== telefono, tablet e console
+
+-- Telefono o tablet (schermo touch senza tastiera).
+function Stile.touch()
+	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+end
+
+-- Su telefono e tablet Roblox mette il pulsante del salto in basso a destra: i pulsanti nostri ancorati in
+-- basso a destra (PLAY, FIGHT!, ORDERS) si spostano a sinistra di tanto (pixel di progetto).
+Stile.MARGINE_SALTO = 270
+
+-- Distanza dal bordo destro per un elemento in basso a destra: quella data, più lo spazio del salto sul touch.
+function Stile.destra(margine)
+	return -(margine + (Stile.touch() and Stile.MARGINE_SALTO or 0))
+end
+
+-- Si sta usando un controller (console o gamepad sul PC)?
+function Stile.gamepad()
+	local ultimo = UserInputService:GetLastInputType()
+	return ultimo.Name:sub(1, 7) == "Gamepad"
+end
+
+-- Con il controller il riquadro di selezione va su questo pulsante (con mouse e touch non fa nulla).
+function Stile.seleziona(oggetto)
+	if oggetto and Stile.gamepad() then
+		task.defer(function()
+			if oggetto.Parent and oggetto.Visible then
+				GuiService.SelectedObject = oggetto
+			end
+		end)
+	end
+end
+
+-- Primo pulsante visibile dentro un contenitore (per la selezione col controller).
+function Stile.primoPulsante(contenitore)
+	for _, d in ipairs(contenitore:GetDescendants()) do
+		if d:IsA("GuiButton") and d.Visible and d.Selectable then
+			local visibile, x = true, d.Parent
+			while x and x ~= contenitore do
+				if x:IsA("GuiObject") and not x.Visible then
+					visibile = false
+					break
+				end
+				x = x.Parent
+			end
+			if visibile then
+				return d
+			end
+		end
+	end
+	return nil
 end
 
 -- Numero con separatore delle migliaia: 1625 -> "1,625".
