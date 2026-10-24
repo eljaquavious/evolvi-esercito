@@ -63,7 +63,10 @@ I nomi dei menu sono quelli di Roblox Studio e del Creator Dashboard (create.rob
 ## Fase 5 — Pagina del gioco: testi e immagini (le facciamo insieme)
 17. [C] Descrizione in inglese (e titolo breve per la ricerca).
 18. [C+M] Icona 512x512: Claude la prepara (render da Studio + grafica).
-19. [C] FATTO (24/10, rifatte coi modelli veri del gioco, catture di Studio): assets/pagina/miniatura1_battaglia.png (Zama, mischia con l avatar), miniatura2_marines.png (3 marines e il carro M48 a Khe Sanh), miniatura3_carica.png (carica di cavalieri contro l avatar a Hastings). [M] le carica: Creator Dashboard > il gioco > Places > Thumbnails.
+19. [C] FATTO (24/10, terza versione, approvata): assets/pagina/v3/ con 5 miniature 1920x1080 coi modelli veri del gioco:
+    miniatura_marines (Marines e M48 su sfondo generato), miniatura_medievale (mura di Orleans in fiamme),
+    miniatura_classica (Cesare e legioni ad Alesia), miniatura_scontro_alto e miniatura_scontro_lato (scontro medievale).
+    [M] le carica: Creator Dashboard > il gioco > Places > Thumbnails (fino a 10, la prima e' quella in evidenza).
 20. [M] Trailer (facoltativo, fino a 30 secondi): Claude scrive il copione delle scene, Mattia registra con
     il registratore di Roblox (Esc > Record) o con OBS. Si carica come video nelle miniature.
 21. [C] Crediti dei modelli CC0 (assets-foto/crediti.txt) nella descrizione o in un cartello nella lobby.
