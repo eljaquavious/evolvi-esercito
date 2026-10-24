@@ -62,7 +62,8 @@ I nomi dei menu sono quelli di Roblox Studio e del Creator Dashboard (create.rob
 
 ## Fase 5 — Pagina del gioco: testi e immagini (le facciamo insieme)
 17. [C] Descrizione in inglese (e titolo breve per la ricerca).
-18. [C+M] Icona 512x512: Claude la prepara (render da Studio + grafica).
+18. [C] FATTO (24/10, approvata): assets/pagina/icona/icona.png, Cesare a cavallo renderizzato in Blender dal modello vero, con aura dorata
+    (script posa.py, p3.json, aura.py nella stessa cartella). [M] la carica: Creator Dashboard > il gioco > Places > Icon.
 19. [C] FATTO (24/10, terza versione, approvata): assets/pagina/v3/ con 5 miniature 1920x1080 coi modelli veri del gioco:
     miniatura_marines (Marines e M48 su sfondo generato), miniatura_medievale (mura di Orleans in fiamme),
     miniatura_classica (Cesare e legioni ad Alesia), miniatura_scontro_alto e miniatura_scontro_lato (scontro medievale).

@@ -1,0 +1,9 @@
+{"alza": 1.25, "ossa": {"torace": [0.1, 0.25, 0], "braccio.R": [0.5, 1.2, 2.1]},
+ "lente": 50, "cam": [6.4, -8.8, -1.0], "mira": [-0.5, 0, -0.9], "ris": 2048, "cycles": true, "campioni": 96,
+ "ambiente": 0.5, "esposizione": 0.15,
+ "luci": [
+   {"nome": "chiave", "tipo": "AREA", "energia": 1300, "colore": [1.0, 0.86, 0.68], "pos": [7, -6, 5], "size": 4},
+   {"nome": "contro", "tipo": "AREA", "energia": 2600, "colore": [1.0, 0.6, 0.28], "pos": [-5, 6, 4], "size": 3},
+   {"nome": "contro2", "tipo": "AREA", "energia": 1600, "colore": [1.0, 0.7, 0.4], "pos": [5, 7, 2], "size": 3},
+   {"nome": "riempi", "tipo": "AREA", "energia": 220, "colore": [0.75, 0.8, 1.0], "pos": [-4, -8, -1], "size": 6}
+ ]}
