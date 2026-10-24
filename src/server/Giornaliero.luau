@@ -1,5 +1,5 @@
 -- Premio giornaliero (richiesta di Mattia, 24/10/2026): 7 premi, uno al giorno; dopo il settimo si riparte dal primo.
--- Il giorno cambia a mezzanotte UTC. Saltare un giorno non fa ripartire da capo: si prende il premio successivo.
+-- Il giorno cambia a mezzanotte UTC. Saltare un giorno fa ripartire dal primo premio (scelta di Mattia).
 -- dati.giornaliero = { giorno = premi già ritirati nel giro in corso (0-6), ultimo = giorno UTC dell'ultimo ritiro }
 
 local Dati = require(script.Parent.Dati)
@@ -24,11 +24,19 @@ local function oggi()
 	return math.floor(os.time() / GIORNO)
 end
 
+-- Premi già ritirati nel giro in corso: 0 se l'ultimo ritiro è di prima di ieri (giorno saltato).
+local function ritirati(g)
+	if g.ultimo < oggi() - 1 then
+		return 0
+	end
+	return g.giorno
+end
+
 -- Quello che il client deve sapere: il premio di oggi (1-7), se si può ritirare, i secondi al giorno dopo.
 function Giornaliero.stato(dati)
 	local g = dati.giornaliero
 	return {
-		prossimo = g.giorno + 1,
+		prossimo = ritirati(g) + 1,
 		disponibile = g.ultimo ~= oggi(),
 		mancano = (oggi() + 1) * GIORNO - os.time(),
 		premi = Giornaliero.PREMI,
@@ -43,7 +51,7 @@ function Giornaliero.ritira(player)
 	if dati.giornaliero.ultimo == oggi() then
 		return false, "Come back tomorrow for your next reward!"
 	end
-	local numero = dati.giornaliero.giorno + 1
+	local numero = ritirati(dati.giornaliero) + 1
 	local premio = Giornaliero.PREMI[numero]
 	Dati.modifica(player, function(d)
 		d.monete += premio.monete
