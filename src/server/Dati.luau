@@ -17,6 +17,19 @@ local COPIE_IN_PROVA = 3 -- copie di ogni reggimento in modalità prova (i coman
 -- 20000 monete ("godmode"); false = si parte da zero come un giocatore nuovo (Mattia, 21/10/2026).
 -- I progressi in Studio non si salvano comunque: a ogni Play si riparte dall'inizio.
 local SBLOCCA_TUTTO_IN_PROVA = false
+-- Godmode nel gioco pubblicato solo per questi account (Mattia, 27/10/2026: per girare contenuti su livelli
+-- e truppe avanzate). I suoi progressi in godmode non si salvano e le sue ranked non vanno in classifica.
+local GODMODE = {
+	[2310327136] = true, -- Idroscimmia07 (Mattia)
+}
+
+-- Il giocatore ha tutto sbloccato? In Studio decide SBLOCCA_TUTTO_IN_PROVA, nel gioco pubblicato la lista GODMODE.
+function Dati.godmode(player)
+	if Prova then
+		return SBLOCCA_TUTTO_IN_PROVA
+	end
+	return GODMODE[player.UserId] == true
+end
 
 local function predefiniti()
 	local iniziale = Epoche.Lista[1].mazzoIniziale
@@ -108,8 +121,9 @@ function Dati.carica(player)
 	end
 	-- I livelli della campagna sono stati ridotti: chi era più avanti riparte dall'ultimo che esiste.
 	dati.livello = math.clamp(dati.livello, 1, Campagna.TOTALE)
-	if Prova and SBLOCCA_TUTTO_IN_PROVA then
-		-- Modalità prova (solo in Studio): tutti i livelli aperti e tutte le carte, per collaudare qualsiasi cosa.
+	local god = Dati.godmode(player)
+	if god then
+		-- Godmode: tutti i livelli aperti e tutte le carte, per collaudare o girare video.
 		dati.livello = Campagna.TOTALE
 		for _, tipo in ipairs(Epoche.carte()) do
 			local copie = Epoche.Truppe[tipo].comandante and 1 or COPIE_IN_PROVA
@@ -129,7 +143,7 @@ function Dati.carica(player)
 	cache[player] = dati
 	-- Se il caricamento è fallito non salviamo, per non sovrascrivere i dati veri con quelli predefiniti.
 	-- Nemmeno in modalità prova: livelli e carte regalati non devono finire nei progressi veri.
-	caricatoBene[player] = ok and not Prova
+	caricatoBene[player] = ok and not Prova and not god
 	cambiato:Fire(player, dati)
 	return dati
 end

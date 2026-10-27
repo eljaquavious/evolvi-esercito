@@ -45,6 +45,10 @@ end
 
 -- Salva i punti del giocatore nelle due classifiche (dopo ogni ranked).
 function Classifica.registra(player, punti, puntiSettimana)
+	-- Chi gioca in godmode ha tutte le truppe: i suoi punti non vanno in classifica.
+	if Dati.godmode(player) then
+		return
+	end
 	memoria.sempre[player.UserId] = punti
 	memoria.settimana[player.UserId] = puntiSettimana
 	nomi[player.UserId] = player.DisplayName
