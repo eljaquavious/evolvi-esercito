@@ -340,13 +340,13 @@ function Profilo.inizializza(gui)
 	chipEpoca = testoEpoca
 
 	-- Livello del giocatore e campagna con le barre.
-	testoLivello, testoXp = etichettaRiga(scheda, 548, "LEVEL 1", Stile.PAL.acqua.t)
+	testoLivello, testoXp = etichettaRiga(scheda, 548, "LEVEL 1", Stile.ACCENTI.acqua.t)
 	barraXp = Stile.barra({
 		Position = UDim2.fromOffset(40, 588),
 		Size = UDim2.new(1, -80, 0, 40),
 		Parent = scheda,
 	}, "acqua")
-	local _, destraCampagna = etichettaRiga(scheda, 662, "CAMPAIGN", Stile.PAL.oro.t)
+	local _, destraCampagna = etichettaRiga(scheda, 662, "CAMPAIGN", Stile.ACCENTI.oro.t)
 	testoCampagna = destraCampagna
 	barraCampagna = Stile.barra({
 		Position = UDim2.fromOffset(40, 702),

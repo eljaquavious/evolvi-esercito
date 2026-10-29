@@ -201,7 +201,7 @@ local function rigaClasse(genitore, y, classe, forte)
 		TextSize = 26,
 		TextScaled = false,
 		FontFace = Stile.FontTitolo,
-		TextColor3 = forte and Stile.PAL.verde.t or Stile.PAL.rosso.t,
+		TextColor3 = forte and Stile.ACCENTI.verde.t or Stile.ACCENTI.rosso.t,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 3,
 		Parent = genitore,

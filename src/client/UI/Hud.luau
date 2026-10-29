@@ -23,6 +23,7 @@ local mazzoCarte, mediaOvr, epocheUi, prossima, chipStelle
 local mazzoMostrato -- per non ricostruire le carte se il mazzo non cambia
 local avvisoLocker
 local avvisoGiornaliero
+local bersagli = {} -- elementi che il tutorial della lobby indica: "Shop", "Army", "Play", "Mazzo", "Campagna"...
 
 local COLORI_EPOCA = { "oro", "blu", "rosso", "verde", "viola" }
 
@@ -58,26 +59,26 @@ local function schedaGiocatore(tela)
 		BackgroundTransparency = 1,
 		Parent = tela,
 	}))
-	Stile.crea("Frame", {
+	Stile.pannelloVetro({
 		Position = UDim2.fromOffset(60, 12),
 		Size = UDim2.fromOffset(380, 96),
-		BackgroundColor3 = Stile.BIANCO,
 		Parent = scheda,
-	}, { Stile.angoli(30), Stile.bordo(Stile.CONTORNO, 5), Stile.sfumatura(Stile.PAL.notte.t, Stile.PAL.notte.d) })
+	}, 30)
 	local cerchio = Stile.crea("Frame", {
 		Size = UDim2.fromOffset(120, 120),
-		BackgroundColor3 = Stile.BIANCO,
+		BackgroundColor3 = Stile.VETRO,
+		BackgroundTransparency = 0.3,
 		ZIndex = 3,
 		Parent = scheda,
-	}, { Stile.tondo(), Stile.bordo(Stile.CONTORNO, 5), Stile.sfumatura(Stile.PAL.oro.t, Stile.PAL.oro.b) })
+	}, { Stile.tondo(), Stile.bordo(Stile.BIANCO, 2, 0.6) })
 	local avatar = Stile.crea("ImageLabel", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromOffset(100, 100),
-		BackgroundColor3 = Color3.fromHex("#DDE6FF"),
+		BackgroundColor3 = Color3.fromHex("#3A3D48"),
 		ZIndex = 4,
 		Parent = cerchio,
-	}, { Stile.tondo(), Stile.bordo(Stile.CONTORNO, 3) })
+	}, { Stile.tondo() })
 	task.spawn(function()
 		local ok, immagine = pcall(function()
 			return Players:GetUserThumbnailAsync(
@@ -119,34 +120,27 @@ end
 
 -- Pannello della campagna a destra: una riga per epoca con stelle e barra.
 local function pannelloCampagna(tela)
-	local pannello = nascondibile(Stile.crea("Frame", {
+	local pannello = nascondibile(Stile.pannelloVetro({
 		Name = "Campagna",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -28, 0, 168),
 		Size = UDim2.fromOffset(404, 152 + 100 * #Epoche.Lista),
-		BackgroundColor3 = Color3.fromHex("#F4F6FF"),
 		Parent = tela,
-	}, { Stile.angoli(30), Stile.bordo(Stile.CONTORNO, 6) }))
+	}, 30))
+	bersagli.Campagna = pannello
 	local testata = Stile.crea("Frame", {
 		Size = UDim2.new(1, 0, 0, 86),
-		BackgroundColor3 = Stile.BIANCO,
+		BackgroundTransparency = 1,
 		ZIndex = 2,
 		Parent = pannello,
-	}, { Stile.angoli(30), Stile.sfumatura(Stile.PAL.arancio.t, Stile.PAL.arancio.b) })
-	Stile.crea("Frame", {
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.fromScale(0, 1),
-		Size = UDim2.new(1, 0, 0, 30),
-		BackgroundColor3 = Stile.PAL.arancio.b,
-		BorderSizePixel = 0,
-		ZIndex = 2,
-		Parent = testata,
 	})
+	-- Linea sottile sotto il titolo.
 	Stile.crea("Frame", {
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 0, 1, 3),
-		Size = UDim2.new(1, 0, 0, 5),
-		BackgroundColor3 = Stile.CONTORNO,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, 0),
+		Size = UDim2.new(1, -36, 0, 2),
+		BackgroundColor3 = Stile.BIANCO,
+		BackgroundTransparency = 0.75,
 		BorderSizePixel = 0,
 		ZIndex = 3,
 		Parent = testata,
@@ -185,21 +179,13 @@ local function pannelloCampagna(tela)
 			ZIndex = 2,
 			Parent = pannello,
 		})
-		local base = Stile.crea("Frame", {
+		-- Riga di vetro, senza il colore dell'epoca (Mattia, 29/10/2026: sezioni meno colorate).
+		local faccia = Stile.pannelloVetro({
 			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = Stile.PAL[COLORI_EPOCA[i] or "blu"].d,
-			ZIndex = 2,
-			Parent = riga,
-		}, { Stile.angoli(20), Stile.bordo(Stile.CONTORNO, 5) })
-		local faccia = Stile.crea("Frame", {
-			Size = UDim2.new(1, 0, 1, -6),
-			BackgroundColor3 = Stile.BIANCO,
 			ZIndex = 3,
 			Parent = riga,
-		}, {
-			Stile.angoli(20),
-			Stile.sfumatura(Stile.PAL[COLORI_EPOCA[i] or "blu"].t, Stile.PAL[COLORI_EPOCA[i] or "blu"].b),
-		})
+		}, 20)
+		local base = faccia
 		local nomeEpoca = Stile.scritta({
 			Position = UDim2.fromOffset(16, 8),
 			-- Si ferma prima della stella (che comincia a 126 px dal bordo destro).
@@ -245,6 +231,7 @@ local function pannelloCampagna(tela)
 			Parent = faccia,
 		}, i == 1 and "oro" or "verde")
 		epocheUi[i] = {
+			nome = nomeEpoca,
 			base = base,
 			faccia = faccia,
 			stella = stella,
@@ -261,7 +248,7 @@ local function pannelloCampagna(tela)
 		Text = "",
 		TextSize = 22,
 		TextScaled = false,
-		TextColor3 = Stile.Colori.TestoSecondario,
+		TextColor3 = Color3.fromHex("#D4D7E2"),
 		ZIndex = 2,
 		Parent = pannello,
 	})
@@ -295,6 +282,7 @@ function Hud.inizializza(gui, a)
 		Parent = soldi,
 	}, "star", "0/" .. Campagna.TOTALE * Campagna.STELLE_MASSIME)
 	numeroStelle = stelle
+	bersagli.Monete = soldi
 
 	-- Ingranaggio delle impostazioni in alto a destra (musica, effetti, modalità prestazioni).
 	if azioni.impostazioni then
@@ -303,49 +291,53 @@ function Hud.inizializza(gui, a)
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -28, 0, 36),
 			Parent = tela,
-		}, "blu", "settings", 104))
+		}, "blu", "settings", 88))
+		Stile.vetro(ingranaggio)
 		ingranaggio.Activated:Connect(azioni.impostazioni)
 	end
 
-	-- Sette riquadri a sinistra (il settimo, Daily, sotto gli altri).
+	-- Sette riquadri di vetro a sinistra (il settimo, Daily, sotto gli altri). Più piccoli e distanziati
+	-- (Mattia, 29/10/2026), così quando uno cresce col mouse sopra non tocca i vicini.
+	local LATO, PASSO = 150, 182
 	local menu = nascondibile(Stile.crea("Frame", {
 		Name = "Menu",
-		Position = UDim2.fromOffset(30, 168),
-		Size = UDim2.fromOffset(380, 804),
+		Position = UDim2.fromOffset(36, 176),
+		Size = UDim2.fromOffset(PASSO + LATO, PASSO * 3 + LATO),
 		BackgroundTransparency = 1,
 		Parent = tela,
 	}))
-	local function riquadro(x, y, pal, icona, testo, azione)
+	local function riquadro(colonna, riga, pal, icona, testo, azione)
 		local bottone = Stile.riquadro({
-			Position = UDim2.fromOffset(x, y),
-			Size = UDim2.fromOffset(180, 186),
+			Position = UDim2.fromOffset(colonna * PASSO, riga * PASSO),
+			Size = UDim2.fromOffset(LATO, LATO),
 			Parent = menu,
 		}, pal, icona, testo)
 		bottone.Activated:Connect(azione)
+		bersagli[testo] = bottone
 		return bottone
 	end
 	riquadro(0, 0, "rosso", "shop", "Shop", azioni.shop)
-	riquadro(200, 0, "blu", "army", "Army", azioni.esercito)
-	riquadro(0, 206, "viola", "profile", "Profile", azioni.profilo)
-	riquadro(200, 206, "oro", "ranked", "Ranked", azioni.ranked)
-	local locker = riquadro(0, 412, "acqua", "locker", "Locker", azioni.armadio)
+	riquadro(1, 0, "blu", "army", "Army", azioni.esercito)
+	riquadro(0, 1, "viola", "profile", "Profile", azioni.profilo)
+	riquadro(1, 1, "oro", "ranked", "Ranked", azioni.ranked)
+	local locker = riquadro(0, 2, "acqua", "locker", "Locker", azioni.armadio)
 	avvisoLocker = Stile.avviso(locker)
 	avvisoLocker.Visible = false
-	riquadro(200, 412, "rosa", "codes", "Codes", azioni.codici)
-	local giornaliero = riquadro(0, 618, "verde", "daily", "Daily", azioni.giornaliero)
+	riquadro(1, 2, "rosa", "codes", "Codes", azioni.codici)
+	local giornaliero = riquadro(0, 3, "verde", "daily", "Daily", azioni.giornaliero)
 	avvisoGiornaliero = Stile.avviso(giornaliero)
 	avvisoGiornaliero.Visible = false
 
 	pannelloCampagna(tela)
 
 	-- Mazzo in basso al centro.
-	local mazzo = nascondibile(Stile.pannello({
+	local mazzo = nascondibile(Stile.pannelloVetro({
 		Name = "Mazzo",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, -60, 1, -66),
 		Size = UDim2.fromOffset(728, 236),
 		Parent = tela,
-	}, 0.2))
+	}, 28))
 	Stile.scritta({
 		Position = UDim2.fromOffset(24, 12),
 		Size = UDim2.fromOffset(300, 40),
@@ -385,23 +377,26 @@ function Hud.inizializza(gui, a)
 		Name = "Play",
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, Stile.destra(30), 1, -48),
-		Size = UDim2.fromOffset(424, 186),
+		Size = UDim2.fromOffset(380, 150),
 		Parent = tela,
 	}, "verde", {
 		Testo = "PLAY",
-		TestoSize = 96,
+		TestoSize = 80,
 		Icona = "fight",
-		IconaSize = 120,
+		IconaSize = 96,
 		IconaX = 22,
 		Sotto = "",
-		SottoSize = 30,
+		SottoSize = 24,
 		Raggio = 30,
-		Profondita = 12,
+		Profondita = 8,
 		Contorno = 7,
 	})
 	sottotitoloPlay = sotto
 	nascondibile(play)
+	Stile.vetro(play)
 	play.Activated:Connect(azioni.play)
+	bersagli.Play = play
+	bersagli.Mazzo = mazzo
 
 	nascondibile(Stile.testo({
 		Name = "Versione",
@@ -500,9 +495,9 @@ function Hud.aggiorna(stato)
 		for n = primo, primo + per - 1 do
 			stelle += stelleDi(stato, n)
 		end
-		local pal = Stile.PAL[raggiunta and ui.pal or "grigio"]
-		ui.base.BackgroundColor3 = pal.d
-		ui.faccia:FindFirstChildOfClass("UIGradient").Color = ColorSequence.new(pal.t, pal.b)
+		-- Epoche non raggiunte: vetro più chiaro e nome spento.
+		ui.faccia.BackgroundTransparency = raggiunta and 0.35 or 0.65
+		ui.nome.TextTransparency = raggiunta and 0 or 0.45
 		ui.conto.Visible = raggiunta
 		ui.stella.Visible = raggiunta
 		ui.lucchetto.Visible = not raggiunta
@@ -528,6 +523,11 @@ function Hud.mostraNovita(visibile)
 	if avvisoLocker then
 		avvisoLocker.Visible = visibile
 	end
+end
+
+-- Elemento della lobby che il tutorial indica ("Play", "Mazzo", "Shop", "Army", "Daily", "Campagna"...).
+function Hud.bersaglio(nome)
+	return bersagli[nome]
 end
 
 -- In lobby si vede tutto; in mappa e in partita c'è la loro interfaccia al posto di questa.

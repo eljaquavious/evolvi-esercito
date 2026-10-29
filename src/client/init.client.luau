@@ -5,6 +5,7 @@ local versione = require(ReplicatedStorage.Shared.Versione)
 local Stile = require(script.UI.Stile)
 local Notifiche = require(script.UI.Notifiche)
 local Hud = require(script.UI.Hud)
+local TutorialLobby = require(script.UI.TutorialLobby)
 local Shop = require(script.UI.Shop)
 local AperturaCassa = require(script.UI.AperturaCassa)
 local RankedMenu = require(script.UI.RankedMenu)
@@ -87,6 +88,7 @@ end
 
 Hud.inizializza(gui, {
 	play = function()
+		TutorialLobby.ferma()
 		chiudiFinestre()
 		notificaSeFallisce(remoti.ApriMappa:InvokeServer())
 	end,
@@ -106,6 +108,7 @@ Hud.inizializza(gui, {
 	end,
 })
 Armadio.collegaNovita(Hud.mostraNovita)
+TutorialLobby.inizializza(gui, Hud.bersaglio, remoti)
 -- Un cosmetico delle casse nel Locker porta allo shop.
 Armadio.apriShop = function()
 	chiudiFinestre(Shop)
@@ -118,7 +121,8 @@ end)
 -- Il premio giornaliero si propone da solo una volta per sessione, in lobby e con nessuna finestra aperta.
 local giornalieroProposto = false
 local function proponiGiornaliero()
-	if giornalieroProposto or not Giornaliero.disponibile() then
+	-- Durante il tutorial della lobby aspetta: si propone quando il tutorial finisce.
+	if giornalieroProposto or not Giornaliero.disponibile() or TutorialLobby.attivo() then
 		return
 	end
 	giornalieroProposto = true
@@ -129,11 +133,14 @@ local function proponiGiornaliero()
 		end
 	end)
 end
+TutorialLobby.Finito:Connect(proponiGiornaliero)
 
 local function aggiornaStato(stato)
 	Impostazioni.aggiorna(stato)
 	Giornaliero.aggiorna(stato)
 	Hud.mostraGiornaliero(Giornaliero.disponibile())
+	-- Prima volta nel gioco: il tutorial della lobby (il premio giornaliero aspetta la sua fine).
+	TutorialLobby.forse(stato)
 	proponiGiornaliero()
 	Hud.aggiorna(stato)
 	Shop.aggiorna(stato)
@@ -147,6 +154,7 @@ end
 
 remoti.Fase.OnClientEvent:Connect(function(dati)
 	if dati.fase ~= "lobby" then
+		TutorialLobby.ferma()
 		Hud.mostraLobby(false)
 		chiudiFinestre()
 	end

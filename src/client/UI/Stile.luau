@@ -17,8 +17,9 @@ end
 Stile.CONTORNO = hex("#1B1636")
 Stile.BIANCO = Color3.new(1, 1, 1)
 
--- Tavolozza: t = alto della sfumatura, b = basso, d = base scura (lato 3D).
-Stile.PAL = {
+-- Colori accesi originali: restano solo per testi e piccoli accenti (vedi Stile.PAL sotto).
+-- t = alto della sfumatura, b = basso, d = base scura (lato 3D).
+Stile.ACCENTI = {
 	rosso = { t = hex("#FF6B6B"), b = hex("#E5213B"), d = hex("#9B0F2A") },
 	blu = { t = hex("#5CC8FF"), b = hex("#1E7BF0"), d = hex("#123F99") },
 	viola = { t = hex("#C77DFF"), b = hex("#8A2BE2"), d = hex("#4E1596") },
@@ -30,6 +31,30 @@ Stile.PAL = {
 	grigio = { t = hex("#B4BCD6"), b = hex("#717C9C"), d = hex("#3E4560") },
 	notte = { t = hex("#4B4F86"), b = hex("#2B2D5C"), d = hex("#15163A") },
 }
+
+-- Tavolozza delle superfici (pulsanti, fasce, chip, barre): gli stessi colori molto smorzati, scuri e quasi
+-- grigi (Mattia, 29/10/2026: "molto meno colorate le sezioni del gioco ed i bottoni"). Resta solo una
+-- sfumatura della tinta, così verde = conferma e rosso = chiudi si riconoscono ancora.
+local SMORZA = { t = { 0.3, 0.42 }, b = { 0.3, 0.29 }, d = { 0.3, 0.16 } } -- { saturazione x, luminosità }
+Stile.PAL = {}
+for nome, colori in pairs(Stile.ACCENTI) do
+	local smorzato = {}
+	for k, c in pairs(colori) do
+		local h, s = c:ToHSV()
+		smorzato[k] = Color3.fromHSV(h, s * SMORZA[k][1], SMORZA[k][2])
+	end
+	Stile.PAL[nome] = smorzato
+end
+-- Il giallo scuro diventa marrone: l'oro tiene un po' più di luce.
+Stile.PAL.oro = {
+	t = Color3.fromHSV(0.11, 0.35, 0.46),
+	b = Color3.fromHSV(0.1, 0.38, 0.32),
+	d = Color3.fromHSV(0.09, 0.4, 0.18),
+}
+
+-- Vetro: fondo scuro trasparente dei pulsanti e dei pannelli della lobby.
+Stile.VETRO = hex("#0D0F16")
+Stile.VETRO_TRASPARENZA = 0.5
 
 -- Colori semplici, per chi ha bisogno di un solo colore (notifiche, testi).
 Stile.Colori = {
@@ -58,6 +83,7 @@ Stile.FontEtichetta = Font.new("rbxasset://fonts/families/Nunito.json", Enum.Fon
 Stile.FontTesto = Font.new("rbxasset://fonts/families/Nunito.json", Enum.FontWeight.Bold)
 
 local LARGHEZZA, ALTEZZA = 1920, 1080
+Stile.RIDUZIONE = 0.85 -- grandezza dell'interfaccia sul computer rispetto alla tela piena
 
 -- Crea un'istanza con proprietà e figli. Parent viene impostato per ultimo.
 function Stile.crea(classe, proprieta, figli)
@@ -103,7 +129,8 @@ function Stile.radice(gui)
 		if schermo.X < 1 or schermo.Y < 1 then
 			return
 		end
-		local s = math.min(schermo.X / LARGHEZZA, schermo.Y / ALTEZZA)
+		-- Interfaccia più piccola (Mattia, 29/10/2026): sul computer all'85%; su telefono e tablet quasi intera.
+		local s = math.min(schermo.X / LARGHEZZA, schermo.Y / ALTEZZA) * (Stile.touch() and 0.95 or Stile.RIDUZIONE)
 		scalaAttuale = s
 		scala.Scale = s
 		-- La tela copre tutto lo schermo: i bordi seguono lo schermo, le misure restano in pixel di progetto.
@@ -196,12 +223,27 @@ end
 local function animaPressione(bottone, faccia, profondita)
 	local scala = Stile.crea("UIScale", { Parent = bottone })
 	local info = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local infoSopra = TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 	local premuto = false
 	local function aggiorna()
 		local sopra = bottone:GetAttribute("Sopra")
-		TweenService:Create(scala, info, { Scale = premuto and 0.96 or (sopra and 1.04 or 1) }):Play()
+		-- Passando sopra il pulsante cresce un po' (Mattia, 29/10/2026); premuto si abbassa.
+		TweenService:Create(scala, sopra and not premuto and infoSopra or info, {
+			Scale = premuto and 0.96 or (sopra and 1.08 or 1),
+		}):Play()
 		if faccia then
 			faccia.Position = UDim2.fromOffset(0, premuto and math.floor(profondita / 2) or 0)
+		end
+		-- Pulsante di vetro: passandoci sopra il fondo si scurisce e il bordo si accende.
+		local base = bottone:GetAttribute("Vetro") and bottone:FindFirstChild("Base")
+		if base then
+			local bordo = base:FindFirstChildOfClass("UIStroke")
+			TweenService:Create(base, info, {
+				BackgroundTransparency = sopra and Stile.VETRO_TRASPARENZA - 0.2 or Stile.VETRO_TRASPARENZA,
+			}):Play()
+			if bordo then
+				TweenService:Create(bordo, info, { Transparency = sopra and 0.25 or 0.7 }):Play()
+			end
 		end
 	end
 	bottone.MouseEnter:Connect(function()
@@ -229,12 +271,53 @@ function Stile.coloraPulsante(bottone, pal)
 	pal = type(pal) == "string" and Stile.PAL[pal] or pal
 	local base = bottone:FindFirstChild("Base")
 	local faccia = bottone:FindFirstChild("Faccia")
+	if bottone:GetAttribute("Vetro") then
+		return -- il vetro non ha colore
+	end
 	if base then
 		base.BackgroundColor3 = pal.d
 	end
-	if faccia then
-		faccia:FindFirstChildOfClass("UIGradient").Color = ColorSequence.new(pal.t, pal.b)
+	local sfumatura = faccia and faccia:FindFirstChildOfClass("UIGradient")
+	if sfumatura then
+		sfumatura.Color = ColorSequence.new(pal.t, pal.b)
 	end
+end
+
+-- Toglie il colore a un pulsante (Stile.pulsante, pulsanteTondo, riquadro): resta un vetro scuro trasparente
+-- con un bordo chiaro sottile; icona e scritta restano (Mattia, 29/10/2026: "rimuovere i propri colori,
+-- proviamo a farli trasparenti, mantenendo il logo e la scritta").
+function Stile.vetro(bottone)
+	bottone:SetAttribute("Vetro", true)
+	local base = bottone:FindFirstChild("Base")
+	local faccia = bottone:FindFirstChild("Faccia")
+	if base then
+		base.BackgroundColor3 = Stile.VETRO
+		base.BackgroundTransparency = Stile.VETRO_TRASPARENZA
+		local bordo = base:FindFirstChildOfClass("UIStroke")
+		if bordo then
+			bordo.Color = Stile.BIANCO
+			bordo.Thickness = 2
+			bordo.Transparency = 0.7
+		end
+	end
+	if faccia then
+		faccia.BackgroundTransparency = 1
+		faccia.Size = UDim2.fromScale(1, 1)
+		for _, figlio in ipairs(faccia:GetChildren()) do
+			if figlio:IsA("UIGradient") or figlio.Name == "Riflesso" or (figlio:IsA("Frame") and figlio.Name == "Frame") then
+				figlio:Destroy()
+			end
+		end
+	end
+	return bottone
+end
+
+-- Pannello di vetro (riquadri della lobby che non sono pulsanti): stesso fondo e bordo dei pulsanti.
+function Stile.pannelloVetro(proprieta, raggio)
+	proprieta.BackgroundColor3 = Stile.VETRO
+	proprieta.BackgroundTransparency = Stile.VETRO_TRASPARENZA
+	proprieta.BorderSizePixel = 0
+	return Stile.crea("Frame", proprieta, { Stile.angoli(raggio or 20), Stile.bordo(Stile.BIANCO, 2, 0.75) })
 end
 
 -- Pulsante 3D: base scura sotto, faccia con sfumatura, riflesso, contorno spesso.
@@ -375,6 +458,7 @@ function Stile.riquadro(proprieta, pal, icona, testo)
 	})
 	scritta.TextScaled = true
 	Stile.crea("UITextSizeConstraint", { MaxTextSize = 46, Parent = scritta })
+	Stile.vetro(bottone)
 	return bottone, faccia
 end
 
@@ -388,7 +472,7 @@ function Stile.avviso(genitore)
 		BackgroundColor3 = Stile.Colori.Rosso,
 		ZIndex = 5,
 		Parent = genitore,
-	}, { Stile.tondo(), Stile.bordo(Stile.BIANCO, 4), Stile.sfumatura(Stile.PAL.rosso.t, Stile.PAL.rosso.b) })
+	}, { Stile.tondo(), Stile.bordo(Stile.BIANCO, 4), Stile.sfumatura(Stile.ACCENTI.rosso.t, Stile.ACCENTI.rosso.b) })
 	Stile.scritta({
 		Size = UDim2.fromScale(1, 1),
 		Text = "!",
@@ -457,12 +541,12 @@ function Stile.pillola(proprieta, icona, testo, conPiu)
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, altezza * 0.45, 0.5, 0),
 		Size = UDim2.new(1, -altezza * 0.45, 0.82, 0),
-		BackgroundColor3 = Stile.BIANCO,
+		BackgroundColor3 = Stile.VETRO,
+		BackgroundTransparency = Stile.VETRO_TRASPARENZA,
 		Parent = pillola,
 	}, {
 		Stile.tondo(),
-		Stile.bordo(Stile.CONTORNO, 5),
-		Stile.sfumatura(Stile.PAL.notte.t, Stile.PAL.notte.d),
+		Stile.bordo(Stile.BIANCO, 2, 0.75),
 	})
 	Stile.icona(icona, {
 		Name = "Icona",
@@ -509,7 +593,7 @@ end
 -- Barra di avanzamento con binario scuro e riempimento colorato. Restituisce una tabella con :imposta(frazione, testo).
 function Stile.barra(proprieta, pal, dimensioneTesto)
 	pal = type(pal) == "string" and Stile.PAL[pal] or pal
-	proprieta.BackgroundColor3 = hex("#15163A")
+	proprieta.BackgroundColor3 = hex("#15161C")
 	local binario = Stile.crea("Frame", proprieta, { Stile.tondo(), Stile.bordo(Stile.CONTORNO, 4) })
 	local riempimento = Stile.crea("Frame", {
 		Name = "Riempimento",
@@ -551,7 +635,7 @@ end
 
 -- Pannello blu notte semitrasparente (mazzo della lobby, esercito nemico...).
 function Stile.pannello(proprieta, trasparenza)
-	proprieta.BackgroundColor3 = proprieta.BackgroundColor3 or hex("#1E1F45")
+	proprieta.BackgroundColor3 = proprieta.BackgroundColor3 or hex("#16171D")
 	proprieta.BackgroundTransparency = proprieta.BackgroundTransparency or trasparenza or 0.15
 	proprieta.BorderSizePixel = 0
 	return Stile.crea("Frame", proprieta, { Stile.angoli(proprieta.Raggio or 28) })

@@ -705,7 +705,7 @@ local function riscatta()
 	local testo = casellaCodice.Text
 	local ok, messaggio = remoti.RiscattaCodice:InvokeServer(testo)
 	esitoCodice.Text = messaggio or ""
-	esitoCodice.TextColor3 = ok and Stile.PAL.verde.t or Stile.BIANCO
+	esitoCodice.TextColor3 = ok and Stile.ACCENTI.verde.t or Stile.BIANCO
 	if ok then
 		casellaCodice.Text = ""
 		Notifiche.mostra(messaggio, Stile.Colori.Verde)
@@ -1019,7 +1019,7 @@ local function paginaCodici(pagina)
 		esitoF.TextColor3 = Stile.BIANCO
 		local ok, messaggio = remoti.InviaFeedback:InvokeServer(casellaF.Text)
 		esitoF.Text = messaggio or ""
-		esitoF.TextColor3 = ok and Stile.PAL.verde.t or Stile.BIANCO
+		esitoF.TextColor3 = ok and Stile.ACCENTI.verde.t or Stile.BIANCO
 		if ok then
 			casellaF.Text = ""
 			Notifiche.mostra(messaggio, Stile.Colori.Verde)

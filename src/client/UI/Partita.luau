@@ -86,7 +86,7 @@ local ZOOM_INIZIALE = 30
 local ZOOM_LOBBY = 14
 local zoomOriginale
 
-local AZZURRO = Stile.PAL.blu.t
+local AZZURRO = Stile.ACCENTI.blu.t
 local NOTTE_SCURA = Color3.fromHex("#15163A")
 
 local function seguiPersonaggio()
@@ -477,7 +477,7 @@ local function entraPiazzamento(dati)
 end
 
 -- Colori dei numeri del conto alla rovescia: 3 blu, 2 verde, 1 oro, FIGHT! arancio.
-local COLORI_CONTO = { Stile.PAL.oro.t, Stile.PAL.verde.t, Stile.PAL.blu.t }
+local COLORI_CONTO = { Stile.ACCENTI.oro.t, Stile.ACCENTI.verde.t, Stile.ACCENTI.blu.t }
 
 local function contoAllaRovescia(conto)
 	scrittaConto.Visible = true
@@ -487,7 +487,7 @@ local function contoAllaRovescia(conto)
 			break
 		end
 		scrittaConto.Text = numero > 0 and tostring(numero) or "FIGHT!"
-		scrittaConto.TextColor3 = numero > 0 and (COLORI_CONTO[numero] or Stile.BIANCO) or Stile.PAL.arancio.t
+		scrittaConto.TextColor3 = numero > 0 and (COLORI_CONTO[numero] or Stile.BIANCO) or Stile.ACCENTI.arancio.t
 		mostraTimer(numero > 0 and ("0:%02d"):format(numero) or "GO!")
 		scala.Scale = 1.8
 		TweenService:Create(scala, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Scale = 1 }):Play()
@@ -499,7 +499,7 @@ local function contoAllaRovescia(conto)
 		Suoni.effetto("grido")
 		mostraTimer(nil)
 		sottotitolo.Text = "FIGHT!"
-		sottotitolo.TextColor3 = Stile.PAL.arancio.t
+		sottotitolo.TextColor3 = Stile.ACCENTI.arancio.t
 	end
 end
 
@@ -718,7 +718,7 @@ local function eventoBattaglia(e)
 				avviso.TextColor3 = Stile.Colori.Oro
 			else
 				avviso.Text = ("ENEMY %s uses %s!"):format(string.upper(def.nome), string.upper(def.abilita.nome))
-				avviso.TextColor3 = Stile.PAL.rosso.t
+				avviso.TextColor3 = Stile.ACCENTI.rosso.t
 			end
 		end
 	end
@@ -775,7 +775,7 @@ local function mostraRound(dati)
 	bannerRound.Visible = true
 	local titolo = bannerRound:FindFirstChild("Titolo")
 	titolo.Text = dati.vittoria and "ROUND WON!" or "ROUND LOST"
-	titolo.TextColor3 = dati.vittoria and Stile.PAL.oro.t or Stile.PAL.rosso.t
+	titolo.TextColor3 = dati.vittoria and Stile.ACCENTI.oro.t or Stile.ACCENTI.rosso.t
 	bannerRound:FindFirstChild("Punteggio").Text = ("YOU  %d - %d  %s"):format(dati.vinti, dati.persi, dati.ranked and string.upper(dati.avversario or "ENEMY") or "ENEMY")
 	pop(bannerRound, 0.6)
 end
@@ -825,7 +825,7 @@ local function mostraRisultato(dati)
 		coda.BackgroundColor3 = dati.vittoria and Stile.PAL.oro.d or Stile.PAL.rosso.d
 	end
 	if raggi then
-		raggi.ImageColor3 = dati.vittoria and Stile.PAL.oro.t or Stile.PAL.grigio.t
+		raggi.ImageColor3 = dati.vittoria and Stile.ACCENTI.oro.t or Stile.ACCENTI.grigio.t
 		raggi.ImageTransparency = dati.vittoria and 0.55 or 0.8
 		if rotazioneRaggi then
 			rotazioneRaggi:Cancel()
@@ -1603,7 +1603,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Text = "+0",
 		TextSize = 70,
 		Contorno = 6,
-		TextColor3 = Stile.PAL.oro.t,
+		TextColor3 = Stile.ACCENTI.oro.t,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = pannelloPremi,
 	})
@@ -1618,7 +1618,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Text = "+0 XP",
 		TextSize = 60,
 		Contorno = 6,
-		TextColor3 = Stile.PAL.acqua.t,
+		TextColor3 = Stile.ACCENTI.acqua.t,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = pannelloPremi,
 	})

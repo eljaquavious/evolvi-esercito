@@ -227,7 +227,7 @@ function Tutorial.inizializza(t, elementi)
 		Position = UDim2.new(1, -22, 0, 18),
 		Size = UDim2.fromOffset(110, 30),
 		Text = "",
-		TextColor3 = Stile.PAL.grigio.t,
+		TextColor3 = Stile.ACCENTI.grigio.t,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		ZIndex = 41,
 		Parent = riquadro,

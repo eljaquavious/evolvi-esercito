@@ -726,4 +726,78 @@ function Epoche.epoca(id)
 	return Epoche.Lista[Epoche.indice(id) or 1]
 end
 
+-- Nomi brevi delle carte (Mattia, 29/10/2026: "Roman Legionaries -> Legionaries"): niente nazionalità davanti,
+-- nomi storici del reparto; ogni nome resta unico. L'icona della carta resta quella fatta col nome vecchio.
+-- Generali, carri armati e fortezze tengono il loro nome.
+local NOMI_BREVI = {
+	-- Antichità
+	Legionario = "Legionaries",
+	ArciereCretese = "Toxotai",
+	Compagno = "Companions",
+	Oplita = "Hoplites",
+	Immortale = "Immortals",
+	ArcierePersiano = "Sparabara",
+	CavalleriaPersiana = "Cataphracts",
+	LanciereLibico = "Spearmen",
+	FrombolieroBaleare = "Slingers",
+	CavalleriaNumidica = "Numidians",
+	GuerrieroGallico = "Warband",
+	ArciereGallico = "Hunters",
+	CavalleriaGallica = "Horsemen",
+	CavalleriaGermanica = "Rhine Riders",
+	-- Medioevo
+	Spadaccino = "Huscarls",
+	Arciere = "Longbowmen",
+	Cavaliere = "Knights",
+	FanteUmayyade = "Jund",
+	ArciereArabo = "Archers",
+	CavalleriaAraba = "Desert Riders",
+	FanteNormanno = "Footmen",
+	ArciereNormanno = "Bowmen",
+	CavaliereNormanno = "Chevaliers",
+	FanteAyyubide = "Halqa Guard",
+	ArciereAyyubide = "Marksmen",
+	Mamelucco = "Mamluks",
+	SergenteTeutonico = "Sergeants",
+	BalestriereTeutonico = "Crossbowmen",
+	CavaliereTeutonico = "Knight Brothers",
+	UomoDArme = "Men-at-Arms",
+	BalestriereGenovese = "Pavisiers",
+	-- Età della polvere
+	PicchiereSvedese = "Pikemen",
+	MoschettiereSvedese = "Musketeers",
+	CorazziereSvedese = "Hakkapeliitta",
+	Giannizzero = "Janissaries",
+	CannoneOttomano = "Great Bombard",
+	Sipahi = "Sipahis",
+	FanteriaDiLinea = "Line Infantry",
+	Artiglieria = "Artillery",
+	Corazziere = "Cuirassiers",
+	-- Novecento
+	Fante = "Poilus",
+	Mitragliere = "Hotchkiss Team",
+	FanteOttomano = "Mehmetçik",
+	MitraglieriOttomani = "Maxim Gunners",
+	Stosstruppen = "Stormtroopers",
+	MitraglieriTedeschi = "MG 08 Team",
+	FanteBritannico = "Tommies",
+	FucilieriSovietici = "Riflemen",
+	MitraglieriSovietici = "M1910 Maxim",
+	Granatieri = "Grenadiers",
+	FanteFranciaLibera = "Free French",
+	-- Era moderna
+	MarineUSA = "Marines",
+	FantePVA = "Volunteers",
+	MitraglieriPVA = "Type 24 Team",
+	FanteNVA = "Regulars",
+	MitraglieriNVA = "DShK Team",
+}
+for id, nome in pairs(NOMI_BREVI) do
+	local def = Epoche.Truppe[id]
+	if def then
+		def.icona = def.icona or ("card_" .. string.lower(def.nome):gsub("[^%w%s]", ""):gsub("%s+", "_"))
+		def.nome = nome
+	end
+end
+
 return Epoche

@@ -95,7 +95,8 @@ remoti.Ranked.OnServerInvoke = function(player, azione)
 end
 
 -- Menu Settings: si salvano con i progressi, così valgono anche la volta dopo.
-local IMPOSTAZIONI = { musica = true, effetti = true, prestazioni = true }
+-- tutorialLobby: il tutorial della lobby è già stato visto (UI/TutorialLobby).
+local IMPOSTAZIONI = { musica = true, effetti = true, prestazioni = true, tutorialLobby = true }
 remoti.Impostazioni.OnServerInvoke = function(player, chiave, valore)
 	if typeof(chiave) ~= "string" or not IMPOSTAZIONI[chiave] or typeof(valore) ~= "boolean" or not Dati.ottieni(player) then
 		return false
