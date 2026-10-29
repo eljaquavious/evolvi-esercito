@@ -34,7 +34,7 @@ local puoMostrare = function()
 end
 local suNovita -- funzione(bool): accende o spegne il "!" sul riquadro della lobby
 
-local ARANCIO_SCURO = Color3.fromHex("#15163A")
+local ARANCIO_SCURO = Color3.fromHex("#15161C")
 
 local function svuota(contenitore)
 	for _, figlio in ipairs(contenitore:GetChildren()) do
@@ -266,7 +266,7 @@ local function tessera(genitore, pal, proprieta)
 		Size = UDim2.new(1, 0, 1, -12),
 		BackgroundColor3 = Stile.BIANCO,
 		Parent = cella,
-	}, { Stile.angoli(26), Stile.bordo(Stile.CONTORNO, 5), Stile.sfumatura(Stile.BIANCO, Color3.fromHex("#E4E9FA")) })
+	}, { Stile.angoli(26), Stile.bordo(Stile.CONTORNO, 5), Stile.sfumatura(Stile.BIANCO, Color3.fromHex("#E6E7EA")) })
 	return cella, faccia
 end
 
@@ -402,7 +402,7 @@ local function paginaCosmetici(pagina)
 	-- A sinistra: il tuo personaggio che gira e cosa indossi.
 	local pannello = Stile.pannello({
 		Size = UDim2.new(0, 470, 1, 0),
-		BackgroundColor3 = Color3.fromHex("#2E2566"),
+		BackgroundColor3 = Color3.fromHex("#2A2C33"),
 		BackgroundTransparency = 0,
 		Parent = pagina,
 	})
@@ -423,7 +423,7 @@ local function paginaCosmetici(pagina)
 	}, {
 		Stile.angoli(22),
 		Stile.bordo(Stile.CONTORNO, 4),
-		Stile.sfumatura(Color3.fromHex("#5C6BC0"), Color3.fromHex("#1E1F45")),
+		Stile.sfumatura(Color3.fromHex("#5C6BC0"), Color3.fromHex("#16171D")),
 	})
 	anteprimaVp = Stile.crea("ViewportFrame", {
 		Size = UDim2.fromScale(1, 1),
@@ -605,7 +605,7 @@ end
 local function paginaTitoli(pagina)
 	local pannello = Stile.pannello({
 		Size = UDim2.new(0, 470, 1, 0),
-		BackgroundColor3 = Color3.fromHex("#2E2566"),
+		BackgroundColor3 = Color3.fromHex("#2A2C33"),
 		BackgroundTransparency = 0,
 		Parent = pagina,
 	})
@@ -730,7 +730,7 @@ local function apriInbox()
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromOffset(1400, 860),
-		BackgroundColor3 = Color3.fromHex("#F4F6FF"),
+		BackgroundColor3 = Color3.fromHex("#F2F3F5"),
 		ZIndex = 71,
 		Parent = velo,
 	}, { Stile.angoli(36), Stile.bordo(Stile.CONTORNO, 7) })

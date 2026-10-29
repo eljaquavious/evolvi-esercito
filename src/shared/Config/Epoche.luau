@@ -727,16 +727,17 @@ function Epoche.epoca(id)
 end
 
 -- Nomi brevi delle carte (Mattia, 29/10/2026: "Roman Legionaries -> Legionaries"): niente nazionalità davanti,
--- nomi storici del reparto; ogni nome resta unico. L'icona della carta resta quella fatta col nome vecchio.
+-- nomi che dicono cosa è il reparto (niente parole oscure né lettere accentate: i nomi vanno in maiuscolo);
+-- ogni nome resta unico. L'icona della carta resta quella fatta col nome vecchio.
 -- Generali, carri armati e fortezze tengono il loro nome.
 local NOMI_BREVI = {
 	-- Antichità
 	Legionario = "Legionaries",
-	ArciereCretese = "Toxotai",
+	ArciereCretese = "Mercenary Archers",
 	Compagno = "Companions",
 	Oplita = "Hoplites",
 	Immortale = "Immortals",
-	ArcierePersiano = "Sparabara",
+	ArcierePersiano = "Shield Archers",
 	CavalleriaPersiana = "Cataphracts",
 	LanciereLibico = "Spearmen",
 	FrombolieroBaleare = "Slingers",
@@ -749,24 +750,24 @@ local NOMI_BREVI = {
 	Spadaccino = "Huscarls",
 	Arciere = "Longbowmen",
 	Cavaliere = "Knights",
-	FanteUmayyade = "Jund",
-	ArciereArabo = "Archers",
+	FanteUmayyade = "Caliphate Spearmen",
+	ArciereArabo = "Desert Archers",
 	CavalleriaAraba = "Desert Riders",
 	FanteNormanno = "Footmen",
 	ArciereNormanno = "Bowmen",
 	CavaliereNormanno = "Chevaliers",
-	FanteAyyubide = "Halqa Guard",
+	FanteAyyubide = "Sultan's Guard",
 	ArciereAyyubide = "Marksmen",
 	Mamelucco = "Mamluks",
 	SergenteTeutonico = "Sergeants",
 	BalestriereTeutonico = "Crossbowmen",
 	CavaliereTeutonico = "Knight Brothers",
 	UomoDArme = "Men-at-Arms",
-	BalestriereGenovese = "Pavisiers",
+	BalestriereGenovese = "Pavise Crossbowmen",
 	-- Età della polvere
 	PicchiereSvedese = "Pikemen",
 	MoschettiereSvedese = "Musketeers",
-	CorazziereSvedese = "Hakkapeliitta",
+	CorazziereSvedese = "Saber Cavalry",
 	Giannizzero = "Janissaries",
 	CannoneOttomano = "Great Bombard",
 	Sipahi = "Sipahis",
@@ -776,7 +777,7 @@ local NOMI_BREVI = {
 	-- Novecento
 	Fante = "Poilus",
 	Mitragliere = "Hotchkiss Team",
-	FanteOttomano = "Mehmetçik",
+	FanteOttomano = "Gallipoli Defenders",
 	MitraglieriOttomani = "Maxim Gunners",
 	Stosstruppen = "Stormtroopers",
 	MitraglieriTedeschi = "MG 08 Team",
@@ -784,7 +785,7 @@ local NOMI_BREVI = {
 	FucilieriSovietici = "Riflemen",
 	MitraglieriSovietici = "M1910 Maxim",
 	Granatieri = "Grenadiers",
-	FanteFranciaLibera = "Free French",
+	FanteFranciaLibera = "Liberation Infantry",
 	-- Era moderna
 	MarineUSA = "Marines",
 	FantePVA = "Volunteers",

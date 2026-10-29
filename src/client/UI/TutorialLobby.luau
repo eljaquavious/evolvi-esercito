@@ -135,9 +135,9 @@ function TutorialLobby.inizializza(gui, funzioneBersaglio, r)
 	remoti = r
 	riquadro = Stile.crea("Frame", {
 		Name = "TutorialLobby",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 150),
-		Size = UDim2.fromOffset(720, 210),
+		-- A destra del menu dei riquadri, non in mezzo: lascia libera la vista (Mattia, 29/10/2026).
+		Position = UDim2.fromOffset(390, 300),
+		Size = UDim2.fromOffset(560, 240),
 		BackgroundColor3 = Stile.VETRO,
 		BackgroundTransparency = 0.05,
 		Visible = false,
@@ -150,14 +150,17 @@ function TutorialLobby.inizializza(gui, funzioneBersaglio, r)
 	})
 	titolo = Stile.scritta({
 		Position = UDim2.fromOffset(24, 14),
-		Size = UDim2.new(1, -250, 0, 44),
+		Size = UDim2.new(1, -230, 0, 40),
 		Text = "",
-		TextSize = 36,
+		TextSize = 32,
 		TextColor3 = Stile.Colori.Oro,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 41,
 		Parent = riquadro,
 	})
+	-- I titoli lunghi si rimpiccioliscono invece di finire sotto "1 / 7".
+	titolo.TextScaled = true
+	Stile.crea("UITextSizeConstraint", { MaxTextSize = 32, Parent = titolo })
 	numeroPasso = Stile.testo({
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -130, 0, 20),
@@ -192,7 +195,7 @@ function TutorialLobby.inizializza(gui, funzioneBersaglio, r)
 	salta.Activated:Connect(termina)
 	testo = Stile.testo({
 		Position = UDim2.fromOffset(24, 62),
-		Size = UDim2.new(1, -48, 0, 82),
+		Size = UDim2.new(1, -48, 0, 104),
 		Text = "",
 		TextColor3 = Stile.BIANCO,
 		FontFace = Stile.FontTesto,

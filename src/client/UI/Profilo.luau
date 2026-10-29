@@ -124,7 +124,7 @@ local function riquadro(ordine, titolo, pal, icona, valore)
 		BackgroundColor3 = Stile.BIANCO,
 		ClipsDescendants = true,
 		Parent = cella,
-	}, { Stile.angoli(24), Stile.bordo(Stile.CONTORNO, 5), Stile.sfumatura(Stile.BIANCO, Color3.fromHex("#E9ECFA")) })
+	}, { Stile.angoli(24), Stile.bordo(Stile.CONTORNO, 5), Stile.sfumatura(Stile.BIANCO, Color3.fromHex("#E8E9EC")) })
 	local blocco = Stile.crea("Frame", {
 		Size = UDim2.new(0, 124, 1, 0),
 		BackgroundColor3 = Stile.BIANCO,
@@ -175,13 +175,14 @@ local function riquadro(ordine, titolo, pal, icona, valore)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = faccia,
 	})
-	local numero = Stile.scritta({
+	-- Numero scuro senza contorno (un colore solo, Mattia 29/10/2026).
+	local numero = Stile.testo({
 		Position = UDim2.fromOffset(146, 72),
 		Size = UDim2.new(1, -164, 0, 70),
 		Text = tostring(valore),
 		TextSize = 62,
-		Contorno = 5,
-		TextColor3 = pal.b,
+		FontFace = Stile.FontTitolo,
+		TextColor3 = Stile.Colori.TestoScuro,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = faccia,
 	})
@@ -257,7 +258,7 @@ function Profilo.inizializza(gui)
 	-- Scheda del giocatore a sinistra.
 	local scheda = Stile.pannello({
 		Size = UDim2.new(0, 520, 1, 0),
-		BackgroundColor3 = Color3.fromHex("#2E2566"),
+		BackgroundColor3 = Color3.fromHex("#2A2C33"),
 		BackgroundTransparency = 0,
 		Parent = contenuto,
 	})
@@ -275,7 +276,7 @@ function Profilo.inizializza(gui)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.new(1, -28, 1, -28),
-		BackgroundColor3 = Color3.fromHex("#DDE6F7"),
+		BackgroundColor3 = Color3.fromHex("#DFE0E4"),
 		ScaleType = Enum.ScaleType.Crop,
 		Parent = anello,
 	}, { Stile.tondo(), Stile.bordo(Stile.CONTORNO, 4) })

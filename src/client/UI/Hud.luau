@@ -297,8 +297,8 @@ function Hud.inizializza(gui, a)
 	end
 
 	-- Sette riquadri di vetro a sinistra (il settimo, Daily, sotto gli altri). Più piccoli e distanziati
-	-- (Mattia, 29/10/2026), così quando uno cresce col mouse sopra non tocca i vicini.
-	local LATO, PASSO = 150, 182
+	-- (Mattia, 29/10/2026): lo spazio basta perché uno cresciuto col mouse sopra non tocchi i vicini.
+	local LATO, PASSO = 150, 166
 	local menu = nascondibile(Stile.crea("Frame", {
 		Name = "Menu",
 		Position = UDim2.fromOffset(36, 176),
@@ -330,14 +330,16 @@ function Hud.inizializza(gui, a)
 
 	pannelloCampagna(tela)
 
-	-- Mazzo in basso al centro.
+	-- Mazzo in basso al centro: grande come prima della riduzione dell'interfaccia (Mattia, 29/10/2026).
+	local k = Stile.ingrandimento()
 	local mazzo = nascondibile(Stile.pannelloVetro({
 		Name = "Mazzo",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, -60, 1, -66),
+		Position = UDim2.new(0.5, -60 * k, 1, -66 * k),
 		Size = UDim2.fromOffset(728, 236),
 		Parent = tela,
 	}, 28))
+	Stile.crea("UIScale", { Scale = k, Parent = mazzo })
 	Stile.scritta({
 		Position = UDim2.fromOffset(24, 12),
 		Size = UDim2.fromOffset(300, 40),
@@ -373,20 +375,21 @@ function Hud.inizializza(gui, a)
 	})
 
 	-- PLAY in basso a destra (su telefono e tablet più a sinistra, lontano dal pulsante del salto).
+	-- Grande come prima della riduzione dell'interfaccia (Mattia, 29/10/2026): misure di prima per k.
 	local play, _, _, sotto = Stile.pulsante({
 		Name = "Play",
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, Stile.destra(30), 1, -48),
-		Size = UDim2.fromOffset(380, 150),
+		Position = UDim2.new(1, Stile.destra(30) * k, 1, -48 * k),
+		Size = UDim2.fromOffset(math.floor(424 * k), math.floor(186 * k)),
 		Parent = tela,
 	}, "verde", {
 		Testo = "PLAY",
-		TestoSize = 80,
+		TestoSize = math.floor(96 * k),
 		Icona = "fight",
-		IconaSize = 96,
-		IconaX = 22,
+		IconaSize = math.floor(120 * k),
+		IconaX = math.floor(22 * k),
 		Sotto = "",
-		SottoSize = 24,
+		SottoSize = math.floor(30 * k),
 		Raggio = 30,
 		Profondita = 8,
 		Contorno = 7,
@@ -438,7 +441,7 @@ local function mostraMazzo(mazzo)
 			cella = Stile.crea("TextButton", {
 				Text = "",
 				AutoButtonColor = false,
-				BackgroundColor3 = Color3.fromHex("#15163A"),
+				BackgroundColor3 = Color3.fromHex("#15161C"),
 				BackgroundTransparency = 0.3,
 			}, {
 				Stile.angoli(16),

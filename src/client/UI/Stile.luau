@@ -14,7 +14,7 @@ local function hex(h)
 	return Color3.fromHex(h)
 end
 
-Stile.CONTORNO = hex("#1B1636")
+Stile.CONTORNO = hex("#16171C")
 Stile.BIANCO = Color3.new(1, 1, 1)
 
 -- Colori accesi originali: restano solo per testi e piccoli accenti (vedi Stile.PAL sotto).
@@ -29,28 +29,19 @@ Stile.ACCENTI = {
 	rosa = { t = hex("#FF8AD8"), b = hex("#E8359E"), d = hex("#8E1563") },
 	arancio = { t = hex("#FFB04D"), b = hex("#FF6A1A"), d = hex("#A33A00") },
 	grigio = { t = hex("#B4BCD6"), b = hex("#717C9C"), d = hex("#3E4560") },
-	notte = { t = hex("#4B4F86"), b = hex("#2B2D5C"), d = hex("#15163A") },
+	notte = { t = hex("#4B4F86"), b = hex("#2A2C33"), d = hex("#15161C") },
 }
 
 -- Tavolozza delle superfici (pulsanti, fasce, chip, barre): gli stessi colori molto smorzati, scuri e quasi
 -- grigi (Mattia, 29/10/2026: "molto meno colorate le sezioni del gioco ed i bottoni"). Resta solo una
 -- sfumatura della tinta, così verde = conferma e rosso = chiudi si riconoscono ancora.
-local SMORZA = { t = { 0.3, 0.42 }, b = { 0.3, 0.29 }, d = { 0.3, 0.16 } } -- { saturazione x, luminosità }
+-- Poi (Mattia, 29/10/2026, sul Profile: "i colori sono sempre vari, solo meno accesi. Un colore solo"):
+-- tutte le voci della tavolozza sono lo stesso grigio grafite. I nomi restano per non toccare chi li usa.
+local GRAFITE = { t = hex("#4A4C55"), b = hex("#34363E"), d = hex("#1C1D23") }
 Stile.PAL = {}
-for nome, colori in pairs(Stile.ACCENTI) do
-	local smorzato = {}
-	for k, c in pairs(colori) do
-		local h, s = c:ToHSV()
-		smorzato[k] = Color3.fromHSV(h, s * SMORZA[k][1], SMORZA[k][2])
-	end
-	Stile.PAL[nome] = smorzato
+for nome in pairs(Stile.ACCENTI) do
+	Stile.PAL[nome] = GRAFITE
 end
--- Il giallo scuro diventa marrone: l'oro tiene un po' più di luce.
-Stile.PAL.oro = {
-	t = Color3.fromHSV(0.11, 0.35, 0.46),
-	b = Color3.fromHSV(0.1, 0.38, 0.32),
-	d = Color3.fromHSV(0.09, 0.4, 0.18),
-}
 
 -- Vetro: fondo scuro trasparente dei pulsanti e dei pannelli della lobby.
 Stile.VETRO = hex("#0D0F16")
@@ -58,13 +49,13 @@ Stile.VETRO_TRASPARENZA = 0.5
 
 -- Colori semplici, per chi ha bisogno di un solo colore (notifiche, testi).
 Stile.Colori = {
-	Sfondo = hex("#2B2D5C"),
-	Pannello = hex("#2B2D5C"),
-	PannelloChiaro = hex("#F4F6FF"),
+	Sfondo = hex("#2A2C33"),
+	Pannello = hex("#2A2C33"),
+	PannelloChiaro = hex("#F2F3F5"),
 	Bordo = Stile.CONTORNO,
 	Testo = Stile.BIANCO,
-	TestoScuro = hex("#24183F"),
-	TestoSecondario = hex("#6B6F9E"),
+	TestoScuro = hex("#22232A"),
+	TestoSecondario = hex("#6E7079"),
 	Oro = hex("#FFD23F"),
 	OroScuro = hex("#B35A00"),
 	Blu = hex("#1E7BF0"),
@@ -84,6 +75,12 @@ Stile.FontTesto = Font.new("rbxasset://fonts/families/Nunito.json", Enum.FontWei
 
 local LARGHEZZA, ALTEZZA = 1920, 1080
 Stile.RIDUZIONE = 0.85 -- grandezza dell'interfaccia sul computer rispetto alla tela piena
+
+-- Per gli elementi che devono restare grandi come prima della riduzione (PLAY e mazzo della lobby):
+-- moltiplicare le loro misure per questo numero.
+function Stile.ingrandimento()
+	return 1 / (Stile.touch() and 0.95 or Stile.RIDUZIONE)
+end
 
 -- Crea un'istanza con proprietà e figli. Parent viene impostato per ultimo.
 function Stile.crea(classe, proprieta, figli)
@@ -643,7 +640,7 @@ end
 
 -- Riquadro chiaro dentro le finestre.
 function Stile.vassoio(proprieta)
-	proprieta.BackgroundColor3 = proprieta.BackgroundColor3 or hex("#E4E9FA")
+	proprieta.BackgroundColor3 = proprieta.BackgroundColor3 or hex("#E6E7EA")
 	proprieta.BorderSizePixel = 0
 	return Stile.crea("Frame", proprieta, { Stile.angoli(24), Stile.bordo(Stile.CONTORNO, 4) })
 end
@@ -664,7 +661,7 @@ function Stile.finestra(gui, nome, titolo, pal, icona)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.5, 12),
 		Size = UDim2.fromOffset(1796, 988),
-		BackgroundColor3 = hex("#F4F6FF"),
+		BackgroundColor3 = hex("#F2F3F5"),
 		BorderSizePixel = 0,
 		Visible = false,
 		ZIndex = 10,

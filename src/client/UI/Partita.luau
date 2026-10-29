@@ -87,7 +87,7 @@ local ZOOM_LOBBY = 14
 local zoomOriginale
 
 local AZZURRO = Stile.ACCENTI.blu.t
-local NOTTE_SCURA = Color3.fromHex("#15163A")
+local NOTTE_SCURA = Color3.fromHex("#15161C")
 
 local function seguiPersonaggio()
 	local camera = workspace.CurrentCamera
@@ -1166,7 +1166,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, -80, 1, -16),
 		Size = UDim2.fromOffset(1100, 246),
-		BackgroundColor3 = Color3.fromHex("#1E1F45"),
+		BackgroundColor3 = Color3.fromHex("#16171D"),
 		BackgroundTransparency = 0.12,
 		Visible = false,
 		ZIndex = 5,
