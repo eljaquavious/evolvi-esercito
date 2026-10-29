@@ -185,7 +185,7 @@ local function aggiornaMira()
 			testo.Size = UDim2.fromScale(1, 1)
 			testo.Text = "TARGET\n▼"
 			testo.TextScaled = true
-			testo.Font = Enum.Font.FredokaOne
+			testo.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
 			testo.TextColor3 = Color3.fromRGB(255, 70, 60)
 			local bordo = Instance.new("UIStroke")
 			bordo.Thickness = 3

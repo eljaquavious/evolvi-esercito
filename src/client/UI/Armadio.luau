@@ -393,7 +393,7 @@ local function disegnaCosmetici()
 		local id = stato and stato.indossati and stato.indossati[s.id]
 		local oggetto = id and Config.cosmetico(id)
 		ui.nome.Text = oggetto and oggetto.nome or "Empty"
-		ui.nome.TextColor3 = oggetto and Stile.BIANCO or Color3.fromHex("#8F8CC0")
+		ui.nome.TextColor3 = oggetto and Stile.BIANCO or Color3.fromHex("#8E9099")
 		ui.togli.Visible = oggetto ~= nil
 	end
 end
@@ -423,7 +423,7 @@ local function paginaCosmetici(pagina)
 	}, {
 		Stile.angoli(22),
 		Stile.bordo(Stile.CONTORNO, 4),
-		Stile.sfumatura(Color3.fromHex("#5C6BC0"), Color3.fromHex("#16171D")),
+		Stile.sfumatura(Color3.fromHex("#4A4C55"), Color3.fromHex("#16171D")),
 	})
 	anteprimaVp = Stile.crea("ViewportFrame", {
 		Size = UDim2.fromScale(1, 1),
@@ -627,7 +627,7 @@ local function paginaTitoli(pagina)
 	}, {
 		Stile.angoli(22),
 		Stile.bordo(Stile.CONTORNO, 4),
-		Stile.sfumatura(Color3.fromHex("#7FC8FF"), Color3.fromHex("#3B5BB5")),
+		Stile.sfumatura(Color3.fromHex("#5A5D68"), Color3.fromHex("#2E3038")),
 	})
 	targhettaNome = Stile.scritta({
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -674,7 +674,7 @@ local function paginaTitoli(pagina)
 		TextSize = 26,
 		TextScaled = false,
 		TextWrapped = true,
-		TextColor3 = Color3.fromHex("#B9B4E8"),
+		TextColor3 = Color3.fromHex("#B8BAC2"),
 		TextYAlignment = Enum.TextYAlignment.Top,
 		Parent = pannello,
 	})

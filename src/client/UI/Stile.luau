@@ -43,6 +43,25 @@ for nome in pairs(Stile.ACCENTI) do
 	Stile.PAL[nome] = GRAFITE
 end
 
+-- Le rarità restano colorate, ma con tinte spente (Mattia, 29/10/2026): Config/Ricompense.Rarita e le casse
+-- usano queste voci ("r_raro", "r_bronzo"...).
+local function spento(tinta, saturazione)
+	return {
+		t = Color3.fromHSV(tinta, saturazione, 0.56),
+		b = Color3.fromHSV(tinta, saturazione, 0.4),
+		d = Color3.fromHSV(tinta, saturazione, 0.22),
+	}
+end
+Stile.PAL.r_comune = spento(0.62, 0.08)
+Stile.PAL.r_raro = spento(0.58, 0.48)
+Stile.PAL.r_epico = spento(0.77, 0.42)
+Stile.PAL.r_leggendario = spento(0.11, 0.6)
+Stile.PAL.r_esclusivo = spento(0.9, 0.42)
+Stile.PAL.r_bronzo = spento(0.07, 0.55)
+Stile.PAL.r_argento = spento(0.6, 0.15)
+Stile.PAL.r_oro = Stile.PAL.r_leggendario
+Stile.PAL.r_leggenda = Stile.PAL.r_epico
+
 -- Vetro: fondo scuro trasparente dei pulsanti e dei pannelli della lobby.
 Stile.VETRO = hex("#0D0F16")
 Stile.VETRO_TRASPARENZA = 0.5
@@ -69,7 +88,8 @@ Stile.Colori = {
 }
 
 -- Fredoka One per titoli e numeri, Nunito per le etichette. Entrambi sono già dentro Roblox.
-Stile.FontTitolo = Font.fromEnum(Enum.Font.FredokaOne)
+-- Titoli: Montserrat Black, il "Gotham Black" dei simulatori Roblox (Mattia, 29/10/2026, al posto di Fredoka One).
+Stile.FontTitolo = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
 Stile.FontEtichetta = Font.new("rbxasset://fonts/families/Nunito.json", Enum.FontWeight.Heavy)
 Stile.FontTesto = Font.new("rbxasset://fonts/families/Nunito.json", Enum.FontWeight.Bold)
 
@@ -183,8 +203,20 @@ function Stile.scritta(proprieta)
 	proprieta.Contorno = nil
 	proprieta.FontFace = proprieta.FontFace or Stile.FontTitolo
 	proprieta.TextColor3 = proprieta.TextColor3 or Stile.BIANCO
+	-- Scritta a misura fissa: se non ci sta si rimpicciolisce (Montserrat è più largo di Fredoka). Se poi chi la
+	-- crea aggiunge un suo UITextSizeConstraint, vale quello.
+	local adatta = proprieta.TextScaled == nil and proprieta.TextSize ~= nil
 	local etichetta = Stile.testo(proprieta)
 	local dimensione = proprieta.TextSize or 32
+	if adatta then
+		etichetta.TextScaled = true
+		local limite = Stile.crea("UITextSizeConstraint", { Name = "AutoMisura", MaxTextSize = dimensione, Parent = etichetta })
+		etichetta.ChildAdded:Connect(function(figlio)
+			if figlio:IsA("UITextSizeConstraint") and figlio ~= limite then
+				limite:Destroy()
+			end
+		end)
+	end
 	Stile.crea("UIStroke", {
 		Name = "Contorno",
 		Color = Stile.CONTORNO,
@@ -372,7 +404,7 @@ function Stile.pulsante(proprieta, pal, opzioni)
 			TextScaled = false,
 			Parent = faccia,
 		})
-		Stile.crea("UITextSizeConstraint", { MaxTextSize = dimensione, MinTextSize = 10, Parent = etichetta })
+		Stile.crea("UITextSizeConstraint", { MaxTextSize = dimensione, MinTextSize = 6, Parent = etichetta })
 		etichetta.TextScaled = true
 		if hasSotto then
 			local ds = opzioni.SottoSize or 22

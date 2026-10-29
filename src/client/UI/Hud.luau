@@ -298,7 +298,7 @@ function Hud.inizializza(gui, a)
 
 	-- Sette riquadri di vetro a sinistra (il settimo, Daily, sotto gli altri). Più piccoli e distanziati
 	-- (Mattia, 29/10/2026): lo spazio basta perché uno cresciuto col mouse sopra non tocchi i vicini.
-	local LATO, PASSO = 150, 166
+	local LATO, PASSO = 150, 174
 	local menu = nascondibile(Stile.crea("Frame", {
 		Name = "Menu",
 		Position = UDim2.fromOffset(36, 176),
@@ -383,13 +383,11 @@ function Hud.inizializza(gui, a)
 		Size = UDim2.fromOffset(math.floor(424 * k), math.floor(186 * k)),
 		Parent = tela,
 	}, "verde", {
+		-- Niente spade: la scritta usa tutta la larghezza (Mattia, 29/10/2026).
 		Testo = "PLAY",
-		TestoSize = math.floor(96 * k),
-		Icona = "fight",
-		IconaSize = math.floor(120 * k),
-		IconaX = math.floor(22 * k),
+		TestoSize = math.floor(110 * k),
 		Sotto = "",
-		SottoSize = math.floor(30 * k),
+		SottoSize = math.floor(34 * k),
 		Raggio = 30,
 		Profondita = 8,
 		Contorno = 7,

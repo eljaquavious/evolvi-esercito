@@ -39,7 +39,7 @@ local function finito()
 end
 
 -- Colori della rarità della carta per l'alone.
-local PAL_CARTE = { bronze = "arancio", silver = "blu", gold = "oro", legend = "viola" }
+local PAL_CARTE = { bronze = "r_bronzo", silver = "r_argento", gold = "r_oro", legend = "r_leggenda" }
 
 local function tween(oggetto, tempo, proprieta, stile, direzione)
 	local t = TweenService:Create(oggetto, TweenInfo.new(tempo, stile or Enum.EasingStyle.Quad, direzione or Enum.EasingDirection.Out), proprieta)

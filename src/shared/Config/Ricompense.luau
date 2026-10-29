@@ -20,11 +20,11 @@ local Ricompense = {}
 
 -- Rarità: colore della tavolozza (Stile.PAL), colore del titolo sopra la testa e nome mostrato.
 Ricompense.Rarita = {
-	comune = { nome = "COMMON", pal = "grigio", colore = "#D2D8EA", ordine = 1 },
-	raro = { nome = "RARE", pal = "blu", colore = "#5CC8FF", ordine = 2 },
-	epico = { nome = "EPIC", pal = "viola", colore = "#D49BFF", ordine = 3 },
-	leggendario = { nome = "LEGENDARY", pal = "oro", colore = "#FFD23F", ordine = 4 },
-	esclusivo = { nome = "EXCLUSIVE", pal = "rosa", colore = "#FF8AD8", ordine = 5 },
+	comune = { nome = "COMMON", pal = "r_comune", colore = "#D2D8EA", ordine = 1 },
+	raro = { nome = "RARE", pal = "r_raro", colore = "#5CC8FF", ordine = 2 },
+	epico = { nome = "EPIC", pal = "r_epico", colore = "#D49BFF", ordine = 3 },
+	leggendario = { nome = "LEGENDARY", pal = "r_leggendario", colore = "#FFD23F", ordine = 4 },
+	esclusivo = { nome = "EXCLUSIVE", pal = "r_esclusivo", colore = "#FF8AD8", ordine = 5 },
 }
 
 -- Parti del corpo dove si indossano i cosmetici (uno per parte).

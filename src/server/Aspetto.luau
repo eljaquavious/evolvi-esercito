@@ -89,7 +89,7 @@ local function targhetta(player, personaggio, idTitolo, livello)
 		gui.MaxDistance = 80
 		gui.LightInfluence = 0
 		gui.ResetOnSpawn = false
-		scritta(gui, player.DisplayName, UDim2.fromScale(0, 0), 0.56, Color3.new(1, 1, 1), Font.fromEnum(Enum.Font.FredokaOne)).Name = "Nome"
+		scritta(gui, player.DisplayName, UDim2.fromScale(0, 0), 0.56, Color3.new(1, 1, 1), Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)).Name = "Nome"
 		scritta(gui, "", UDim2.fromScale(0, 0.58), 0.42, Color3.new(1, 1, 1), Font.new("rbxasset://fonts/families/Nunito.json", Enum.FontWeight.Heavy)).Name = "Titolo"
 		gui.Parent = testa
 	end
