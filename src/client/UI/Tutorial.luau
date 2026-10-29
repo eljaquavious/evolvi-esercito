@@ -129,39 +129,44 @@ local function seguiBersaglio()
 end
 
 local faseAttuale
--- Dopo la prima carta schierata il riquadro va a sinistra, a metà altezza (Mattia: prima "occupa lo schermo",
--- poi il 21/10/2026 "al centro a sinistra" invece che in basso), accanto al pannello degli esploratori.
-local diLato = false
 
--- Due misure del riquadro: grande al centro (benvenuto e prima carta), piccolo a sinistra a metà altezza (il resto).
+-- Una sola disposizione, sempre di lato: a sinistra sotto il pannello "Enemy Army" (Mattia, 29/10/2026: "non al
+-- centro, di lato, sotto enemy army"; e niente riquadro stretto con le scritte compresse).
+local LARGO, ALTO = 380, 300
 local function impostaLayout()
-	if diLato then
-		riquadro.AnchorPoint = Vector2.new(0, 0.5)
-		riquadro.Position = UDim2.new(0, 380, 0.5, 0)
-		riquadro.Size = UDim2.fromOffset(290, 330)
-		titolo.Size = UDim2.new(1, -40, 0, 60)
-		titolo.TextWrapped = true
-		titolo.TextSize = 24
-		numeroPasso.Visible = false
-		testo.Position = UDim2.fromOffset(18, 78)
-		testo.Size = UDim2.new(1, -36, 0, 170)
-		bottoneAvanti.AnchorPoint = Vector2.new(0.5, 1)
-		bottoneAvanti.Position = UDim2.new(0.5, 0, 1, -14)
-		bottoneAvanti.Size = UDim2.fromOffset(170, 48)
-	else
-		riquadro.AnchorPoint = Vector2.new(0.5, 0)
-		riquadro.Position = UDim2.new(0.5, 0, 0, 230)
-		riquadro.Size = UDim2.fromOffset(760, 210)
-		titolo.Size = UDim2.new(1, -150, 0, 44)
-		titolo.TextWrapped = false
-		titolo.TextSize = 36
-		numeroPasso.Visible = true
-		testo.Position = UDim2.fromOffset(24, 62)
-		testo.Size = UDim2.new(1, -48, 0, 82)
-		bottoneAvanti.AnchorPoint = Vector2.new(1, 1)
-		bottoneAvanti.Position = UDim2.new(1, -18, 1, -14)
-		bottoneAvanti.Size = UDim2.fromOffset(190, 52)
+	riquadro.AnchorPoint = Vector2.zero
+	riquadro.Size = UDim2.fromOffset(LARGO, ALTO)
+	titolo.Position = UDim2.fromOffset(18, 14)
+	titolo.Size = UDim2.new(1, -36, 0, 62)
+	titolo.TextWrapped = true
+	titolo.TextYAlignment = Enum.TextYAlignment.Top
+	testo.Position = UDim2.fromOffset(18, 84)
+	testo.Size = UDim2.new(1, -36, 0, 146)
+	numeroPasso.AnchorPoint = Vector2.new(0, 1)
+	numeroPasso.Position = UDim2.new(0, 18, 1, -22)
+	numeroPasso.Size = UDim2.fromOffset(90, 28)
+	numeroPasso.TextXAlignment = Enum.TextXAlignment.Left
+	bottoneAvanti.AnchorPoint = Vector2.new(1, 1)
+	bottoneAvanti.Position = UDim2.new(1, -14, 1, -12)
+	bottoneAvanti.Size = UDim2.fromOffset(160, 48)
+end
+
+-- Sotto il pannello "Enemy Army" (che si allunga col numero di nemici); se sotto non c'è posto (telefono,
+-- tanti nemici) si mette alla sua destra. In battaglia il pannello sparisce e il riquadro sale al suo posto.
+local function posiziona()
+	local scala = Stile.scala()
+	local altezzaTela = tela.AbsoluteSize.Y / scala
+	local x, y = 28, 190
+	local pannello = bersagli.esploratori and bersagli.esploratori()
+	if pannello and pannello.Visible then
+		local pos = (pannello.AbsolutePosition - tela.AbsolutePosition) / scala
+		local dim = pannello.AbsoluteSize / scala
+		x, y = pos.X, pos.Y + dim.Y + 18
+		if y + ALTO > altezzaTela - 20 then
+			x, y = pos.X + dim.X + 18, pos.Y
+		end
 	end
+	riquadro.Position = UDim2.fromOffset(x, y)
 end
 
 local function mostraPasso()
@@ -175,8 +180,6 @@ local function mostraPasso()
 		chiudiRiquadro() -- il passo aspetta che la partita arrivi alla sua fase
 		return
 	end
-	-- Dopo la prima carta schierata (passo 2 fatto) il riquadro sta di lato.
-	diLato = indice > 2
 	impostaLayout()
 	titolo.Text = passo.titolo
 	testo.Text = passo.testo
@@ -283,10 +286,11 @@ end
 function Tutorial.avvia()
 	passi, indice, attivo = PASSI, 1, true
 	faseAttuale = nil
-	diLato = false
+
 	if not connessione then
 		connessione = RunService.RenderStepped:Connect(function()
 			if attivo then
+				posiziona()
 				seguiBersaglio()
 			end
 		end)

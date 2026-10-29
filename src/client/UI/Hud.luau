@@ -379,7 +379,7 @@ function Hud.inizializza(gui, a)
 	local play, _, _, sotto = Stile.pulsante({
 		Name = "Play",
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, Stile.destra(30) * k, 1, -48 * k),
+		Position = UDim2.new(1, -28, 1, -48 * k),
 		Size = UDim2.fromOffset(math.floor(424 * k), math.floor(186 * k)),
 		Parent = tela,
 	}, "verde", {
@@ -398,6 +398,27 @@ function Hud.inizializza(gui, a)
 	play.Activated:Connect(azioni.play)
 	bersagli.Play = play
 	bersagli.Mazzo = mazzo
+
+	-- Schermi stretti (tablet 4:3, alcuni telefoni): il mazzo si sposta a sinistra per non finire sotto PLAY,
+	-- senza toccare il menu dei riquadri.
+	local function sistemaMazzo()
+		local scala = Stile.scala()
+		if scala <= 0 then
+			return
+		end
+		local larghezza = tela.AbsoluteSize.X / scala
+		local metaMazzo = 728 * k / 2
+		local centro = larghezza / 2 - 60 * k
+		local sinistraPlay = (play.AbsolutePosition.X - tela.AbsolutePosition.X) / scala
+		if play.AbsoluteSize.X > 0 and centro + metaMazzo > sinistraPlay - 20 then
+			centro = math.max(sinistraPlay - 20 - metaMazzo, 36 + 324 + 20 + metaMazzo)
+		end
+		mazzo.Position = UDim2.new(0, centro, 1, -66 * k)
+	end
+	Stile.ScalaCambiata:Connect(function()
+		task.defer(sistemaMazzo)
+	end)
+	task.defer(sistemaMazzo)
 
 	nascondibile(Stile.testo({
 		Name = "Versione",

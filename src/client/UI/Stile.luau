@@ -5,6 +5,7 @@
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
+local RunService = game:GetService("RunService")
 
 local Icone = require(script.Parent.Icone)
 
@@ -117,17 +118,42 @@ function Stile.crea(classe, proprieta, figli)
 		figlio.Parent = istanza
 	end
 	istanza.Parent = genitore
+	if classe == "UITextSizeConstraint" and proprieta and proprieta.MinTextSize then
+		Stile.minimoTesto(istanza, proprieta.MinTextSize)
+	end
 	return istanza
 end
 
 -- Tela 1920x1080 adattata allo schermo: tutte le schermate si costruiscono qui dentro.
 local radici = {}
 local scalaAttuale = 1
+
+-- MinTextSize conta in pixel dello schermo, non in pixel di progetto: sui telefoni (scala ~0.34) un minimo
+-- di 12 forzava il testo più grande del suo spazio e l'ultima riga spariva. Il minimo si moltiplica per la
+-- scala, così vale come le altre misure.
+local minimi = setmetatable({}, { __mode = "k" }) -- vincolo -> minimo in pixel di progetto
+local function applicaMinimo(vincolo, minimo)
+	vincolo.MinTextSize = math.clamp(math.floor(minimo * scalaAttuale), 1, vincolo.MaxTextSize)
+end
+function Stile.minimoTesto(vincolo, minimo)
+	minimi[vincolo] = minimo
+	applicaMinimo(vincolo, minimo)
+end
 local cambiScala = Instance.new("BindableEvent")
 Stile.ScalaCambiata = cambiScala.Event
 
 function Stile.scala()
 	return scalaAttuale
+end
+
+-- Collaudo delle piattaforme, solo in Studio: in Edit si mette su workspace l'attributo SimSchermo (Vector2,
+-- pixel dello schermo finto) e/o SimTouch (true) e poi si avvia il Play. L'interfaccia si comporta come su
+-- quello schermo, disegnata in alto a sinistra e tagliata ai suoi bordi. Nel gioco pubblicato non fa niente.
+local function simulazione(nome)
+	if not RunService:IsStudio() then
+		return nil
+	end
+	return workspace:GetAttribute(nome)
 end
 
 function Stile.radice(gui)
@@ -143,18 +169,29 @@ function Stile.radice(gui)
 	local scala = Stile.crea("UIScale", { Parent = tela })
 	local function adatta()
 		local schermo = gui.AbsoluteSize
+		local finto = simulazione("SimSchermo")
+		if typeof(finto) == "Vector2" then
+			schermo = finto
+			tela.ClipsDescendants = true
+		end
 		if schermo.X < 1 or schermo.Y < 1 then
 			return
 		end
 		-- Interfaccia più piccola (Mattia, 29/10/2026): sul computer all'85%; su telefono e tablet quasi intera.
 		local s = math.min(schermo.X / LARGHEZZA, schermo.Y / ALTEZZA) * (Stile.touch() and 0.95 or Stile.RIDUZIONE)
 		scalaAttuale = s
+		for vincolo, minimo in pairs(minimi) do
+			applicaMinimo(vincolo, minimo)
+		end
 		scala.Scale = s
 		-- La tela copre tutto lo schermo: i bordi seguono lo schermo, le misure restano in pixel di progetto.
 		tela.Size = UDim2.fromOffset(schermo.X / s, schermo.Y / s)
 		cambiScala:Fire(s)
 	end
 	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(adatta)
+	if RunService:IsStudio() then
+		workspace:GetAttributeChangedSignal("SimSchermo"):Connect(adatta)
+	end
 	adatta()
 	radici[gui] = tela
 	return tela
@@ -379,9 +416,10 @@ function Stile.pulsante(proprieta, pal, opzioni)
 	riflesso(faccia, raggio)
 
 	local inizioTesto = 0
+	local iconaUi
 	if opzioni.Icona then
 		local lato = opzioni.IconaSize or math.floor((proprieta.Size and proprieta.Size.Y.Offset or 80) * 0.78)
-		Stile.icona(opzioni.Icona, {
+		iconaUi = Stile.icona(opzioni.Icona, {
 			Name = "Icona",
 			AnchorPoint = Vector2.new(0, 0.5),
 			Position = UDim2.new(0, opzioni.IconaX or 14, 0.5, 0),
@@ -421,6 +459,33 @@ function Stile.pulsante(proprieta, pal, opzioni)
 			sotto.TextScaled = true
 			Stile.crea("UITextSizeConstraint", { MaxTextSize = ds, MinTextSize = 8, Parent = sotto })
 		end
+	end
+	-- Icona + scritta centrate insieme nel pulsante (Mattia, 29/10/2026: FIGHT! aveva troppo spazio a sinistra).
+	-- La scritta ha lo stesso margine a destra che l'icona ha a sinistra, è allineata a sinistra, e poi icona e
+	-- scritta si spostano insieme finché lo spazio vuoto è uguale ai due lati. Le immagini delle icone hanno un
+	-- bordo trasparente (circa il 10% del lato): conta come vuoto, non come icona.
+	if iconaUi and etichetta and not sotto then
+		local iconaX = opzioni.IconaX or 14
+		local lato = iconaUi.Size.X.Offset
+		local bordoIcona = lato * 0.1
+		etichetta.TextXAlignment = Enum.TextXAlignment.Left
+		etichetta.Size = UDim2.new(1, -inizioTesto - iconaX - bordoIcona, etichetta.Size.Y.Scale, etichetta.Size.Y.Offset)
+		local function centra()
+			local larghezza = faccia.AbsoluteSize.X
+			if larghezza < 1 or etichetta.AbsoluteSize.X < 1 or iconaUi.AbsoluteSize.X < 1 then
+				return
+			end
+			-- Pixel sullo schermo per ogni unità di design (TextBounds e AbsoluteSize sono già in pixel).
+			local k = iconaUi.AbsoluteSize.X / lato
+			local inizio = (iconaX + bordoIcona) * k
+			local fine = inizioTesto * k + etichetta.TextBounds.X
+			local spostamento = ((larghezza - (fine - inizio)) / 2 - inizio) / larghezza
+			iconaUi.Position = UDim2.new(spostamento, iconaX, 0.5, 0)
+			etichetta.Position = UDim2.new(spostamento, inizioTesto, 0.5, 0)
+		end
+		etichetta:GetPropertyChangedSignal("TextBounds"):Connect(centra)
+		etichetta:GetPropertyChangedSignal("AbsoluteSize"):Connect(centra)
+		task.defer(centra)
 	end
 	animaPressione(bottone, faccia, profondita)
 	return bottone, etichetta, faccia, sotto
@@ -808,17 +873,14 @@ end
 
 -- Telefono o tablet (schermo touch senza tastiera).
 function Stile.touch()
+	if simulazione("SimTouch") then
+		return true
+	end
 	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 end
 
--- Su telefono e tablet Roblox mette il pulsante del salto in basso a destra: i pulsanti nostri ancorati in
--- basso a destra (PLAY, FIGHT!, ORDERS) si spostano a sinistra di tanto (pixel di progetto).
-Stile.MARGINE_SALTO = 270
-
--- Distanza dal bordo destro per un elemento in basso a destra: quella data, più lo spazio del salto sul touch.
-function Stile.destra(margine)
-	return -(margine + (Stile.touch() and Stile.MARGINE_SALTO or 0))
-end
+-- Su telefono e tablet il salto è spento (LobbyVita): Roblox non mostra il suo tasto in basso a destra, e lì
+-- PLAY e FIGHT! stanno sotto Campaign e Formation come sul PC (Mattia, 29/10/2026).
 
 -- Si sta usando un controller (console o gamepad sul PC)?
 function Stile.gamepad()

@@ -271,7 +271,8 @@ local function costruisciFormazioni()
 	end
 	bottoniFormazione = {}
 	for i, f in ipairs(info.formazioni or {}) do
-		local testo = f.sbloccata and string.upper(f.nome) or ("%s  ·  BATTLE %d"):format(string.upper(f.nome), f.sblocco)
+		-- Solo il nome; se è bloccata, il lucchetto (Mattia, 29/10/2026: la battaglia di sblocco non serve).
+		local testo = string.upper(f.nome)
 		local bottone = Stile.pulsante({
 			Name = f.id,
 			Size = UDim2.new(1, 0, 0, 46),
@@ -1221,11 +1222,12 @@ function Partita.inizializza(gui, r, callbackLobby)
 		}),
 	})
 
-	-- Su telefono e tablet FIGHT! e ORDERS stanno più a sinistra, lontano dal pulsante del salto.
+	-- FIGHT! e ORDERS al bordo destro sotto Formation su tutte le piattaforme: in partita il tasto del salto
+	-- su touch è spento (LobbyVita), quindi non c'è niente da evitare (Mattia, 29/10/2026).
 	bottoneCombatti = Stile.pulsante({
 		Name = "Combatti",
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, Stile.destra(28), 1, -28),
+		Position = UDim2.new(1, -28, 1, -28),
 		Size = UDim2.fromOffset(410, 186),
 		Visible = false,
 		ZIndex = 6,
@@ -1240,6 +1242,27 @@ function Partita.inizializza(gui, r, callbackLobby)
 		Raggio = 32,
 		Contorno = 6,
 	})
+	-- Su schermi stretti (tablet 4:3) FIGHT! e ORDERS coprivano l'ultima carta del vassoio: il vassoio si
+	-- sposta a sinistra quanto basta per lasciare 20 pixel tra i due (Mattia, 29/10/2026).
+	local function sistemaVassoio()
+		local scala = Stile.scala()
+		if scala <= 0 then
+			return
+		end
+		local larghezza = tela.AbsoluteSize.X / scala
+		local meta = barraMazzo.Size.X.Offset / 2
+		local centro = larghezza / 2 - 80
+		local sinistraFight = larghezza - 28 - bottoneCombatti.Size.X.Offset
+		if centro + meta > sinistraFight - 20 then
+			centro = math.max(sinistraFight - 20 - meta, 20 + meta)
+		end
+		barraMazzo.Position = UDim2.new(0, centro, 1, -16)
+	end
+	Stile.ScalaCambiata:Connect(function()
+		task.defer(sistemaVassoio)
+	end)
+	task.defer(sistemaVassoio)
+
 	bottoneCombatti.Activated:Connect(function()
 		local ok, messaggio = remoti.Combatti:InvokeServer()
 		if messaggio then
@@ -1373,7 +1396,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 	pannelloOrdini = Stile.crea("Frame", {
 		Name = "Ordini",
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, Stile.destra(28), 1, -28),
+		Position = UDim2.new(1, -28, 1, -28),
 		Size = UDim2.fromOffset(330, 72 + #Battaglia.ORDINI * 58 + 18 + 40 + 3 * 50),
 		BackgroundColor3 = Stile.BIANCO,
 		Visible = false,

@@ -14,6 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Modelli = require(Shared.Modelli)
 local Animatore = require(script.Parent.Animatore)
 local Cielo = require(script.Parent.Cielo)
+local Stile = require(script.Parent.UI.Stile)
 
 local LobbyVita = {}
 
@@ -57,6 +58,13 @@ local function impostaVelocita()
 		u.WalkSpeed = VELOCITA_CAMPO
 	else
 		u.WalkSpeed = sulTappeto and VELOCITA_TAPPETO or VELOCITA_LOBBY
+	end
+	-- Su telefono e tablet niente salto: Roblox nasconde il suo tasto in basso a destra e lì PLAY e FIGHT!
+	-- stanno sotto Campaign e Formation come sul PC (Mattia, 29/10/2026).
+	if Stile.touch() then
+		u:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+		u.JumpPower = 0
+		u.JumpHeight = 0
 	end
 end
 
