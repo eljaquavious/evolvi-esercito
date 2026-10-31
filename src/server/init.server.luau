@@ -65,6 +65,7 @@ local function stato(dati)
 		ranked = dati.ranked,
 		impostazioni = dati.impostazioni,
 		giornaliero = Giornaliero.stato(dati),
+		casseDaRiscattare = dati.casseDaRiscattare,
 	}
 end
 

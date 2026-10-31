@@ -36,5 +36,6 @@ return {
 		"Preferito", -- il client avvisa che il gioco è nei Preferiti di Roblox: titolo e aura in regalo
 		"Impostazioni", -- chiave (musica, effetti, prestazioni), valore (true/false): menu Settings
 		"RitiraGiornaliero", -- premio giornaliero di oggi (Server/Giornaliero)
+		"RiscattaCassa", -- id di una cassa vinta che aspetta nello SHOP: si apre adesso
 	},
 }

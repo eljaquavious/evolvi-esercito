@@ -37,7 +37,7 @@ local TICK = 0.1
 local VELOCITA_BATTAGLIA = 0.75
 local ATTESA_BOT = 6 -- secondi da soli in coda prima del bot (solo in Studio)
 local CASSA_VITTORIA = "CassaPiccola"
-local DURATA_FINALE = 4 -- secondi di animazione del vincitore prima che si apra la cassa
+local DURATA_FINALE = 4 -- secondi di animazione del vincitore
 
 local remoti
 local occupato -- funzione(player): true se è in una partita della campagna (la imposta init.server)
@@ -437,12 +437,9 @@ local function fine(partita, vincitore, ritirato)
 			})
 		end
 	end
-	if not vincitore.bot then
-		task.delay(DURATA_FINALE, function()
-			if vincitore.player.Parent then
-				Shop.regala(vincitore.player, CASSA_VITTORIA)
-			end
-		end)
+	if not vincitore.bot and vincitore.player.Parent then
+		-- Non si apre qui: aspetta nello SHOP della lobby (Shop.regala).
+		Shop.regala(vincitore.player, CASSA_VITTORIA)
 	end
 	-- Il campo resta finché i giocatori non tornano in lobby (o al massimo un minuto).
 	task.delay(60, function()

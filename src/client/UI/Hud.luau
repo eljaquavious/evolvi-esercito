@@ -23,6 +23,7 @@ local mazzoCarte, mediaOvr, epocheUi, prossima, chipStelle
 local mazzoMostrato -- per non ricostruire le carte se il mazzo non cambia
 local avvisoLocker
 local avvisoGiornaliero
+local avvisoShop
 local bersagli = {} -- elementi che il tutorial della lobby indica: "Shop", "Army", "Play", "Mazzo", "Campagna"...
 
 local COLORI_EPOCA = { "oro", "blu", "rosso", "verde", "viola" }
@@ -316,7 +317,10 @@ function Hud.inizializza(gui, a)
 		bersagli[testo] = bottone
 		return bottone
 	end
-	riquadro(0, 0, "rosso", "shop", "Shop", azioni.shop)
+	local negozio = riquadro(0, 0, "rosso", "shop", "Shop", azioni.shop)
+	-- "!" quando ci sono casse vinte da riscattare nello SHOP.
+	avvisoShop = Stile.avviso(negozio)
+	avvisoShop.Visible = false
 	riquadro(1, 0, "blu", "army", "Army", azioni.esercito)
 	riquadro(0, 1, "viola", "profile", "Profile", azioni.profilo)
 	riquadro(1, 1, "oro", "ranked", "Ranked", azioni.ranked)
@@ -491,6 +495,9 @@ function Hud.aggiorna(stato)
 		return
 	end
 	numeroMonete.Text = Stile.numero(stato.monete)
+	if avvisoShop then
+		avvisoShop.Visible = next(stato.casseDaRiscattare or {}) ~= nil
+	end
 	local totale = 0
 	for _, n in pairs(stato.stelle or {}) do
 		totale += n

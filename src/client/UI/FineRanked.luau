@@ -13,7 +13,7 @@ local FineRanked = {}
 
 local gui, remoti
 local velo, giro
-local bottoneLobby -- nascosto finché la cassa vinta non è stata aperta
+local bottoneLobby
 
 local COLORI_CORIANDOLI = { "#FFD23F", "#5CC8FF", "#FF6B6B", "#7CF56E", "#C77DFF", "#FF8AD8" }
 
@@ -159,7 +159,7 @@ function FineRanked.mostra(dati)
 		table.insert(righe, "Your opponent left the match.")
 	end
 	if dati.cassa then
-		table.insert(righe, "Reward: a Small Crate!")
+		table.insert(righe, "Reward: a Small Crate, claim it in the SHOP!")
 	elseif not vinto then
 		table.insert(righe, "Better luck next time, commander.")
 	end
@@ -178,18 +178,9 @@ function FineRanked.mostra(dati)
 		Position = UDim2.fromOffset(0, 430),
 		Size = UDim2.fromOffset(320, 110),
 		ZIndex = 81,
-		Visible = not dati.cassa,
 		Parent = centro,
 	}, "verde", { Testo = "LOBBY", TestoSize = 54, Icona = "army", IconaSize = 80, Profondita = 10, Raggio = 26 })
-	if dati.cassa then
-		local questo = bottoneLobby
-		task.delay(15, function()
-			if questo.Parent then
-				questo.Visible = true
-				Stile.seleziona(questo)
-			end
-		end)
-	end
+	Stile.seleziona(bottoneLobby)
 	bottoneLobby.Activated:Connect(function()
 		remoti.TornaLobby:InvokeServer()
 	end)
@@ -232,14 +223,6 @@ function FineRanked.mostra(dati)
 			c.frame.Rotation += c.giro * dt
 		end
 	end)
-end
-
--- La cassa vinta è stata aperta: compare il pulsante LOBBY.
-function FineRanked.cassaAperta()
-	if bottoneLobby and bottoneLobby.Parent then
-		bottoneLobby.Visible = true
-		Stile.seleziona(bottoneLobby)
-	end
 end
 
 function FineRanked.inizializza(g, r)

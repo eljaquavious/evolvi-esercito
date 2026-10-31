@@ -219,18 +219,52 @@ function Shop.acquista(player, id)
 	return true
 end
 
--- Regala una cassa (vittoria in campagna o in ranked): si apre come una comprata, senza pagare.
+-- Regala una cassa (vittoria in campagna o in ranked, premio giornaliero). Non si apre subito: aspetta nello
+-- SHOP, dove il giocatore la riscatta quando vuole (Mattia, 31/10/2026).
 function Shop.regala(player, id)
-	local cassa, tipo = Casse.trova(id)
+	local cassa = Casse.trova(id)
 	if not cassa or not Dati.ottieni(player) then
 		return false
 	end
-	return apri(player, cassa, tipo)
+	Dati.modifica(player, function(d)
+		d.casseDaRiscattare[id] = (d.casseDaRiscattare[id] or 0) + 1
+	end)
+	return true
+end
+
+-- Apre una cassa vinta che aspettava nello SHOP.
+function Shop.riscatta(player, id)
+	local cassa, tipo = Casse.trova(id)
+	local dati = Dati.ottieni(player)
+	if not cassa or not dati or type(id) ~= "string" then
+		return false
+	end
+	if (dati.casseDaRiscattare[id] or 0) < 1 then
+		return false, "No crate to claim."
+	end
+	local adesso = os.clock()
+	if ultimo[player] and adesso - ultimo[player] < 1 then
+		return false
+	end
+	ultimo[player] = adesso
+	Dati.modifica(player, function(d)
+		local resta = (d.casseDaRiscattare[id] or 1) - 1
+		d.casseDaRiscattare[id] = resta > 0 and resta or nil
+	end)
+	if not apri(player, cassa, tipo) then
+		-- Non doveva succedere: la cassa torna ad aspettare.
+		Dati.modifica(player, function(d)
+			d.casseDaRiscattare[id] = (d.casseDaRiscattare[id] or 0) + 1
+		end)
+		return false, "Something went wrong, your crate is still waiting."
+	end
+	return true
 end
 
 function Shop.inizializza(r)
 	remoti = r
 	remoti.AcquistaCassa.OnServerInvoke = Shop.acquista
+	remoti.RiscattaCassa.OnServerInvoke = Shop.riscatta
 	for _, gruppo in ipairs({ { Casse.Truppe, "truppe" }, { Casse.Cosmetici, "cosmetici" }, { Casse.Monete, "monete" } }) do
 		for _, cassa in ipairs(gruppo[1]) do
 			if cassa.robux then

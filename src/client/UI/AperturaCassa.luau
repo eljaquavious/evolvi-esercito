@@ -1,4 +1,4 @@
--- Apertura di una cassa: la cassa trema al centro dello schermo, un lampo, poi la ricompensa
+-- Apertura di una cassa: la striscia dei premi scorre e si ferma su quello vinto, un lampo, poi la ricompensa
 -- (la carta del reggimento, il cosmetico o le monete). Arriva dall'evento CassaAperta del server.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -80,6 +80,260 @@ local function descrivi(risultato)
 	}
 end
 
+-- Striscia dei premi (Mattia, 31/10/2026, come le casse dei simulatori Roblox): una fila di caselle scorre da
+-- destra a sinistra, rallenta e si ferma con il premio vinto sotto l'indicatore al centro.
+local LARGO_CASELLA, ALTO_CASELLA, SPAZIO_CASELLE = 200, 250, 14
+local CASELLE, VINCENTE = 46, 40 -- caselle in tutto, posizione di quella vinta
+local DURATA_STRISCIA = 5.5
+
+local suonoScatto = Instance.new("Sound")
+suonoScatto.SoundId = "rbxasset://sounds/clickfast.wav"
+suonoScatto.Volume = 0.5
+
+local function unoSu(p)
+	return ("1 IN %d"):format(math.max(1, math.floor(1 / math.max(p, 0.0001) + 0.5)))
+end
+
+-- Le voci che possono uscire dalla cassa, con la probabilità della loro rarità.
+-- Ogni voce: { truppa = id } o { cosmetico = id }, rarita (nome da mostrare), pal, p.
+local function voci(cassa, tipo)
+	local elenco = {}
+	local probabilita = Casse.probabilita(cassa.pesi)
+	if tipo == "truppe" then
+		for _, id in ipairs(Epoche.carte()) do
+			local r = Carte.rarita(Epoche.Truppe[id])
+			if probabilita[r] then
+				table.insert(elenco, { truppa = id, rarita = string.upper(Carte.NOMI_RARITA[r]), pal = PAL_CARTE[r], p = probabilita[r] })
+			end
+		end
+	else
+		for _, c in ipairs(Config.Cosmetici) do
+			if c.cassa and probabilita[c.rarita] then
+				local r = Config.Rarita[c.rarita]
+				table.insert(elenco, { cosmetico = c.id, rarita = r.nome, pal = r.pal, p = probabilita[c.rarita] })
+			end
+		end
+	end
+	return elenco, probabilita
+end
+
+-- La voce del premio vinto (anche se, per caso, non fosse nell'elenco).
+local function voceVinta(risultato, cassa)
+	local probabilita = Casse.probabilita(cassa.pesi)
+	if risultato.tipo == "truppa" then
+		local r = Carte.rarita(Epoche.Truppe[risultato.id])
+		return { truppa = risultato.id, rarita = string.upper(Carte.NOMI_RARITA[r]), pal = PAL_CARTE[r], p = probabilita[r] or 0.01 }
+	end
+	local c = Config.cosmetico(risultato.id)
+	local r = Config.Rarita[c.rarita]
+	return { cosmetico = c.id, rarita = r.nome, pal = r.pal, p = probabilita[c.rarita] or 0.01 }
+end
+
+-- Estrae una voce a caso rispettando le probabilità delle rarità (come il server).
+local function aCaso(elenco)
+	local x = math.random()
+	local somma = 0
+	for _, v in ipairs(elenco) do
+		-- p è la probabilità della rarità: divisa per quante voci ha quella rarità.
+		somma += v.p / v.quante
+		if x <= somma then
+			return v
+		end
+	end
+	return elenco[#elenco]
+end
+
+local function casella(voce, genitore, x)
+	local pal = Stile.PAL[voce.pal] or Stile.PAL.r_comune
+	local f = Stile.crea("Frame", {
+		Position = UDim2.fromOffset(x, 0),
+		Size = UDim2.fromOffset(LARGO_CASELLA, ALTO_CASELLA),
+		BackgroundColor3 = Stile.BIANCO,
+		ZIndex = 84,
+		Parent = genitore,
+	}, {
+		Stile.angoli(20),
+		Stile.bordo(pal.t, 4),
+		Stile.sfumatura(pal.b, pal.d, 90),
+	})
+	local nome
+	if voce.truppa then
+		local def = Epoche.Truppe[voce.truppa]
+		nome = def.nome
+		Stile.icona(Icone.carta(def), {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, 0, 0, 122),
+			Size = UDim2.fromOffset(132, 132),
+			ZIndex = 85,
+			Parent = f,
+		})
+	else
+		local c = Config.cosmetico(voce.cosmetico)
+		nome = c.nome
+		Armadio.anteprimaCosmetico(c, {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, 0, 0, 122),
+			Size = UDim2.fromOffset(150, 140),
+			ZIndex = 85,
+			Parent = f,
+		})
+	end
+	local alto = Stile.scritta({
+		Position = UDim2.fromOffset(8, 8),
+		Size = UDim2.new(1, -16, 0, 30),
+		Text = voce.rarita .. " · " .. unoSu(voce.p),
+		TextSize = 22,
+		Contorno = 3,
+		ZIndex = 86,
+		Parent = f,
+	})
+	alto.TextColor3 = pal.t:Lerp(Stile.BIANCO, 0.55)
+	Stile.scritta({
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 8, 1, -10),
+		Size = UDim2.new(1, -16, 0, 36),
+		Text = string.upper(nome),
+		TextSize = 26,
+		Contorno = 3,
+		ZIndex = 86,
+		Parent = f,
+	})
+	return f
+end
+
+-- Mostra la striscia e aspetta che si fermi.
+local function striscia(centro, risultato, cassa)
+	local _, tipo = Casse.trova(cassa.id)
+	local elenco = voci(cassa, tipo)
+	local perRarita = {}
+	for _, v in ipairs(elenco) do
+		perRarita[v.rarita] = (perRarita[v.rarita] or 0) + 1
+	end
+	for _, v in ipairs(elenco) do
+		v.quante = perRarita[v.rarita]
+	end
+	local vinta = voceVinta(risultato, cassa)
+
+	local LARGO = 1180
+	local finestra = Stile.crea("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = UDim2.fromOffset(LARGO + 24, ALTO_CASELLA + 24),
+		BackgroundColor3 = Stile.VETRO,
+		BackgroundTransparency = 0.15,
+		ZIndex = 83,
+		Parent = centro,
+	}, { Stile.angoli(26), Stile.bordo(Stile.BIANCO, 3, 0.6) })
+	local scalaFinestra = Stile.crea("UIScale", { Scale = 0.6, Parent = finestra })
+	tween(scalaFinestra, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
+	local vista = Stile.crea("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(LARGO, ALTO_CASELLA),
+		BackgroundTransparency = 1,
+		ClipsDescendants = true,
+		ZIndex = 84,
+		Parent = finestra,
+	})
+	local fila = Stile.crea("Frame", {
+		Size = UDim2.fromOffset(CASELLE * (LARGO_CASELLA + SPAZIO_CASELLE), ALTO_CASELLA),
+		BackgroundTransparency = 1,
+		ZIndex = 84,
+		Parent = vista,
+	})
+	local caselle = {}
+	for i = 1, CASELLE do
+		local voce = i == VINCENTE and vinta or (#elenco > 0 and aCaso(elenco) or vinta)
+		caselle[i] = casella(voce, fila, (i - 1) * (LARGO_CASELLA + SPAZIO_CASELLE))
+	end
+
+	-- Indicatore al centro: barra bianca con un rombo dorato sopra e sotto.
+	local indicatore = Stile.crea("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(8, ALTO_CASELLA + 60),
+		BackgroundColor3 = Stile.BIANCO,
+		ZIndex = 90,
+		Parent = finestra,
+	}, { Stile.tondo(), Stile.bordo(Stile.CONTORNO, 2) })
+	for _, y in ipairs({ 0, 1 }) do
+		Stile.crea("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, y),
+			Size = UDim2.fromOffset(34, 34),
+			Rotation = 45,
+			BackgroundColor3 = Stile.Colori.Oro,
+			ZIndex = 91,
+			Parent = indicatore,
+		}, { Stile.angoli(6), Stile.bordo(Stile.CONTORNO, 3) })
+	end
+
+	-- Dove finisce: il centro della casella vinta sotto l'indicatore, spostato un po' a caso dentro la casella.
+	local passo = LARGO_CASELLA + SPAZIO_CASELLE
+	local scarto = (math.random() - 0.5) * LARGO_CASELLA * 0.7
+	local inizioX = LARGO / 2 - LARGO_CASELLA / 2 - passo * 2
+	local fineX = LARGO / 2 - ((VINCENTE - 1) * passo + LARGO_CASELLA / 2) + scarto
+	fila.Position = UDim2.fromOffset(inizioX, 0)
+	-- Le icone delle carte arrivano dalla rete: si aspetta che siano pronte (al massimo 2 s), così nessuna
+	-- casella passa vuota.
+	local immagini = {}
+	for _, d in ipairs(fila:GetDescendants()) do
+		if d:IsA("ImageLabel") then
+			table.insert(immagini, d)
+		end
+	end
+	local pronte = false
+	task.spawn(function()
+		pcall(function()
+			game:GetService("ContentProvider"):PreloadAsync(immagini)
+		end)
+		pronte = true
+	end)
+	local attesa = os.clock()
+	while not pronte and os.clock() - attesa < 2 do
+		task.wait()
+	end
+	task.wait(0.2)
+
+	local suono = suonoScatto:Clone()
+	suono.Parent = game:GetService("SoundService")
+	local ultima = -1
+	local inizio = os.clock()
+	while true do
+		local t = math.min((os.clock() - inizio) / DURATA_STRISCIA, 1)
+		-- Parte veloce e rallenta molto alla fine (quinta potenza).
+		local k = 1 - (1 - t) ^ 5
+		local x = inizioX + (fineX - inizioX) * k
+		fila.Position = UDim2.fromOffset(x, 0)
+		local sotto = math.floor((LARGO / 2 - x) / passo)
+		if sotto ~= ultima then
+			ultima = sotto
+			suono.PlaybackSpeed = 0.9 + math.random() * 0.2
+			suono:Play()
+		end
+		if t >= 1 then
+			break
+		end
+		RunService.RenderStepped:Wait()
+	end
+	suono:Destroy()
+
+	-- La casella vinta si illumina e cresce.
+	local vincitrice = caselle[VINCENTE]
+	vincitrice.ZIndex = 88
+	local scala = Stile.crea("UIScale", { Parent = vincitrice })
+	tween(scala, 0.3, { Scale = 1.08 }, Enum.EasingStyle.Back)
+	local bordo = vincitrice:FindFirstChildOfClass("UIStroke")
+	bordo.Color = Stile.Colori.Oro
+	bordo.Thickness = 7
+	for _, c in ipairs(caselle) do
+		if c ~= vincitrice then
+			tween(c, 0.4, { BackgroundTransparency = 0.5 })
+		end
+	end
+	task.wait(1.1)
+	finestra:Destroy()
+end
+
 local function mostra(risultato)
 	occupato = true
 	local cassa = Casse.trova(risultato.cassa)
@@ -94,7 +348,7 @@ local function mostra(risultato)
 		Position = UDim2.fromOffset(0, -200),
 		Size = UDim2.new(1, 0, 1, 400),
 		BackgroundColor3 = Stile.CONTORNO,
-		BackgroundTransparency = 0.25,
+		BackgroundTransparency = 0.1,
 		ZIndex = 80,
 		Parent = tela,
 	})
@@ -128,26 +382,18 @@ local function mostra(risultato)
 		end
 	end)
 
-	-- 1) La cassa trema sempre più forte.
-	local icona = Stile.icona(cassa and cassa.icona or "crate_small", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Size = UDim2.fromOffset(380, 380),
-		ZIndex = 83,
-		Parent = centro,
-	})
-	local scalaIcona = Stile.crea("UIScale", { Scale = 0.3, Parent = icona })
-	tween(scalaIcona, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
-	task.wait(0.4)
-	local durata = 1.3
-	local inizio = os.clock()
-	while os.clock() - inizio < durata do
-		local k = (os.clock() - inizio) / durata
-		icona.Rotation = math.sin(os.clock() * (30 + 30 * k)) * (4 + 14 * k)
-		scalaIcona.Scale = 1 + 0.12 * k
-		RunService.RenderStepped:Wait()
+	-- 1) Le casse: la striscia dei premi scorre e si ferma su quello vinto. I pacchetti di monete no.
+	if cassa and risultato.tipo ~= "monete" then
+		if raggi then
+			raggi.Visible = false
+		end
+		striscia(centro, risultato, cassa)
+		if raggi then
+			raggi.Visible = true
+		end
 	end
 
-	-- 2) Lampo bianco: la cassa sparisce.
+	-- 2) Lampo bianco, poi la ricompensa grande.
 	local lampo = Stile.crea("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Stile.BIANCO,
@@ -155,7 +401,6 @@ local function mostra(risultato)
 		ZIndex = 95,
 		Parent = velo,
 	})
-	icona:Destroy()
 	tween(lampo, 0.5, { BackgroundTransparency = 1 })
 	task.delay(0.5, function()
 		lampo:Destroy()

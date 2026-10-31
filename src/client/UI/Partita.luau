@@ -25,7 +25,6 @@ local Suoni = require(script.Parent.Parent.Suoni)
 local Preferiti = require(script.Parent.Preferiti)
 local Tutorial = require(script.Parent.Tutorial)
 local FineRanked = require(script.Parent.FineRanked)
-local AperturaCassa = require(script.Parent.AperturaCassa)
 
 local Partita = {}
 
@@ -76,7 +75,6 @@ local risultato, scheda, raggi, rotazioneRaggi, stelleRisultato, targaRisultato,
 local battagliaRisultato, pannelloPremi, testoMonete, testoEsperienza, dettaglioRisultato, spazioPremio
 local bottoneContinua, testoContinua, bottoneLobbyRisultato
 local prossimoLivello
-local aspettaCassa = false -- risultato con una cassa vinta: i pulsanti compaiono quando la cassa è stata aperta
 local bottoneVinci -- modalità prova (solo in Studio): vince subito il round
 -- Il pulsante WIN ROUND si vede solo se è true (Mattia, 21/10/2026: in Studio si gioca come un giocatore vero).
 -- Il remoto VinciRound resta per i collaudi automatici.
@@ -862,7 +860,7 @@ local function mostraRisultato(dati)
 		),
 	}
 	if dati.cassa then
-		table.insert(righe, "BONUS: you earned a Small Crate!")
+		table.insert(righe, "BONUS: a Small Crate is waiting for you in the SHOP!")
 	end
 	if dati.nuovoLivelloGiocatore then
 		table.insert(righe, ("LEVEL UP! You are now level %d."):format(dati.nuovoLivelloGiocatore))
@@ -910,22 +908,10 @@ local function mostraRisultato(dati)
 		end)
 	end
 
-	-- Con una cassa vinta, prima si apre la cassa (qui, sul risultato), poi si può andare avanti.
-	bottoneContinua.Visible = not dati.cassa
-	bottoneLobbyRisultato.Visible = not dati.cassa
-	aspettaCassa = dati.cassa == true
-	if dati.cassa then
-		task.delay(15, function()
-			if aspettaCassa and fase == "risultato" then
-				aspettaCassa = false
-				bottoneContinua.Visible = true
-				bottoneLobbyRisultato.Visible = true
-			end
-		end)
-	end
-	if not dati.cassa then
-		Stile.seleziona(bottoneContinua)
-	end
+	-- La cassa vinta non si apre qui: aspetta nello SHOP della lobby (Mattia, 31/10/2026).
+	bottoneContinua.Visible = true
+	bottoneLobbyRisultato.Visible = true
+	Stile.seleziona(bottoneContinua)
 	if dati.vittoria then
 		Preferiti.dopoVittoria()
 		testoContinua.Text = dati.prossimo == dati.numero and "PLAY AGAIN" or "NEXT BATTLE"
@@ -1705,17 +1691,6 @@ function Partita.inizializza(gui, r, callbackLobby)
 	end)
 
 	FineRanked.inizializza(gui, remoti)
-	AperturaCassa.alTermine(function()
-		if aspettaCassa and fase == "risultato" then
-			aspettaCassa = false
-			bottoneContinua.Visible = true
-			bottoneLobbyRisultato.Visible = true
-			pop(bottoneContinua, 0.6, 0.3)
-			Stile.seleziona(bottoneContinua)
-			pop(bottoneLobbyRisultato, 0.6, 0.3)
-		end
-		FineRanked.cassaAperta()
-	end)
 	Tutorial.inizializza(tela, {
 		mazzo = function()
 			return barraMazzo

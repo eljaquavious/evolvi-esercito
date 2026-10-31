@@ -513,12 +513,8 @@ local function fineLivello(player, sessione)
 		end)(),
 	})
 	if cassa then
-		-- La cassa si apre dopo che il risultato è comparso.
-		task.delay(2.5, function()
-			if player.Parent then
-				Shop.regala(player, CASSA_VITTORIA)
-			end
-		end)
+		-- Non si apre qui: aspetta nello SHOP della lobby (Shop.regala).
+		Shop.regala(player, CASSA_VITTORIA)
 	end
 end
 

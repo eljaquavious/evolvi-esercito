@@ -351,6 +351,27 @@ local function banner(cassa, tipo, ordine)
 	bottone.Activated:Connect(function()
 		compra(cassa.id)
 	end)
+	-- Casse vinte (campagna, ranked, premio giornaliero) da riscattare: al posto del prezzo c'è CLAIM.
+	local riscatta, etichettaRiscatta = Stile.pulsante({
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -30, 1, -30),
+		Size = UDim2.fromOffset(360, 130),
+		ZIndex = 5,
+		Visible = false,
+		Parent = faccia,
+	}, "oro", { Testo = "CLAIM", TestoSize = 60, Icona = "daily", IconaSize = 80, IconaX = 16, Raggio = 22 })
+	table.insert(dinamici, function()
+		local quante = stato and stato.casseDaRiscattare and stato.casseDaRiscattare[cassa.id] or 0
+		riscatta.Visible = quante > 0
+		bottone.Visible = quante == 0
+		etichettaRiscatta.Text = quante > 1 and ("CLAIM x%d"):format(quante) or "CLAIM"
+	end)
+	riscatta.Activated:Connect(function()
+		local ok, messaggio = remotiShop.RiscattaCassa:InvokeServer(cassa.id)
+		if messaggio then
+			Notifiche.mostra(messaggio, ok and Stile.Colori.Verde or nil)
+		end
+	end)
 	if cassa.robux then
 		Stile.nastro({
 			AnchorPoint = Vector2.new(0.5, 0.5),

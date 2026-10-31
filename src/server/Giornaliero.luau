@@ -62,7 +62,7 @@ function Giornaliero.ritira(player)
 	if premio.cassa then
 		task.spawn(Shop.regala, player, premio.cassa)
 	end
-	return true, ("Day %d reward: +%d coins%s"):format(numero, premio.monete, premio.cassa and " and a Small Crate!" or "!")
+	return true, ("Day %d reward: +%d coins%s"):format(numero, premio.monete, premio.cassa and " and a Small Crate (claim it in the SHOP)!" or "!")
 end
 
 function Giornaliero.inizializza(remoti)
