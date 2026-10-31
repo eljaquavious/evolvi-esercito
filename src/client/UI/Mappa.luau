@@ -57,7 +57,7 @@ local MARI = {
 	{ "BALTIC SEA", 58, 19.5, 1.6 },
 }
 
--- Quote dei livelli misurate dal server sul Terrain vero (vedi MappaCampagna); se mancano, una stima.
+-- Quote dei livelli pubblicate dal server (vedi MappaCampagna); se mancano, il conto qui.
 local function quotaMisurata(numero)
 	local altezze = ReplicatedStorage:FindFirstChild("AltezzeMappa")
 	return altezze and altezze:GetAttribute("L" .. numero)
@@ -235,8 +235,8 @@ local function costruisci()
 			nome = nome,
 		}
 
-		-- Tratto di sentiero dal livello precedente (calcolato insieme alla mappa). Sulla terra è tracciato
-		-- nel Terrain dal server; qui si aggiungono le tratte per mare e le luci del prossimo tratto.
+		-- Tratto di sentiero dal livello precedente (calcolato insieme alla mappa). Sulla terra sono le
+		-- piastrelle più scure della mappa; qui si aggiungono le tratte per mare e le luci del prossimo tratto.
 		puntini[numero] = {}
 		local celle = MappaEuropa.Sentieri[numero] or {}
 		local passo = 0

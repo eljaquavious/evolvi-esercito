@@ -1,6 +1,7 @@
 -- Mappa d'Europa e del Mediterraneo per la campagna: altezze e costa vere (dati in MappaEuropaDati),
--- con le funzioni per passare da latitudine/longitudine a posizioni nel mondo. Condivisa: il server
--- costruisce il plastico con Terrain, il client ci mette sopra i livelli e il sentiero.
+-- con le funzioni per passare da latitudine/longitudine a posizioni nel mondo. Condivisa: il server mette
+-- la mappa a pixel (Config/AssetMappa, piastrelle tutte alla stessa altezza), il client ci mette sopra i
+-- livelli e il sentiero. Le altezze vere (altezzaStuds) servono ancora alla mappa in rilievo della lobby.
 
 local Dati = require(script.Parent.MappaEuropaDati)
 
@@ -12,10 +13,9 @@ MappaEuropa.LAT_NORD = 62
 MappaEuropa.LAT_SUD = 28
 MappaEuropa.COLONNE = #Dati.Griglia[1]
 MappaEuropa.RIGHE = #Dati.Griglia
-MappaEuropa.CELLA = 4 -- studs, come un voxel di Terrain
-MappaEuropa.VOXEL_SOTTO = 4 -- voxel di mare sotto il livello 0
-MappaEuropa.VOXEL_SOPRA = 9 -- voxel disponibili sopra il livello del mare
--- Centro del plastico: lontano da lobby (0, 0) e arene (x >= 4200). Multipli di 4 per allinearsi ai voxel.
+MappaEuropa.CELLA = 4 -- studs, il lato di un pixel della mappa
+MappaEuropa.PIASTRELLA = 0.8 -- altezza delle piastrelle di terra sul mare (tools/blender/mappa_pixel.py ALTO)
+-- Centro della mappa: lontano da lobby (0, 0) e arene (x >= 4200).
 MappaEuropa.CENTRO = Vector3.new(-2800, 0, 0)
 MappaEuropa.Sentieri = Dati.Sentieri
 
@@ -64,6 +64,11 @@ function MappaEuropa.altezzaStuds(colonna, riga)
 	return 1 + (v - 10) * 0.4
 end
 
+-- Quota della mappa a pixel in una cella: le piastrelle sulla terra, 0 sul mare.
+function MappaEuropa.quota(colonna, riga)
+	return MappaEuropa.terra(colonna, riga) and MappaEuropa.PIASTRELLA or 0
+end
+
 -- Altezza in voxel sopra il mare (0 = mare).
 function MappaEuropa.altezza(colonna, riga)
 	return MappaEuropa.altezzaStuds(colonna, riga) / MappaEuropa.CELLA
@@ -90,7 +95,7 @@ end
 function MappaEuropa.posizione(lat, lon)
 	local colonna, riga = MappaEuropa.cella(lat, lon)
 	local base = MappaEuropa.posizioneCella(colonna - 0.5, riga - 0.5)
-	return base + Vector3.new(0, MappaEuropa.altezzaStuds(math.floor(colonna), math.floor(riga)), 0)
+	return base + Vector3.new(0, MappaEuropa.quota(math.floor(colonna), math.floor(riga)), 0)
 end
 
 -- Cella che contiene un punto del mondo.
@@ -100,17 +105,17 @@ function MappaEuropa.cellaDi(posizione)
 	return colonna, riga
 end
 
--- Stima prudente della superficie (Y) in un punto del mondo: il Terrain liscia i voxel verso l'alto,
--- quindi prende la cella più alta tra le vicine e aggiunge mezzo voxel.
+-- Superficie (Y) in un punto del mondo: la più alta tra la cella e le vicine (un punto sulla fessura tra
+-- terra e mare sta sulla piastrella).
 function MappaEuropa.superficie(posizione)
 	local colonna, riga = MappaEuropa.cellaDi(posizione)
 	local massima = 0
 	for dx = -1, 1 do
 		for dy = -1, 1 do
-			massima = math.max(massima, MappaEuropa.altezzaStuds(colonna + dx, riga + dy))
+			massima = math.max(massima, MappaEuropa.quota(colonna + dx, riga + dy))
 		end
 	end
-	return MappaEuropa.CENTRO.Y + massima + MappaEuropa.CELLA / 2
+	return MappaEuropa.CENTRO.Y + massima
 end
 
 return MappaEuropa
