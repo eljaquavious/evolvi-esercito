@@ -63,6 +63,20 @@ Stile.PAL.r_argento = spento(0.6, 0.15)
 Stile.PAL.r_oro = Stile.PAL.r_leggendario
 Stile.PAL.r_leggenda = Stile.PAL.r_epico
 
+-- Rarità accese, solo per l'apertura delle casse (Mattia, 1/11/2026: "le rarità quando apri la cassa devono
+-- essere più appariscenti"). Stesse chiavi di sopra.
+Stile.RARITA_ACCESE = {
+	r_comune = { t = hex("#D9E0EE"), b = hex("#8D97AF"), d = hex("#454C62") },
+	r_raro = Stile.ACCENTI.blu,
+	r_epico = Stile.ACCENTI.viola,
+	r_leggendario = Stile.ACCENTI.oro,
+	r_esclusivo = Stile.ACCENTI.rosa,
+	r_bronzo = { t = hex("#FFB46B"), b = hex("#D9661C"), d = hex("#7A300C") },
+	r_argento = { t = hex("#F2F7FF"), b = hex("#A9B9D2"), d = hex("#566683") },
+	r_oro = Stile.ACCENTI.oro,
+	r_leggenda = Stile.ACCENTI.rosso,
+}
+
 -- Vetro: fondo scuro trasparente dei pulsanti e dei pannelli della lobby.
 Stile.VETRO = hex("#0D0F16")
 Stile.VETRO_TRASPARENZA = 0.5

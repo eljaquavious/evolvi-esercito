@@ -98,6 +98,26 @@ local function scatola(genitore, dimensione, dove, colore, materiale, extra)
 	return p
 end
 
+-- Texture di pavimenti e muri (tools/texture_lobby.py, id anche in client/UI/ImmaginiId): niente più materiali
+-- di Roblox a mattoni, ciottoli e assi (Mattia, 1/11/2026). Sono quasi bianche: prendono il colore della parte.
+local TEXTURE = { lastre = 130889662697099, assi = 122197333520153, intonaco = 73773567301532 }
+local LATI = { Enum.NormalId.Left, Enum.NormalId.Right }
+local FRONTE_RETRO = { Enum.NormalId.Front, Enum.NormalId.Back }
+local SOPRA = { Enum.NormalId.Top }
+
+local function rivesti(parte, nome, studs, facce)
+	for _, faccia in ipairs(facce) do
+		local t = Instance.new("Texture")
+		t.Texture = "rbxassetid://" .. TEXTURE[nome]
+		t.Face = faccia
+		t.StudsPerTileU = studs
+		t.StudsPerTileV = studs
+		t.Color3 = parte.Color
+		t.Parent = parte
+	end
+	return parte
+end
+
 -- Parte invisibile: appoggio per scritte, luci, prompt e collisioni.
 local function invisibile(genitore, dimensione, dove, collide)
 	return scatola(genitore, dimensione, dove, Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, {
@@ -344,8 +364,8 @@ local function cartello(genitore, centro, verso, larghezza, altezza, titolo, col
 	return tavola
 end
 
--- Muro diritto da "a" a "b" (punti a terra), spesso "spessore", da y0 a y1, con finestre:
--- { centro = distanza da a, larghezza, basso, alto }. Restituisce le parti.
+-- Muro diritto da "a" a "b" (punti a terra), spesso "spessore", da y0 a y1, intonacato. Finestre (non più usate:
+-- Mattia, 1/11/2026, "niente finestre, si vede il cielo"): { centro = distanza da a, larghezza, basso, alto }.
 local function muro(genitore, a, b, y0, y1, spessore, colore, materiale, finestre)
 	local lungo = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
 	local lunghezza = lungo.Magnitude
@@ -356,7 +376,8 @@ local function muro(genitore, a, b, y0, y1, spessore, colore, materiale, finestr
 		if t1 - t0 < 0.05 or yb - ya < 0.05 then
 			return
 		end
-		table.insert(parti, scatola(genitore, Vector3.new(spessore, yb - ya, t1 - t0), base * CFrame.new(0, (ya + yb) / 2, -(t0 + t1) / 2), colore, materiale))
+		local p = scatola(genitore, Vector3.new(spessore, yb - ya, t1 - t0), base * CFrame.new(0, (ya + yb) / 2, -(t0 + t1) / 2), colore, materiale)
+		table.insert(parti, rivesti(p, "intonaco", 30, LATI))
 	end
 	finestre = finestre or {}
 	table.sort(finestre, function(x, y)
@@ -390,15 +411,6 @@ local function tappeto(genitore, a, b, larghezza)
 	return corsia(scatola(genitore, Vector3.new(larghezza, 0.3, lunghezza), cf * CFrame.new(0, 0.15, 0), MOQUETTE, Enum.Material.Fabric))
 end
 
--- Finestre: distanza dal punto "a" del muro, larghezza, altezza da terra, cima.
-local function finestre(centri, larghezza, basso, alto)
-	local lista = {}
-	for _, c in ipairs(centri) do
-		table.insert(lista, { centro = c, larghezza = larghezza, basso = PAVIMENTO + basso, alto = PAVIMENTO + alto })
-	end
-	return lista
-end
-
 ---------------------------------------------------------------------------------------------------------
 -- Pezzi grandi
 
@@ -420,9 +432,9 @@ local function anelloMura(genitore, centro, raggio, spessore, altezza, n, porte,
 		local pos = centro + dir * (raggio + spessore / 2)
 		local cf = CFrame.lookAt(pos, centro)
 		if porta then
-			scatola(genitore, Vector3.new(larghezza, altezza - yPorta, spessore), cf * CFrame.new(0, PAVIMENTO + (altezza + yPorta) / 2, 0), colore, materiale)
+			rivesti(scatola(genitore, Vector3.new(larghezza, altezza - yPorta, spessore), cf * CFrame.new(0, PAVIMENTO + (altezza + yPorta) / 2, 0), colore, materiale), "intonaco", 30, FRONTE_RETRO)
 		else
-			scatola(genitore, Vector3.new(larghezza, altezza, spessore), cf * CFrame.new(0, PAVIMENTO + altezza / 2, 0), colore, materiale)
+			rivesti(scatola(genitore, Vector3.new(larghezza, altezza, spessore), cf * CFrame.new(0, PAVIMENTO + altezza / 2, 0), colore, materiale), "intonaco", 30, FRONTE_RETRO)
 			-- Zoccolo scuro in basso.
 			scatola(genitore, Vector3.new(larghezza, 3, 0.6), cf * CFrame.new(0, PAVIMENTO + 1.5, -spessore / 2 - 0.3), PIETRA_SCURA, Enum.Material.Slate)
 		end
@@ -849,23 +861,23 @@ end
 -- Stile delle sale della Galleria, una per epoca nell'ordine di Epoche.Lista.
 local SALE_EPOCHE = {
 	Antica = {
-		nome = "ANTIQUITY", pavimento = MARMO, materiale = Enum.Material.Marble,
+		nome = "ANTIQUITY", pavimento = MARMO, materiale = Enum.Material.SmoothPlastic, texture = "lastre",
 		muri = Color3.fromRGB(214, 196, 162), materialeMuri = Enum.Material.Limestone, drappo = ROSSO_ROMANO, decoro = "colonne",
 	},
 	Medievale = {
-		nome = "MIDDLE AGES", pavimento = Color3.fromRGB(120, 112, 104), materiale = Enum.Material.Cobblestone,
+		nome = "MIDDLE AGES", pavimento = Color3.fromRGB(120, 112, 104), materiale = Enum.Material.SmoothPlastic, texture = "lastre",
 		muri = Color3.fromRGB(128, 120, 110), materialeMuri = Enum.Material.Cobblestone, drappo = BLU_REALE, decoro = "torce",
 	},
 	Polvere = {
-		nome = "AGE OF GUNPOWDER", pavimento = Color3.fromRGB(128, 92, 60), materiale = Enum.Material.WoodPlanks,
+		nome = "AGE OF GUNPOWDER", pavimento = Color3.fromRGB(128, 92, 60), materiale = Enum.Material.SmoothPlastic, texture = "assi",
 		muri = Color3.fromRGB(190, 160, 128), materialeMuri = Enum.Material.Brick, drappo = Color3.fromRGB(150, 60, 50), decoro = "lampadari",
 	},
 	Novecento = {
-		nome = "20TH CENTURY", pavimento = CEMENTO, materiale = Enum.Material.Concrete,
+		nome = "20TH CENTURY", pavimento = CEMENTO, materiale = Enum.Material.SmoothPlastic, texture = "lastre",
 		muri = Color3.fromRGB(116, 114, 108), materialeMuri = Enum.Material.Concrete, drappo = OLIVA, decoro = "travi",
 	},
 	Moderna = {
-		nome = "MODERN ERA", pavimento = Color3.fromRGB(150, 138, 110), materiale = Enum.Material.Concrete,
+		nome = "MODERN ERA", pavimento = Color3.fromRGB(150, 138, 110), materiale = Enum.Material.SmoothPlastic, texture = "lastre",
 		muri = Color3.fromRGB(176, 160, 124), materialeMuri = Enum.Material.Concrete, drappo = Color3.fromRGB(150, 122, 76), decoro = "travi",
 	},
 }
@@ -876,17 +888,20 @@ local POSTI_X = { -17, 17 }
 local SPAZIO_SALA = 12 -- spazio libero all'inizio e alla fine di ogni sala
 
 -- Quanti soldati e quanto grandi su un piedistallo: fanti e tiratori a gruppi di quattro, cavalieri e
--- mitraglieri da soli, veicoli ed elefanti rimpiccioliti, la fortezza in piccolo.
+-- mitraglieri da soli, veicoli ed elefanti un po' più piccoli, la fortezza in piccolo. Più grandi di prima
+-- (Mattia, 1/11/2026: "il piedistallo va bene, ingrandire le truppe"). I modelli vengono dagli asset
+-- (ModelliAsset): ingrandirli non copia le mesh.
+local INGRANDITE = 1.45
 local function comeEsporre(tipo)
 	local def = Epoche.Truppe[tipo]
 	if def.fortezza then
-		return 1, 1, 0.42
+		return 1, 1, 0.5
 	elseif def.veicolo then
-		return 1, 1, def.classe == "Cavalleria" and def.soldati == 1 and 0.55 or 0.75
+		return 1, 1, def.classe == "Cavalleria" and def.soldati == 1 and 0.75 or 0.95
 	elseif def.classe == "Cavalleria" or def.soldati < 8 then
-		return 1, 1, 1
+		return 1, 1, INGRANDITE
 	end
-	return 2, 2, 1
+	return 2, 2, INGRANDITE
 end
 
 -- Galleria delle Epoche (nord, -Z): una sala per epoca con un piedistallo per ogni reggimento che si può avere
@@ -912,15 +927,11 @@ local function galleria(lobby, callback)
 		local st = sala.stile
 		local z0 = i == 1 and Z0 or sala.z0
 		local lunghezza = z0 - sala.z1
-		scatola(m, Vector3.new(X * 2 + 8, 1, lunghezza), Vector3.new(0, PAVIMENTO - 0.5, (z0 + sala.z1) / 2), st.pavimento, st.materiale)
-		-- Muri laterali con un finestrone ogni due file: da lì si vedono le montagne e il tramonto.
-		local centri = {}
-		for c = 18, lunghezza - 10, 24 do
-			table.insert(centri, c)
-		end
+		local pavimento = scatola(m, Vector3.new(X * 2 + 8, 1, lunghezza), Vector3.new(0, PAVIMENTO - 0.5, (z0 + sala.z1) / 2), st.pavimento, st.materiale)
+		rivesti(pavimento, st.texture, st.texture == "assi" and 18 or 16, SOPRA)
+		-- Muri laterali pieni, senza finestre.
 		for lato = -1, 1, 2 do
-			muro(m, Vector3.new(lato * (X + 2), 0, z0), Vector3.new(lato * (X + 2), 0, sala.z1), PAVIMENTO, PAVIMENTO + ALTO, 4, st.muri, st.materialeMuri,
-				finestre(centri, st.decoro == "travi" and 4 or 6, 9, st.decoro == "travi" and 20 or 24))
+			muro(m, Vector3.new(lato * (X + 2), 0, z0), Vector3.new(lato * (X + 2), 0, sala.z1), PAVIMENTO, PAVIMENTO + ALTO, 4, st.muri, st.materialeMuri)
 		end
 		-- Soffitto (la prima sala comincia dietro il muro della Rotonda) e travi.
 		local zTetto = i == 1 and -(R_ROTONDA - 1) or z0
@@ -982,7 +993,7 @@ local function galleria(lobby, callback)
 		end
 	end
 	-- Muro di fondo, tappeto veloce al centro fino al portale e il portale della campagna.
-	scatola(m, Vector3.new(X * 2 + 8, ALTO + 2, 4), Vector3.new(0, PAVIMENTO + ALTO / 2, Z1 - 2), sale[#sale].stile.muri, Enum.Material.Concrete)
+	rivesti(scatola(m, Vector3.new(X * 2 + 8, ALTO + 2, 4), Vector3.new(0, PAVIMENTO + ALTO / 2, Z1 - 2), sale[#sale].stile.muri, Enum.Material.Concrete), "intonaco", 30, FRONTE_RETRO)
 	tappeto(m, Vector3.new(0, 0, -(R_ROTONDA + 2)), Vector3.new(0, 0, Z1 + 12), 8)
 	portale(m, "PortaleCampagna", CFrame.lookAt(Vector3.new(0, 0, Z1 + 6), Vector3.new(0, 0, 0)), BLU, "CAMPAIGN", "Conquer history", callback)
 	m.Parent = lobby
@@ -1009,7 +1020,7 @@ local function gradinata(genitore, centro, r0, r1, y1, n, varchi, colore, materi
 		if libero then
 			local dir = Vector3.new(math.cos(a), 0, math.sin(a))
 			local r = (r0 + r1) / 2
-			scatola(genitore, Vector3.new(larghezza, y1, r1 - r0), CFrame.lookAt(centro + dir * r + Vector3.new(0, PAVIMENTO + y1 / 2, 0), centro + Vector3.new(0, PAVIMENTO + y1 / 2, 0)), colore, materiale)
+			rivesti(scatola(genitore, Vector3.new(larghezza, y1, r1 - r0), CFrame.lookAt(centro + dir * r + Vector3.new(0, PAVIMENTO + y1 / 2, 0), centro + Vector3.new(0, PAVIMENTO + y1 / 2, 0)), colore, materiale), "lastre", 16, SOPRA)
 		end
 	end
 end
@@ -1024,7 +1035,7 @@ local function arena(lobby, callback)
 	local x1 = R_ROTONDA + 4 + 28 -- muro dell'arena
 	local centro = Vector3.new(x1 + R, 0, 0)
 	-- Corridoio dalla Rotonda, largo come le porte.
-	scatola(m, Vector3.new(x1 + 4 - x0, 1, LARGO * 2 + 8), Vector3.new((x0 + x1 + 4) / 2, PAVIMENTO - 0.5, 0), Color3.fromRGB(90, 80, 76), Enum.Material.Slate)
+	rivesti(scatola(m, Vector3.new(x1 + 4 - x0, 1, LARGO * 2 + 8), Vector3.new((x0 + x1 + 4) / 2, PAVIMENTO - 0.5, 0), Color3.fromRGB(90, 80, 76)), "lastre", 16, SOPRA)
 	for lato = -1, 1, 2 do
 		muro(m, Vector3.new(x0, 0, lato * (LARGO + 2)), Vector3.new(x1 + 2, 0, lato * (LARGO + 2)), PAVIMENTO, PAVIMENTO + 26, 4, PIETRA, Enum.Material.Cobblestone)
 		for _, x in ipairs({ x0 + 14, x1 - 8 }) do
@@ -1038,7 +1049,7 @@ local function arena(lobby, callback)
 	tappeto(m, Vector3.new(R_ROTONDA, 0, 0), centro - Vector3.new(30, 0, 0), 8)
 
 	-- Pavimento, sabbia al centro, gradinate.
-	pavimentoTondo(m, 1, (R + 4) * 2, centro + Vector3.new(0, PAVIMENTO - 0.53, 0), Color3.fromRGB(88, 78, 72), Enum.Material.Slate)
+	rivesti(pavimentoTondo(m, 1, (R + 4) * 2, centro + Vector3.new(0, PAVIMENTO - 0.53, 0), Color3.fromRGB(88, 78, 72)), "lastre", 16, { Enum.NormalId.Right })
 	pavimentoTondo(m, 1, 52, centro + Vector3.new(0, PAVIMENTO - 0.44, 0), Color3.fromRGB(196, 164, 116), Enum.Material.Sand)
 	pavimentoTondo(m, 1, 54, centro + Vector3.new(0, PAVIMENTO - 0.46, 0), ROSSO:Lerp(Color3.new(0, 0, 0), 0.4), Enum.Material.Slate)
 	-- A ovest il passaggio dal corridoio, a est lo spazio per il portale.
@@ -1174,12 +1185,12 @@ local function armeria(lobby, callback)
 	local X0 = -math.floor(math.sqrt(R_ROTONDA ^ 2 - (Z + 2) ^ 2))
 	local X1 = -172
 	local ALTO = 28
-	local MURI = Color3.fromRGB(140, 92, 70)
-	scatola(m, Vector3.new(X0 - X1, 1, Z * 2 + 8), Vector3.new((X0 + X1) / 2, PAVIMENTO - 0.5, 0), Color3.fromRGB(120, 86, 56), Enum.Material.WoodPlanks)
+	local MURI = Color3.fromRGB(176, 132, 98)
+	rivesti(scatola(m, Vector3.new(X0 - X1, 1, Z * 2 + 8), Vector3.new((X0 + X1) / 2, PAVIMENTO - 0.5, 0), Color3.fromRGB(132, 94, 62)), "assi", 18, SOPRA)
 	for lato = -1, 1, 2 do
-		muro(m, Vector3.new(X0, 0, lato * (Z + 2)), Vector3.new(X1, 0, lato * (Z + 2)), PAVIMENTO, PAVIMENTO + ALTO, 4, MURI, Enum.Material.Brick, finestre({ 26, 59, 92 }, 6, 12, 22))
+		muro(m, Vector3.new(X0, 0, lato * (Z + 2)), Vector3.new(X1, 0, lato * (Z + 2)), PAVIMENTO, PAVIMENTO + ALTO, 4, MURI)
 	end
-	scatola(m, Vector3.new(4, ALTO + 2, Z * 2 + 8), Vector3.new(X1 - 2, PAVIMENTO + ALTO / 2, 0), MURI, Enum.Material.Brick)
+	rivesti(scatola(m, Vector3.new(4, ALTO + 2, Z * 2 + 8), Vector3.new(X1 - 2, PAVIMENTO + ALTO / 2, 0), MURI), "intonaco", 30, LATI)
 	-- Il tetto comincia dietro il muro della Rotonda, per non coprire l'insegna della porta.
 	local xTetto = -(R_ROTONDA - 1)
 	scatola(m, Vector3.new(xTetto - (X1 - 2), 2, Z * 2 + 8), Vector3.new((xTetto + X1 - 2) / 2, PAVIMENTO + ALTO + 1, 0), LEGNO_SCURO, Enum.Material.WoodPlanks)
@@ -1251,15 +1262,11 @@ local function eroi(lobby, callback)
 	local Z1 = 206
 	local ALTO = 32
 	local Z_TAVOLO = 186
-	scatola(m, Vector3.new(X * 2 + 8, 1, Z1 - Z0), Vector3.new(0, PAVIMENTO - 0.5, (Z0 + Z1) / 2), MARMO, Enum.Material.Marble)
-	local centri = {}
-	for c = 22, Z1 - Z0 - 10, 20 do
-		table.insert(centri, c)
-	end
+	rivesti(scatola(m, Vector3.new(X * 2 + 8, 1, Z1 - Z0), Vector3.new(0, PAVIMENTO - 0.5, (Z0 + Z1) / 2), MARMO), "lastre", 16, SOPRA)
 	for lato = -1, 1, 2 do
-		muro(m, Vector3.new(lato * (X + 2), 0, Z0), Vector3.new(lato * (X + 2), 0, Z1), PAVIMENTO, PAVIMENTO + ALTO, 4, PIETRA_CHIARA, Enum.Material.Limestone, finestre(centri, 6, 10, 27))
+		muro(m, Vector3.new(lato * (X + 2), 0, Z0), Vector3.new(lato * (X + 2), 0, Z1), PAVIMENTO, PAVIMENTO + ALTO, 4, PIETRA_CHIARA)
 	end
-	scatola(m, Vector3.new(X * 2 + 8, ALTO + 2, 4), Vector3.new(0, PAVIMENTO + ALTO / 2, Z1 + 2), PIETRA_CHIARA, Enum.Material.Limestone)
+	rivesti(scatola(m, Vector3.new(X * 2 + 8, ALTO + 2, 4), Vector3.new(0, PAVIMENTO + ALTO / 2, Z1 + 2), PIETRA_CHIARA), "intonaco", 30, FRONTE_RETRO)
 	-- Il soffitto comincia dietro il muro della Rotonda, per non coprire l'insegna della porta.
 	local zTetto = R_ROTONDA - 1
 	scatola(m, Vector3.new(X * 2 + 8, 2, Z1 + 2 - zTetto), Vector3.new(0, PAVIMENTO + ALTO + 1, (zTetto + Z1 + 2) / 2), Color3.fromRGB(70, 60, 54), Enum.Material.Slate)
@@ -1323,13 +1330,29 @@ end
 -- callback: { campagna, ranked, shop, esercito } = function(player)
 -- Ingrandisce la cittadella (già costruita a misura 1) di SCALA attorno al centro del pavimento.
 -- ScaleTo non tocca luci, prompt e attributi: si sistemano a mano. I soldati e le statue sui piedistalli
--- li mette il client (LobbyVita) con l'attributo "Scala": crescono solo statue e fortezze, che erano già
--- ridimensionate. I soldati restano a misura 1: ridimensionarli costringe Roblox a copiare la mesh di
--- ognuno e la memoria per le mesh finisce (provato il 18/10/2026).
+-- li mette il client (LobbyVita) con l'attributo "Scala", che qui si moltiplica per SCALA. (Il 18/10/2026
+-- ingrandire i soldati esauriva la memoria delle mesh costruite a runtime; ora sono asset, vedi comeEsporre.)
+-- Materiali di Roblox (mattoni, ciottoli, ardesia, assi...) tolti dappertutto: superfici lisce, come gli oggetti
+-- di Blender; pavimenti e muri hanno le loro texture (rivesti).
+local MATERIALI_TOLTI = {
+	[Enum.Material.Slate] = true,
+	[Enum.Material.Cobblestone] = true,
+	[Enum.Material.Brick] = true,
+	[Enum.Material.Limestone] = true,
+	[Enum.Material.Marble] = true,
+	[Enum.Material.WoodPlanks] = true,
+	[Enum.Material.Wood] = true,
+	[Enum.Material.Concrete] = true,
+	[Enum.Material.Sand] = true,
+}
+
 local function ingrandisci(lobby)
 	lobby.WorldPivot = CFrame.new(0, PAVIMENTO, 0)
 	lobby:ScaleTo(SCALA)
 	for _, d in ipairs(lobby:GetDescendants()) do
+		if d:IsA("Part") and MATERIALI_TOLTI[d.Material] then
+			d.Material = Enum.Material.SmoothPlastic
+		end
 		if d:IsA("Light") then
 			d.Range = math.min(60, d.Range * SCALA)
 		elseif d:IsA("ProximityPrompt") then

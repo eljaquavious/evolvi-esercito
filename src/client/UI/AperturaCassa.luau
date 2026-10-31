@@ -43,6 +43,11 @@ end
 -- Colori della rarità della carta per l'alone.
 local PAL_CARTE = { bronze = "r_bronzo", silver = "r_argento", gold = "r_oro", legend = "r_leggenda" }
 
+-- Colori delle rarità: accesi durante l'apertura (Stile.RARITA_ACCESE), il resto come la tavolozza.
+local function palDi(nome)
+	return Stile.RARITA_ACCESE[nome] or Stile.PAL[nome]
+end
+
 local function tween(oggetto, tempo, proprieta, stile, direzione)
 	local t = TweenService:Create(oggetto, TweenInfo.new(tempo, stile or Enum.EasingStyle.Quad, direzione or Enum.EasingDirection.Out), proprieta)
 	t:Play()
@@ -260,7 +265,7 @@ local function aCaso(elenco)
 end
 
 local function casella(voce, genitore, x)
-	local pal = Stile.PAL[voce.pal] or Stile.PAL.r_comune
+	local pal = palDi(voce.pal) or Stile.RARITA_ACCESE.r_comune
 	local f = Stile.crea("Frame", {
 		Position = UDim2.fromOffset(x, 0),
 		Size = UDim2.fromOffset(LARGO_CASELLA, ALTO_CASELLA),
@@ -303,7 +308,7 @@ local function casella(voce, genitore, x)
 		ZIndex = 86,
 		Parent = f,
 	})
-	alto.TextColor3 = pal.t:Lerp(Stile.BIANCO, 0.55)
+	alto.TextColor3 = pal.t:Lerp(Stile.BIANCO, 0.2)
 	Stile.scritta({
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, 8, 1, -10),
@@ -454,7 +459,7 @@ local function mostra(risultato)
 	occupato = true
 	local cassa = Casse.trova(risultato.cassa)
 	local info = descrivi(risultato)
-	local pal = Stile.PAL[info.pal] or Stile.PAL.blu
+	local pal = palDi(info.pal) or Stile.PAL.blu
 	local tela = Stile.radice(gui)
 
 	local velo = Stile.crea("TextButton", {
