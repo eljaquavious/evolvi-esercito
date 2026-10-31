@@ -1,4 +1,5 @@
--- Apertura di una cassa: la striscia dei premi scorre e si ferma su quello vinto, un lampo, poi la ricompensa
+-- Apertura di una cassa: il forziere 3D cade, trema e si apre, poi la striscia dei premi scorre e si ferma su
+-- quello vinto, un lampo, poi la ricompensa
 -- (la carta del reggimento, il cosmetico o le monete). Arriva dall'evento CassaAperta del server.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,6 +14,7 @@ local Stile = require(script.Parent.Stile)
 local Icone = require(script.Parent.Icone)
 local Carta = require(script.Parent.Carta)
 local Armadio = require(script.Parent.Armadio)
+local Forzieri = require(ReplicatedStorage.Shared.Forzieri)
 
 local AperturaCassa = {}
 
@@ -89,6 +91,120 @@ local DURATA_STRISCIA = 5.5
 local suonoScatto = Instance.new("Sound")
 suonoScatto.SoundId = "rbxasset://sounds/clickfast.wav"
 suonoScatto.Volume = 0.5
+
+-- Suoni del forziere (Pro Sound Effects): cade, trema, si apre.
+local function suonoUnaVolta(id, volume, velocita)
+	local s = Instance.new("Sound")
+	s.SoundId = "rbxassetid://" .. id
+	s.Volume = volume
+	s.PlaybackSpeed = velocita or 1
+	s.Parent = game:GetService("SoundService")
+	s.Ended:Connect(function()
+		s:Destroy()
+	end)
+	task.delay(6, function()
+		s:Destroy()
+	end)
+	s:Play()
+end
+local SUONO_CADUTA, SUONO_SCOSSA, SUONO_APERTURA = 9113766605, 9120888471, 9116418035
+
+-- Il forziere 3D della cassa al centro dello schermo: cade, trema tre volte sempre più forte con la luce che
+-- filtra, poi il coperchio si spalanca. Senza forziere (non ancora caricato) si salta.
+local function forziere(centro, cassa, pal)
+	local modello = Forzieri.clona(cassa.id) or (Forzieri.aspetta(cassa.id, 1.5) and Forzieri.clona(cassa.id))
+	if not modello then
+		return
+	end
+	local vista = Stile.crea("ViewportFrame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = UDim2.fromOffset(820, 700),
+		BackgroundTransparency = 1,
+		Ambient = Color3.fromRGB(165, 160, 175),
+		LightColor = Color3.fromRGB(255, 245, 225),
+		LightDirection = Vector3.new(-0.5, -1, 0.7),
+		ZIndex = 83,
+		Parent = centro,
+	})
+	-- Luce dietro il forziere: cresce a ogni scossa e esplode all'apertura.
+	local luce = Stile.crea("ImageLabel", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.42),
+		Size = UDim2.fromOffset(520, 520),
+		Image = Icone.immagine("glow") or "",
+		ImageColor3 = pal.t,
+		ImageTransparency = 1,
+		BackgroundTransparency = 1,
+		ZIndex = 82,
+		Parent = centro,
+	})
+	local camera = Instance.new("Camera")
+	camera.FieldOfView = 28
+	camera.Parent = vista
+	vista.CurrentCamera = camera
+	modello.Parent = vista
+	local _, misure = modello:GetBoundingBox()
+	local guarda = Vector3.new(0, misure.Y * 0.48, 0)
+	local distanza = misure.X * 4.4
+	camera.CFrame = CFrame.lookAt(guarda + Vector3.new(-0.42, 0.5, -1).Unit * distanza, guarda)
+
+	local function posa(altezza, inclina, gira, schiaccia)
+		modello:PivotTo(CFrame.new(0, altezza, 0) * CFrame.Angles(0, gira or 0, inclina or 0))
+		vista.Size = UDim2.fromOffset(820, 700 * (schiaccia or 1))
+	end
+	local function anima(durata, passo)
+		local inizio = os.clock()
+		while true do
+			local t = math.min((os.clock() - inizio) / durata, 1)
+			passo(t)
+			if t >= 1 then
+				break
+			end
+			RunService.RenderStepped:Wait()
+		end
+	end
+
+	-- 1) Cade dall'alto e rimbalza.
+	Forzieri.apri(modello, 0)
+	suonoUnaVolta(SUONO_CADUTA, 0.6)
+	anima(0.55, function(t)
+		local k = TweenService:GetValue(t, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
+		posa((1 - k) * misure.Y * 2.2, 0, math.rad(-12) * (1 - k))
+		Forzieri.apri(modello, 0)
+	end)
+	task.wait(0.25)
+
+	-- 2) Tre scosse, sempre più forti; il coperchio si solleva un poco e la luce filtra.
+	for i = 1, 3 do
+		suonoUnaVolta(SUONO_SCOSSA, 0.5, 0.9 + i * 0.08)
+		local forza = 0.05 + i * 0.035
+		tween(luce, 0.25, { ImageTransparency = 0.75 - i * 0.18, Size = UDim2.fromOffset(460 + i * 90, 460 + i * 90) })
+		anima(0.32, function(t)
+			local onda = math.sin(t * math.pi * 4) * (1 - t)
+			posa(math.sin(t * math.pi) * 0.25 * i, onda * forza * 1.6, onda * forza * 0.6)
+			Forzieri.apri(modello, math.sin(t * math.pi) * (0.03 + i * 0.025))
+		end)
+		task.wait(0.28 - i * 0.05)
+	end
+
+	-- 3) Il coperchio si spalanca con un rimbalzo; la luce esplode.
+	suonoUnaVolta(SUONO_APERTURA, 0.55)
+	tween(luce, 0.35, { ImageTransparency = 0, Size = UDim2.fromOffset(1100, 1100) })
+	anima(0.45, function(t)
+		local k = TweenService:GetValue(t, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+		posa(0, 0, 0, 1 + math.sin(t * math.pi) * 0.04)
+		Forzieri.apri(modello, k)
+	end)
+	task.wait(0.55)
+	-- Il forziere si allontana e lascia il posto alla striscia.
+	tween(luce, 0.4, { ImageTransparency = 1 })
+	anima(0.3, function(t)
+		vista.ImageTransparency = t
+		vista.Size = UDim2.fromOffset(820 * (1 + t * 0.3), 700 * (1 + t * 0.3))
+	end)
+	vista:Destroy()
+	luce:Destroy()
+end
 
 local function unoSu(p)
 	return ("1 IN %d"):format(math.max(1, math.floor(1 / math.max(p, 0.0001) + 0.5)))
@@ -387,6 +503,7 @@ local function mostra(risultato)
 		if raggi then
 			raggi.Visible = false
 		end
+		forziere(centro, cassa, pal)
 		striscia(centro, risultato, cassa)
 		if raggi then
 			raggi.Visible = true

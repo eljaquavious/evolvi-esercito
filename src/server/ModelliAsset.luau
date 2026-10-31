@@ -6,6 +6,8 @@ local InsertService = game:GetService("InsertService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AssetTruppe = require(ReplicatedStorage.Shared.Config.AssetTruppe)
+local AssetForzieri = require(ReplicatedStorage.Shared.Config.AssetForzieri)
+local Forzieri = require(ReplicatedStorage.Shared.Forzieri)
 
 local ModelliAsset = {}
 
@@ -53,6 +55,25 @@ function ModelliAsset.carica()
 				end
 				if tentativo == TENTATIVI then
 					warn(("[ModelliAsset] %s (%d) non caricato: %s"):format(tipo, asset.id, tostring(modello)))
+				end
+				task.wait(1)
+			end
+		end)
+	end
+
+	-- Forzieri delle casse (shop, lobby, apertura).
+	local forzieri = Instance.new("Folder")
+	forzieri.Name = "Forzieri"
+	forzieri.Parent = ReplicatedStorage
+	for id, asset in pairs(AssetForzieri) do
+		task.spawn(function()
+			for tentativo = 1, TENTATIVI do
+				local ok, modello = pcall(InsertService.LoadAsset, InsertService, asset.id)
+				if ok and modello and Forzieri.prepara(id, modello, forzieri) then
+					return
+				end
+				if tentativo == TENTATIVI then
+					warn(("[ModelliAsset] forziere %s (%d) non caricato: %s"):format(id, asset.id, tostring(modello)))
 				end
 				task.wait(1)
 			end
