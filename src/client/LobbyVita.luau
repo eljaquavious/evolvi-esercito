@@ -136,9 +136,7 @@ end
 local function prepara(lobby)
 	parametriTappeto.FilterDescendantsInstances = { lobby }
 	for _, oggetto in ipairs(lobby:GetDescendants()) do
-		if oggetto:IsA("Model") and oggetto:GetAttribute("Gira") then
-			table.insert(giranti, { modello = oggetto, base = oggetto:GetPivot(), gradi = oggetto:GetAttribute("Gira") })
-		elseif oggetto:IsA("Model") and oggetto:GetAttribute("Spirale") then
+		if oggetto:IsA("Model") and oggetto:GetAttribute("Spirale") then
 			table.insert(spirali, { modello = oggetto, base = oggetto:GetPivot(), gradi = oggetto:GetAttribute("Spirale") })
 		elseif oggetto:IsA("BasePart") and oggetto.Name == "Fascio" then
 			table.insert(fasci, { parte = oggetto, base = oggetto:GetAttribute("Base"), fase = #fasci * 1.7 })
@@ -147,8 +145,13 @@ local function prepara(lobby)
 	-- I modelli dopo il resto: costruirli può richiedere qualche frame. Con lo streaming i piedistalli lontani
 	-- arrivano dopo (o escono e rientrano): ognuno si popola una volta sola, riconosciuto dalla posizione.
 	local popolati = {}
+	local girano = {}
 	local function forse(oggetto)
-		if oggetto:IsA("BasePart") and oggetto:GetAttribute("Esposizione") then
+		-- I forzieri sui banchi dello shop arrivano quando il server li ha caricati, anche dopo.
+		if oggetto:IsA("Model") and oggetto:GetAttribute("Gira") and not girano[oggetto] then
+			girano[oggetto] = true
+			table.insert(giranti, { modello = oggetto, base = oggetto:GetPivot(), gradi = oggetto:GetAttribute("Gira") })
+		elseif oggetto:IsA("BasePart") and oggetto:GetAttribute("Esposizione") then
 			local p = oggetto.Position
 			local chiave = ("%d,%d,%d"):format(math.round(p.X), math.round(p.Y), math.round(p.Z))
 			if not popolati[chiave] then
