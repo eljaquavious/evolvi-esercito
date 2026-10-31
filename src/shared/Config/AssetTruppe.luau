@@ -66,7 +66,7 @@ return {
 	MitraglieriSovietici = { id = 89660161694889, metri = 2.34, centro = Vector3.new(-0.0014, 1.9502, -0.9515), basso = -2.1214 },
 	MitraglieriTedeschi = { id = 121842871561945, metri = 2.34, centro = Vector3.new(-0.0014, 1.8449, -1.0269), basso = -2.0161 },
 	MoschettiereSvedese = { id = 125341298323893, metri = 2.34, centro = Vector3.new(-0.4269, 2.4570, -0.1118), basso = -2.4570 },
-	Napoleone = { id = 138750515237803, metri = 2.8, centro = Vector3.new(0.0311, 2.8140, -1.0049), basso = -2.8140 },
+	Napoleone = { id = 136719964447024, metri = 2.8, centro = Vector3.new(0.0000, 2.9190, -1.0007), basso = -2.9190 },
 	Oplita = { id = 86586815790537, metri = 2.34, centro = Vector3.new(-0.0693, 2.6302, -0.5479), basso = -2.6302 },
 	PT76 = { id = 97977814033266, metri = 2.34, centro = Vector3.new(0.0000, 2.4980, -0.7605), basso = -2.5097 },
 	Panzer = { id = 128388428043687, metri = 1.6, centro = Vector3.new(0.0000, 2.1000, -1.1600), basso = -2.1000 },

@@ -1246,31 +1246,114 @@ def Corazziere(vecchio):
     return m
 
 
+def bicorno_napoleone(m, c="#141416"):
+    """Il "petit chapeau" di Napoleone: feltro nero SENZA galloni, grande, portato di traverso (en bataille).
+    Visto di fronte è una mezzaluna larga con le punte che salgono: fatto di spicchi inclinati lungo l'arco,
+    con la coccarda tricolore e il cordoncino d'oro sul lato sinistro (Mattia, 31/10/2026: "non sembra Napoleone")."""
+    H = m.posizione_osso("testa")[1]
+    base = H + TESTA - 0.09  # calzato basso sulla fronte, non appoggiato in cima
+    R = (TESTA + 0.78) / 2  # mezza larghezza: molto più largo della testa
+    n = 27
+    feltro = tinta(c, "cuoio")
+
+    def coccarda(pen):
+        pen.riempi(c, "cuoio")
+        pen.ellisse(0.12, 0.18, 0.88, 0.62, "#B82820")  # rosso fuori
+        pen.ellisse(0.24, 0.24, 0.76, 0.56, "#ECEAE2")  # bianco
+        pen.ellisse(0.36, 0.3, 0.64, 0.5, "#2A4E9A")  # blu al centro
+        pen.rett(0.45, 0.0, 0.55, 0.95, ORO)  # cordoncino che la tiene
+
+    def fondo(x):
+        return base + 0.11 * (x / R) ** 2  # il bordo di sotto risale verso le punte
+
+    def spessore(x):
+        return 0.045 + 0.29 * max(0.0, 1 - (x / R) ** 2) ** 0.75
+
+    passo = 2 * R / n
+    for i in range(n):
+        x = -R + passo * (i + 0.5)
+        t = spessore(x)
+        pendenza = 0.22 * x / R ** 2  # derivata di fondo(x)
+        a = np.arctan(pendenza)
+        assi = [[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]]
+        profondo = 0.07 + 0.13 * max(0.0, 1 - (x / R) ** 2)
+        m.scatola("testa", (x, fondo(x) + t / 2, 0.01), (passo * 1.08, t, profondo), {"tutte": feltro}, assi=assi)
+    # La coccarda: un dischetto piatto davanti al cappello, sul lato sinistro di Napoleone (-X).
+    xc = -R * 0.45
+    profondo_c = 0.07 + 0.13 * (1 - (xc / R) ** 2)
+    a = np.arctan(0.22 * xc / R ** 2)
+    assi = [[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]]
+    m.scatola("testa", (xc, fondo(xc) + spessore(xc) * 0.55, 0.01 - profondo_c / 2 - 0.008), (0.13, 0.17, 0.014),
+              {"tutte": feltro, "fronte": coccarda}, assi=assi)
+    # La calotta che calza sulla testa.
+    m.scatola("testa", (0, H + TESTA - 0.04, 0.0), (TESTA * 1.04, 0.13, TESTA * 1.04), {"tutte": feltro})
+
+
+def viso_napoleone(pelle, capelli):
+    """Il volto di Napoleone giovane console/imperatore: rasato, sguardo severo con le sopracciglia aggrottate,
+    il famoso ciuffo di capelli sulla fronte, bocca stretta, mento con la fossetta."""
+    occhi = "#2E3640"
+    ciglia = scuro(capelli, 0.1)
+
+    def p(pen):
+        pen.riempi(pelle, "pelle")
+        pen.rett(0, 0, 1, 0.1, capelli)
+        # Il ciuffo che scende sulla fronte, un po' di lato.
+        pen.poligono([(0.34, 0.08), (0.62, 0.08), (0.56, 0.2), (0.47, 0.27), (0.44, 0.17), (0.38, 0.22)], capelli)
+        for u, verso in ((0.3, 1), (0.7, -1)):
+            pen.ellisse(u - 0.07, 0.40, u + 0.07, 0.55, occhi)
+            pen.ellisse(u - 0.03, 0.42, u + 0.005, 0.47, "#FFFFFF")
+            # Sopracciglia aggrottate: più basse verso il naso.
+            interno = u + verso * 0.12
+            esterno = u - verso * 0.12
+            pen.poligono([(esterno, 0.31), (interno, 0.355), (interno, 0.39), (esterno, 0.35)], ciglia)
+        pen.linea([(0.47, 0.5), (0.45, 0.64), (0.53, 0.65)], scuro(pelle, 0.3), 0.008)  # naso
+        pen.poligono([(0.37, 0.76), (0.63, 0.75), (0.63, 0.78), (0.37, 0.79)], scuro(pelle, 0.55))  # bocca stretta
+        pen.linea([(0.5, 0.88), (0.5, 0.94)], scuro(pelle, 0.25), 0.008)  # fossetta del mento
+    return p
+
+
 @fante
 def Napoleone():
-    """Napoleone Bonaparte: bicorno di traverso, redingote grigia sopra l'uniforme verde dei cacciatori, spada."""
+    """Napoleone Bonaparte: il bicorno nero di traverso, la redingote grigia aperta sull'uniforme verde dei
+    cacciatori della Guardia (colletto rosso, panciotto bianco, Legion d'onore), calzoni bianchi, stivali neri
+    alti e la mano sinistra nel panciotto. Spada nella destra."""
     m = Modello("Napoleone")
-    scheletro(m, mano_r=(-0.1, -0.55, -1), mano_l=(0.05, -1, 0.05))
-    pelle = PELLI[3]
-    grigio, verde = "#7A7A78", "#2E5A3A"
+    # Mano sinistra nel panciotto: l'avambraccio va dal gomito verso il centro del petto.
+    scheletro(m, mano_r=(-0.1, -0.55, -1), mano_l=(0.95, 0.4, -0.42))
+    pelle = PELLI[3]  # carnagione chiara
+    capelli = "#2A1E16"
+    grigio, verde, rosso = "#808286", "#24503A", "#B82820"
 
     def redingote(pen):
         pen.riempi(grigio)
-        pen.rett(0.32, 0, 0.68, 0.75, verde)
-        pen.rett(0.38, 0.05, 0.62, 0.7, "#ECEAE2")  # panciotto
-        for v in (0.15, 0.3, 0.45):
-            pen.ellisse(0.47, v, 0.53, v + 0.04, ORO)
-        pen.rett(0.18, 0.2, 0.28, 0.3, "#B82820")  # Legion d'onore
+        pen.rett(0.27, 0, 0.73, 1.0, verde)  # la giubba verde dove la redingote è aperta
+        pen.rett(0.27, 0, 0.73, 0.1, rosso)  # colletto rosso
+        pen.rett(0.36, 0.1, 0.64, 0.78, "#F0EEE6")  # panciotto bianco
+        for v in (0.2, 0.33, 0.46, 0.59):
+            pen.ellisse(0.475, v, 0.525, v + 0.035, ORO)
+        # Legion d'onore: nastro rosso e stella d'argento sul petto a sinistra.
+        pen.rett(0.66, 0.2, 0.71, 0.26, rosso)
+        pen.ellisse(0.655, 0.26, 0.72, 0.33, "#D8DCE2")
+        pen.rett(0.27, 0.78, 0.73, 0.84, "#ECEAE2")  # cintura bianca dei calzoni
+        pen.rett(0.25, 0, 0.28, 1.0, scuro(grigio, 0.35))  # risvolti della redingote
+        pen.rett(0.72, 0, 0.75, 1.0, scuro(grigio, 0.35))
+
+    def schiena(pen):
+        pen.riempi(grigio)
+        pen.rett(0.3, 0, 0.7, 0.08, scuro(grigio, 0.25))  # bavero
+
     abito = {
-        "busto": redingote, "busto_retro": tinta(grigio), "busto_lati": tinta(grigio),
+        "busto": redingote, "busto_retro": schiena, "busto_lati": tinta(grigio),
         "omero": tinta(grigio), "avambraccio": tinta(grigio), "mano": tinta("#ECEAE2"),
-        "coscia": tinta("#ECEAE2"), "stinco": pantaloni("#ECEAE2", stivali="#1A1A1E", altezza_stivale=0.9)[1], "piede": tinta("#1A1A1E", "cuoio"),
-        "testa": viso(pelle, bocca="decisa", capelli="#3A2A1E", frangia=0.02), "testa_lati": capelli_lati(pelle, "#3A2A1E", 0.4),
-        "testa_retro": capelli_retro("#3A2A1E", pelle, 0.7),
+        "coscia": tinta("#F0EEE6"), "stinco": pantaloni("#F0EEE6", stivali="#141416", altezza_stivale=0.95)[1],
+        "piede": tinta("#141416", "cuoio"),
+        "testa": viso_napoleone(pelle, capelli), "testa_lati": capelli_lati(pelle, capelli, 0.42),
+        "testa_retro": capelli_retro(capelli, pelle, 0.72),
     }
     corpo(m, abito)
-    mantello(m, grigio, basso_y=GAMBE * 0.25)
-    bicorno(m)
+    mantello(m, grigio, basso_y=GAMBE * 0.22, bordo=scuro(grigio, 0.3))
+    bicorno_napoleone(m)
     spada_dritta(m, 0.7, elsa=ORO)
     return m
 
