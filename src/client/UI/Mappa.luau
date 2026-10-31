@@ -1,6 +1,6 @@
--- Mappa della campagna, stile Clash of Clans: il plastico d'Europa (costruito dal server) con sopra
--- i livelli collegati da un sentiero, le stelle conquistate e il pannello per attaccare.
--- Livelli e sentiero sono parti locali di questo client.
+-- Mappa della campagna: il plastico d'Europa a pixel (costruito dal server) visto dritto dall'alto, con sopra
+-- i livelli, le stelle conquistate e il pannello per attaccare. Niente sentieri (Mattia, 1/11/2026).
+-- I livelli sono parti locali di questo client.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -30,7 +30,6 @@ local zoom = 1
 local cartella -- parti locali dei livelli
 local costruitaConMisure = false -- true se i nodi stanno sulle quote misurate dal server
 local nodi = {} -- numero -> { base, gui, stelle }
-local puntini = {} -- numero -> lista di puntini del tratto che porta a quel livello
 
 -- Interfaccia 2D (sulla tela 1920x1080 di Stile.radice).
 local interfaccia, pannello, cielo, chipBattaglia, nomeLivello, infoLivello, dettagli
@@ -48,13 +47,13 @@ local GRIGIO = Color3.fromRGB(120, 120, 130)
 local ARANCIO = Color3.fromRGB(255, 130, 40)
 
 -- Mari, scritti sul plastico per orientarsi.
--- { nome, lat, lon, scala }: i mari a nord sono più lontani dalla telecamera, quindi più grandi.
+-- { nome, lat, lon, scala }: con la telecamera dall'alto sono tutti alla stessa distanza.
 local MARI = {
-	{ "ATLANTIC OCEAN", 45.5, -6.5, 1 },
-	{ "MEDITERRANEAN SEA", 34.6, 19, 1 },
-	{ "NORTH SEA", 56, 3.5, 1.7 },
-	{ "BLACK SEA", 43.4, 34.5, 1.2 },
-	{ "BALTIC SEA", 58, 19.5, 1.6 },
+	{ "ATLANTIC OCEAN", 45.5, -6.5, 1.1 },
+	{ "MEDITERRANEAN SEA", 34.6, 19, 1.1 },
+	{ "NORTH SEA", 56, 3.5, 1.1 },
+	{ "BLACK SEA", 43.4, 34.5, 1.1 },
+	{ "BALTIC SEA", 58, 19.5, 1.1 },
 }
 
 -- Quote dei livelli pubblicate dal server (vedi MappaCampagna); se mancano, il conto qui.
@@ -234,33 +233,6 @@ local function costruisci()
 			lucchetto = lucchetto,
 			nome = nome,
 		}
-
-		-- Tratto di sentiero dal livello precedente (calcolato insieme alla mappa). Sulla terra sono le
-		-- piastrelle più scure della mappa; qui si aggiungono le tratte per mare e le luci del prossimo tratto.
-		puntini[numero] = {}
-		local celle = MappaEuropa.Sentieri[numero] or {}
-		local passo = 0
-		for i = 1, #celle, 2 do
-			local colonna, riga = celle[i], celle[i + 1]
-			local centro = MappaEuropa.posizioneCella(colonna, riga)
-			passo += 1
-			if not MappaEuropa.terra(colonna, riga) then
-				if passo % 2 == 0 then
-					table.insert(puntini[numero], { mare = true, parte = parteLocale({
-						Size = Vector3.new(2.2, 0.3, 2.2),
-						Position = centro + Vector3.new(0, 0.25, 0),
-						Material = Enum.Material.SmoothPlastic,
-					}) })
-				end
-			elseif passo % 3 == 0 then
-				table.insert(puntini[numero], { mare = false, parte = parteLocale({
-					Shape = Enum.PartType.Ball,
-					Size = Vector3.one * 1.6,
-					Position = Vector3.new(centro.X, MappaEuropa.superficie(centro) + 0.3, centro.Z),
-					Material = Enum.Material.Neon,
-				}) })
-			end
-		end
 	end
 end
 
@@ -298,22 +270,6 @@ local function aggiornaNodi()
 			sfumaIcona(stellina, i <= stelle and 0 or 0.65)
 		end
 		nodo.nome.Visible = numero == selezionato
-		-- Luci lungo il sentiero dell'epoca: oro i tratti fatti, arancio il prossimo, bianche tenui
-		-- quelli ancora da fare. Le epoche non ancora raggiunte non si illuminano.
-		local prossimo = sbloccato(numero) and stelle == 0
-		local epocaRaggiunta = stato and Campagna.livello(numero).indiceEpoca <= Campagna.livello(stato.livello).indiceEpoca
-		for _, punto in ipairs(puntini[numero]) do
-			if stelle > 0 then
-				punto.parte.Color, punto.parte.Transparency = ORO, 0
-			elseif prossimo then
-				punto.parte.Color, punto.parte.Transparency = ARANCIO, 0
-			elseif epocaRaggiunta then
-				punto.parte.Color, punto.parte.Transparency = Color3.fromRGB(245, 245, 245), 0.45
-			else
-				punto.parte.Color = Color3.fromRGB(245, 245, 245)
-				punto.parte.Transparency = punto.mare and 0.6 or 1
-			end
-		end
 	end
 end
 
@@ -324,8 +280,21 @@ local function aggiornaCamera(istantanea)
 	bersaglio = bersaglio:Lerp(Vector3.new(centro.X, bersaglio.Y, centro.Z), math.clamp((zoom - 1) / 2, 0, 0.85))
 	-- Il giocatore aspetta a sud del plastico: chiede di caricare il terreno attorno al livello guardato.
 	task.spawn(pcall, Players.LocalPlayer.RequestStreamAroundAsync, Players.LocalPlayer, bersaglio)
-	local cframe = CFrame.lookAt(bersaglio + Vector3.new(0, 120, -95) * zoom, bersaglio)
+	-- Dritta dall'alto (Mattia, 1/11/2026), col nord in cima allo schermo. La vista resta dentro la mappa:
+	-- vicino ai bordi la telecamera si ferma e il livello si sposta dal centro.
 	local camera = workspace.CurrentCamera
+	local altezza = 150 * zoom
+	local mezzaAlta = altezza * math.tan(math.rad(camera.FieldOfView / 2))
+	local mezzaLarga = mezzaAlta * camera.ViewportSize.X / math.max(camera.ViewportSize.Y, 1)
+	local limiteX = math.max(0, MappaEuropa.COLONNE * MappaEuropa.CELLA / 2 - mezzaLarga)
+	local limiteZ = math.max(0, MappaEuropa.RIGHE * MappaEuropa.CELLA / 2 - mezzaAlta)
+	local c = MappaEuropa.CENTRO
+	bersaglio = Vector3.new(
+		math.clamp(bersaglio.X, c.X - limiteX, c.X + limiteX),
+		bersaglio.Y,
+		math.clamp(bersaglio.Z, c.Z - limiteZ, c.Z + limiteZ)
+	)
+	local cframe = CFrame.lookAt(bersaglio + Vector3.new(0, altezza, 0), bersaglio, Vector3.new(0, 0, 1))
 	camera.CameraType = Enum.CameraType.Scriptable
 	if istantanea then
 		camera.CFrame = cframe
@@ -474,14 +443,32 @@ end
 -- Aria limpida sulla mappa, per vedere tutta l'Europa.
 local DENSITA_MAPPA = 0.12
 
+-- Luce piatta sulla mappa: niente sole né riflessi, così terra, contorno e mare sono davvero a tinta unita (con
+-- la telecamera dall'alto il sole faceva una macchia chiara sul mare). Rimessa com'era alla chiusura.
+local LUCE_MAPPA = {
+	Brightness = 0,
+	EnvironmentDiffuseScale = 0,
+	EnvironmentSpecularScale = 0,
+	Ambient = Color3.fromRGB(255, 255, 255),
+	OutdoorAmbient = Color3.fromRGB(255, 255, 255),
+}
+
 local function impostaAmbiente()
 	Cielo.campo()
+	if ambienteSalvato then
+		return -- già impostato (mappa riaperta senza chiuderla): non salvare la luce della mappa come originale
+	end
 	local atmosfera = Lighting:FindFirstChildOfClass("Atmosphere")
 	local profondita = Lighting:FindFirstChildOfClass("DepthOfFieldEffect")
 	ambienteSalvato = {
 		atmosfera = atmosfera and { atmosfera.Density, atmosfera.Haze },
 		profondita = profondita and profondita.Enabled,
+		luce = {},
 	}
+	for proprieta, valore in pairs(LUCE_MAPPA) do
+		ambienteSalvato.luce[proprieta] = Lighting[proprieta]
+		Lighting[proprieta] = valore
+	end
 	if atmosfera then
 		atmosfera.Density = DENSITA_MAPPA
 		atmosfera.Haze = 0.3
@@ -505,6 +492,12 @@ local function ripristinaAmbiente()
 	if profondita and ambienteSalvato.profondita ~= nil then
 		profondita.Enabled = ambienteSalvato.profondita
 	end
+	-- Anche la luce, solo se nessuno l'ha cambiata nel frattempo (una battaglia mette la sua).
+	if Lighting.Brightness == LUCE_MAPPA.Brightness then
+		for proprieta, valore in pairs(ambienteSalvato.luce) do
+			Lighting[proprieta] = valore
+		end
+	end
 	ambienteSalvato = nil
 end
 
@@ -522,7 +515,7 @@ function Mappa.apri(dati)
 	if cartella and not costruitaConMisure and misureComplete() then
 		cartella:Destroy()
 		cartella = nil
-		nodi, puntini = {}, {}
+		nodi = {}
 	end
 	if not cartella then
 		costruisci()
@@ -742,7 +735,7 @@ function Mappa.inizializza(gui, r)
 	local voci = {
 		{ "<", function() seleziona(selezionato - 1) end },
 		{ ">", function() seleziona(selezionato + 1) end },
-		{ "-", function() zoom = math.min(zoom * 1.4, 3.2); aggiornaCamera() end },
+		{ "-", function() zoom = math.min(zoom * 1.4, 2.6); aggiornaCamera() end },
 		{ "+", function() zoom = math.max(zoom / 1.4, 0.45); aggiornaCamera() end },
 	}
 	for i, voce in ipairs(voci) do
@@ -956,7 +949,7 @@ function Mappa.inizializza(gui, r)
 	end)
 	UserInputService.InputChanged:Connect(function(input)
 		if aperta and input.UserInputType == Enum.UserInputType.MouseWheel then
-			zoom = math.clamp(zoom * (input.Position.Z > 0 and 1 / 1.2 or 1.2), 0.45, 3.2)
+			zoom = math.clamp(zoom * (input.Position.Z > 0 and 1 / 1.2 or 1.2), 0.45, 2.6)
 			aggiornaCamera()
 		end
 	end)

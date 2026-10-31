@@ -48,6 +48,41 @@ local function palDi(nome)
 	return Stile.RARITA_ACCESE[nome] or Stile.PAL[nome]
 end
 
+-- Quanto brilla ogni rarità durante l'apertura (Mattia, 1/11/2026: "quelle più alte devono proprio essere
+-- shiny"): 0 piatta, 1 un riflesso che passa, 2 anche bordo e scritta metallici che girano e scintille,
+-- 3 come 2 ma arcobaleno olografico e più scintille.
+local BRILLO = {
+	r_comune = 0,
+	r_bronzo = 0,
+	r_raro = 1,
+	r_argento = 1,
+	r_epico = 2,
+	r_oro = 2,
+	r_leggendario = 3,
+	r_leggenda = 3,
+	r_esclusivo = 3,
+}
+
+local ARCOBALENO = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 72, 96)),
+	ColorSequenceKeypoint.new(0.2, Color3.fromRGB(255, 196, 60)),
+	ColorSequenceKeypoint.new(0.4, Color3.fromRGB(110, 255, 130)),
+	ColorSequenceKeypoint.new(0.6, Color3.fromRGB(70, 205, 255)),
+	ColorSequenceKeypoint.new(0.8, Color3.fromRGB(196, 110, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 72, 96)),
+})
+
+-- Riflesso metallico: il colore della rarità con bande bianche.
+local function metallo(pal)
+	return ColorSequence.new({
+		ColorSequenceKeypoint.new(0, pal.t),
+		ColorSequenceKeypoint.new(0.25, Stile.BIANCO),
+		ColorSequenceKeypoint.new(0.5, pal.t),
+		ColorSequenceKeypoint.new(0.75, Stile.BIANCO),
+		ColorSequenceKeypoint.new(1, pal.t),
+	})
+end
+
 local function tween(oggetto, tempo, proprieta, stile, direzione)
 	local t = TweenService:Create(oggetto, TweenInfo.new(tempo, stile or Enum.EasingStyle.Quad, direzione or Enum.EasingDirection.Out), proprieta)
 	t:Play()
@@ -264,7 +299,109 @@ local function aCaso(elenco)
 	return elenco[#elenco]
 end
 
-local function casella(voce, genitore, x)
+-- Le parti che fanno brillare una casella. animazioni riceve le funzioni da chiamare a ogni fotogramma col tempo.
+local function brilla(f, pal, livello, animazioni, alto)
+	local fase = math.random() * 10
+	-- Arcobaleno olografico sul fondo che gira piano.
+	if livello >= 3 then
+		local olo = Stile.crea("Frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = Stile.BIANCO,
+			BackgroundTransparency = 0.68,
+			ZIndex = 84, -- sotto l'icona
+			Parent = f,
+		}, { Stile.angoli(20) })
+		local g = Stile.crea("UIGradient", { Color = ARCOBALENO, Parent = olo })
+		table.insert(animazioni, function(tempo)
+			g.Rotation = (tempo + fase) * 70
+		end)
+	end
+	-- Riflesso bianco in diagonale che attraversa la casella, poi una pausa.
+	local riflesso = Stile.crea("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Stile.BIANCO,
+		ZIndex = 85,
+		Parent = f,
+	}, { Stile.angoli(20) })
+	local forza = ({ 0.45, 0.6, 0.75 })[livello]
+	local g = Stile.crea("UIGradient", {
+		Rotation = 25,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.4, 1),
+			NumberSequenceKeypoint.new(0.5, 1 - forza),
+			NumberSequenceKeypoint.new(0.6, 1),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Parent = riflesso,
+	})
+	local periodo = ({ 2.4, 1.6, 1.1 })[livello]
+	table.insert(animazioni, function(tempo)
+		local k = ((tempo + fase) % periodo) / periodo
+		g.Offset = Vector2.new(-1.1 + k * 3, 0) -- oltre 1 è fuori: la pausa tra un riflesso e l'altro
+	end)
+	if livello < 2 then
+		return
+	end
+	-- Fondo metallico: bande chiare e scure in diagonale che scivolano piano, come una lamina.
+	local fondo = f:FindFirstChildOfClass("UIGradient")
+	local chiaro = pal.t:Lerp(Stile.BIANCO, 0.55)
+	fondo.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, chiaro),
+		ColorSequenceKeypoint.new(0.22, pal.t),
+		ColorSequenceKeypoint.new(0.42, pal.b),
+		ColorSequenceKeypoint.new(0.5, chiaro),
+		ColorSequenceKeypoint.new(0.58, pal.b),
+		ColorSequenceKeypoint.new(0.8, pal.t),
+		ColorSequenceKeypoint.new(1, pal.d),
+	})
+	fondo.Rotation = 55
+	table.insert(animazioni, function(tempo)
+		fondo.Offset = Vector2.new(math.sin((tempo + fase) * 1.6) * 0.18, 0)
+	end)
+	-- Bordo più spesso, metallico (o arcobaleno), che gira attorno alla casella.
+	local bordo = f:FindFirstChildOfClass("UIStroke")
+	bordo.Color = Stile.BIANCO
+	bordo.Thickness = 6
+	local gb = Stile.crea("UIGradient", { Color = livello >= 3 and ARCOBALENO or metallo(pal), Parent = bordo })
+	-- Scritta della rarità che luccica.
+	alto.TextColor3 = Stile.BIANCO
+	local gs = Stile.crea("UIGradient", { Color = livello >= 3 and ARCOBALENO or metallo(pal), Parent = alto })
+	table.insert(animazioni, function(tempo)
+		gb.Rotation = (tempo + fase) * 160
+		gs.Offset = Vector2.new(math.sin((tempo + fase) * 2.5) * 0.5, 0)
+	end)
+	-- Scintille: stelline a quattro punte che si accendono e si spengono.
+	for i = 1, livello >= 3 and 7 or 4 do
+		local stella = Stile.crea("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(math.random(18, LARGO_CASELLA - 18), math.random(40, ALTO_CASELLA - 50)),
+			Size = UDim2.fromOffset(34, 34),
+			BackgroundTransparency = 1,
+			ZIndex = 87,
+			Parent = f,
+		})
+		for _, misura in ipairs({ Vector2.new(5, 34), Vector2.new(34, 5) }) do
+			Stile.crea("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(misura.X, misura.Y),
+				BackgroundColor3 = Stile.BIANCO,
+				ZIndex = 87,
+				Parent = stella,
+			}, { Stile.tondo() })
+		end
+		local scala = Stile.crea("UIScale", { Scale = 0, Parent = stella })
+		local velocita, inizio = 2 + math.random() * 1.5, math.random() * 6
+		table.insert(animazioni, function(tempo)
+			local s = math.max(0, math.sin((tempo + inizio) * velocita))
+			scala.Scale = s ^ 4
+			stella.Rotation = (tempo + inizio) * 90
+		end)
+	end
+end
+
+local function casella(voce, genitore, x, animazioni)
 	local pal = palDi(voce.pal) or Stile.RARITA_ACCESE.r_comune
 	local f = Stile.crea("Frame", {
 		Position = UDim2.fromOffset(x, 0),
@@ -277,6 +414,7 @@ local function casella(voce, genitore, x)
 		Stile.bordo(pal.t, 4),
 		Stile.sfumatura(pal.b, pal.d, 90),
 	})
+	f:SetAttribute("Brillo", BRILLO[voce.pal] or 0)
 	local nome
 	if voce.truppa then
 		local def = Epoche.Truppe[voce.truppa]
@@ -309,6 +447,9 @@ local function casella(voce, genitore, x)
 		Parent = f,
 	})
 	alto.TextColor3 = pal.t:Lerp(Stile.BIANCO, 0.2)
+	if (BRILLO[voce.pal] or 0) > 0 and animazioni then
+		brilla(f, pal, BRILLO[voce.pal], animazioni, alto)
+	end
 	Stile.scritta({
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, 8, 1, -10),
@@ -362,10 +503,18 @@ local function striscia(centro, risultato, cassa)
 		Parent = vista,
 	})
 	local caselle = {}
+	local animazioni = {}
 	for i = 1, CASELLE do
 		local voce = i == VINCENTE and vinta or (#elenco > 0 and aCaso(elenco) or vinta)
-		caselle[i] = casella(voce, fila, (i - 1) * (LARGO_CASELLA + SPAZIO_CASELLE))
+		caselle[i] = casella(voce, fila, (i - 1) * (LARGO_CASELLA + SPAZIO_CASELLE), animazioni)
 	end
+	local tempo = 0
+	local giro = RunService.RenderStepped:Connect(function(dt)
+		tempo += dt
+		for _, passo in ipairs(animazioni) do
+			passo(tempo)
+		end
+	end)
 
 	-- Indicatore al centro: barra bianca con un rombo dorato sopra e sotto.
 	local indicatore = Stile.crea("Frame", {
@@ -438,20 +587,56 @@ local function striscia(centro, risultato, cassa)
 	end
 	suono:Destroy()
 
-	-- La casella vinta si illumina e cresce.
+	-- La casella vinta esce dalla striscia (Mattia, 1/11/2026): sale sopra la fila, cresce un poco con un
+	-- rimbalzo e dondola, con l'alone del suo colore dietro; le altre si spengono.
 	local vincitrice = caselle[VINCENTE]
-	vincitrice.ZIndex = 88
+	local pal = palDi(vinta.pal) or Stile.RARITA_ACCESE.r_comune
+	local x = 12 + fila.Position.X.Offset + vincitrice.Position.X.Offset
+	vincitrice.Parent = finestra
+	vincitrice.Position = UDim2.fromOffset(x, 12)
+	vincitrice.ZIndex = 92
+	local alone = Stile.crea("ImageLabel", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(x + LARGO_CASELLA / 2, 12 + ALTO_CASELLA / 2),
+		Size = UDim2.fromOffset(260, 260),
+		Image = Icone.immagine("glow") or "",
+		ImageColor3 = pal.t,
+		ImageTransparency = 1,
+		BackgroundTransparency = 1,
+		ZIndex = 91,
+		Parent = finestra,
+	})
 	local scala = Stile.crea("UIScale", { Parent = vincitrice })
-	tween(scala, 0.3, { Scale = 1.08 }, Enum.EasingStyle.Back)
+	local salita = 40
+	tween(vincitrice, 0.4, { Position = UDim2.fromOffset(x, 12 - salita) }, Enum.EasingStyle.Back)
+	tween(scala, 0.4, { Scale = 1.14 }, Enum.EasingStyle.Back)
+	tween(alone, 0.4, {
+		ImageTransparency = 0.15,
+		Size = UDim2.fromOffset(520, 520),
+		Position = UDim2.fromOffset(x + LARGO_CASELLA / 2, 12 + ALTO_CASELLA / 2 - salita),
+	})
+	table.insert(animazioni, function(t)
+		alone.Rotation = t * 30
+	end)
 	local bordo = vincitrice:FindFirstChildOfClass("UIStroke")
-	bordo.Color = Stile.Colori.Oro
+	if (vincitrice:GetAttribute("Brillo") or 0) < 2 then
+		bordo.Color = Stile.Colori.Oro
+	end
 	bordo.Thickness = 7
 	for _, c in ipairs(caselle) do
 		if c ~= vincitrice then
 			tween(c, 0.4, { BackgroundTransparency = 0.5 })
 		end
 	end
-	task.wait(1.1)
+	-- Dondola due volte mentre sale.
+	task.spawn(function()
+		for _, angolo in ipairs({ -4, 3, -1.5, 0 }) do
+			tween(vincitrice, 0.14, { Rotation = angolo }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			task.wait(0.14)
+		end
+	end)
+	task.wait(1.3)
+	giro:Disconnect()
 	finestra:Destroy()
 end
 
@@ -603,8 +788,8 @@ local function mostra(risultato)
 			Parent = riquadro,
 		}, info.pal, info.chip, 26)
 	end
-	if info.leggenda then
-		-- Le leggendarie si fanno notare: l'alone pulsa.
+	if info.leggenda or (BRILLO[info.pal] or 0) >= 2 then
+		-- Le rarità alte si fanno notare: l'alone pulsa.
 		task.spawn(function()
 			while raggi and raggi.Parent do
 				tween(raggi, 0.5, { ImageTransparency = 0.1 })

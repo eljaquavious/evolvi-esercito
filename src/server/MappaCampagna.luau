@@ -1,8 +1,8 @@
 -- Mappa della campagna a pixel: l'Europa e il Mediterraneo fatti di piastrelle quadrate tutte alla stessa
 -- altezza, un colore solo per la terra, su un mare piatto scuro con la cornice (Mattia, 31/10/2026: niente
--- cartina con i rilievi). Le piastrelle sono un modello fatto in Blender (Config/AssetMappa); i sentieri tra
--- le battaglie sono piastrelle di un tono più scuro. Costruita una volta all'avvio; i livelli e le tratte per
--- mare li disegna ogni client per conto suo (stelle diverse).
+-- cartina con i rilievi). Le piastrelle sono un modello fatto in Blender (Config/AssetMappa): la terra è una
+-- macchia verde sola con il contorno nero sulla costa, niente sentieri (1/11/2026). Costruita una volta
+-- all'avvio; i livelli li disegna ogni client per conto suo (stelle diverse).
 
 local InsertService = game:GetService("InsertService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -83,9 +83,9 @@ local function piastrelle(modello)
 			p.CanCollide = false
 			p.CanTouch = false
 			p.CanQuery = false
-			p.CastShadow = true
+			p.CastShadow = false
 			p.Material = Enum.Material.SmoothPlastic
-			p.Color = p.Name:find("^Sentiero") and AssetMappa.sentiero or AssetMappa.terra
+			p.Color = p.Name:find("^Bordo") and AssetMappa.bordo or AssetMappa.terra
 			p.Position += spostamento
 			p.Parent = modello
 		end
