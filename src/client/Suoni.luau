@@ -119,9 +119,11 @@ local MUSICA = {
 	schieramento = { volume = 0.32, ids = { 9041879299, 91611560835347 } },
 	-- "Battleground", "On the Warpath", "Drums of Combat a", "Fight For A Tomorrow" (APM).
 	battaglia = { volume = 0.3, ids = { 9048541013, 1837240654, 1841476670, 1848108091 } },
-	-- Lobby e mappa: musica tranquilla (Mattia voleva qualcosa come "Morning of D-Day" di HOI4, che non si può
-	-- usare su Roblox): "Mountainside Awakening - Leads Only", "Soleil Levant", "Slow Movement" (APM).
-	lobby = { volume = 0.22, ids = { 9043694722, 1837591314, 1836331268 } },
+	-- Lobby e mappa: musica eroica ma non da battaglia. I brani tranquilli di prima ("Mountainside Awakening",
+	-- "Soleil Levant", "Slow Movement") a Mattia non piacevano (31/10/2026).
+	-- "The Rise of Kings" (DistroKid), "Salute To Freedom", "Adventure Story", "Fanfare to a Big Country",
+	-- "Confident Of Victory A" (APM).
+	lobby = { volume = 0.24, ids = { 128045338895178, 1845463084, 1845453439, 1842288980, 1848195601 } },
 	-- Round vinto, cinematica tra i round: musica "vittoriosa a metà" (Mattia, 20/10/2026).
 	-- "Conquering Heroes Link", "Glorious Morning Link" (APM), circa 13 s. Ripartono sempre da capo.
 	roundVinto = { volume = 0.34, ids = { 83315768373322, 100735630401429 }, daCapo = true },
