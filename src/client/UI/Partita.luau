@@ -1815,11 +1815,12 @@ function Partita.inizializza(gui, r, callbackLobby)
 	-- Barra "Orders" durante la battaglia, sopra le carte e larga come loro (Mattia, 4/11/2026: il pannello di
 	-- lato aveva troppe cose). Sopra le ali (tasti Z X C V, sotto il nome l'ordine che sta eseguendo), sotto i
 	-- 5 ordini (tasti 1-5). I bersagli si scelgono cliccando un nemico sul campo (o coi tasti 6-0).
-	local LARGHEZZA_ORDINI, ALTEZZA_ORDINI = 1100, 160
+	local LARGHEZZA_ORDINI, ALTEZZA_ORDINI = 1100, 154
+	local SPAZIO = 18 -- tra un pulsante e l'altro (Mattia, 4/11: "troppo vicini")
 	pannelloOrdini = Stile.crea("Frame", {
 		Name = "Ordini",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, -80, 1, -16 - 246 - 10),
+		Position = UDim2.new(0.5, -80, 1, -16 - 246 - 28),
 		Size = UDim2.fromOffset(LARGHEZZA_ORDINI, ALTEZZA_ORDINI),
 		BackgroundColor3 = Color3.fromHex("#16171D"),
 		BackgroundTransparency = 0.12,
@@ -1832,35 +1833,35 @@ function Partita.inizializza(gui, r, callbackLobby)
 		table.insert(voci, { chiave = ala, nome = NOMI_ALA[ala], tasto = ({ "X", "C", "V" })[i] })
 	end
 	local etichettaAli = Stile.scritta({
-		Position = UDim2.fromOffset(16, 10),
-		Size = UDim2.fromOffset(110, 60),
+		Position = UDim2.fromOffset(20, 14),
+		Size = UDim2.fromOffset(110, 52),
 		Text = "WING",
 		TextSize = 26,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = pannelloOrdini,
 	})
 	etichettaAli.ZIndex = 6
-	local largoAla = (LARGHEZZA_ORDINI - 16 - 110 - 16 - 3 * 8) / #voci
+	local largoAla = (LARGHEZZA_ORDINI - 20 - 110 - 20 - 3 * SPAZIO) / #voci
 	for i, voce in ipairs(voci) do
 		local bottone = Stile.pulsante({
 			Name = "Ala" .. voce.chiave,
-			Position = UDim2.fromOffset(16 + 110 + (i - 1) * (largoAla + 8), 10),
-			Size = UDim2.fromOffset(largoAla, 60),
+			Position = UDim2.fromOffset(20 + 110 + (i - 1) * (largoAla + SPAZIO), 14),
+			Size = UDim2.fromOffset(largoAla, 52),
 			Parent = pannelloOrdini,
-		}, voce.chiave == "tutte" and "oro" or "blu", { Testo = ("%s  %s"):format(voce.tasto, voce.nome), TestoSize = 24, Sotto = "ADVANCE", SottoSize = 15, Profondita = 4, Raggio = 10, Contorno = 3 })
+		}, voce.chiave == "tutte" and "oro" or "blu", { Testo = ("%s  %s"):format(voce.tasto, voce.nome), TestoSize = 22, Sotto = "ADVANCE", SottoSize = 14, Profondita = 4, Raggio = 10, Contorno = 3 })
 		bottone.Activated:Connect(function()
 			scegliAla(voce.chiave ~= "tutte" and voce.chiave or nil)
 		end)
 		bottoniAla[voce.chiave] = bottone
 	end
-	local largoOrdine = (LARGHEZZA_ORDINI - 32 - (#Battaglia.ORDINI - 1) * 8) / #Battaglia.ORDINI
+	local largoOrdine = (LARGHEZZA_ORDINI - 40 - (#Battaglia.ORDINI - 1) * SPAZIO) / #Battaglia.ORDINI
 	for i, nome in ipairs(Battaglia.ORDINI) do
 		local bottone = Stile.pulsante({
 			Name = nome,
-			Position = UDim2.fromOffset(16 + (i - 1) * (largoOrdine + 8), 80),
-			Size = UDim2.fromOffset(largoOrdine, 70),
+			Position = UDim2.fromOffset(20 + (i - 1) * (largoOrdine + SPAZIO), 80),
+			Size = UDim2.fromOffset(largoOrdine, 60),
 			Parent = pannelloOrdini,
-		}, "blu", { Testo = ("%d  %s"):format(i, string.upper(Battaglia.NOMI_ORDINI[nome].nome)), TestoSize = 26, Profondita = 5, Raggio = 12, Contorno = 3 })
+		}, "blu", { Testo = ("%d  %s"):format(i, string.upper(Battaglia.NOMI_ORDINI[nome].nome)), TestoSize = 24, Profondita = 5, Raggio = 12, Contorno = 3 })
 		bottone.Activated:Connect(function()
 			daiOrdine(nome)
 		end)
