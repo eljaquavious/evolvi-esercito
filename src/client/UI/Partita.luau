@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local Cielo = require(script.Parent.Parent.Cielo)
 local Meteo = require(script.Parent.Parent.Meteo)
@@ -47,8 +48,6 @@ local pannelloFormazioni, listaFormazioni, descrizioneFormazione
 local bottoniFormazione = {} -- id della formazione -> pulsante
 local pannelloOrdini
 local bottoniOrdine = {} -- nome dell'ordine -> pulsante
-local ordineAttuale = "avanza"
-local caricaSuonata = false
 -- Bersagli: dal pannello ORDERS (classe o generale, tasti 6-0) o cliccando un reggimento nemico sul campo.
 -- Cliccando una propria carta (o un proprio soldato) il bersaglio vale solo per quel reggimento.
 local BERSAGLI = {
@@ -65,6 +64,20 @@ local repartoScelto = nil -- id del proprio reggimento selezionato (nil = tutta 
 local titoloMira
 local scegliReparto -- definita più sotto (la usano le carte della barra)
 local inviando = false -- una richiesta di schieramento alla volta
+-- Ali (Mattia, 3/11/2026: "ordini per ala, non per tutta l'armata"): gli ordini vanno all'ala scelta
+-- (nil = tutta l'armata). Ogni reggimento ha la sua ala, scritta sulla sua carta.
+local NOMI_ALA = { sinistra = "LEFT", centro = "CENTER", destra = "RIGHT" }
+local alaScelta = nil
+local ordiniAli = {} -- ala -> ordine in corso
+local caricheAli = {} -- ala -> true se ha già caricato in questo round
+local alaDi = {} -- id del proprio reggimento -> ala
+local bottoniAla = {} -- ala (o "tutte") -> pulsante
+-- Riserva: carte rimaste in mano che si schierano a battaglia iniziata, cliccando la carta e poi il campo.
+local riserva = nil -- { mano = { indici }, quante, pronta = os.clock() da cui si può, messe }
+local carteRiserva = {} -- indice del mazzo -> carta in mano
+-- Comando che aspetta un clic sul campo: { tipo = "riserva", indice } o { tipo = "abilita", id }.
+local puntamento = nil
+local aggiornaPuntamento, mettiRiserva, convertiRiserva, aggiornaRiserva, cartaInCampo -- definite più sotto
 
 -- Tabellone in alto: targhe YOU / Round / ENEMY con i pallini dei round vinti.
 local intestazione, titoloLivello, titoloRound, sottotitolo, puntiTu, puntiNemico, timer
@@ -85,6 +98,8 @@ local ZOOM_LOBBY = 14
 local zoomOriginale
 
 local AZZURRO = Stile.ACCENTI.blu.t
+-- Altezza della riga delle ali in cima al pannello ORDERS.
+local RIGA_ALI = 72
 local NOTTE_SCURA = Color3.fromHex("#15161C")
 
 local function seguiPersonaggio()
@@ -168,7 +183,11 @@ local function aggiornaCarte()
 		Carta.spegni(carta, not usate[indice], "RESERVE")
 		Carta.seleziona(carta, usate[indice] == true)
 	end
-	contatore.Text = ("REGIMENTS %d/%d"):format(#scelte, info.maxReggimenti)
+	if (info.riserva or 0) > 0 then
+		contatore.Text = ("FIRST LINE %d/%d · RESERVE +%d"):format(#scelte, info.maxReggimenti, info.riserva)
+	else
+		contatore.Text = ("REGIMENTS %d/%d"):format(#scelte, info.maxReggimenti)
+	end
 end
 
 local function impostaScelte(lista)
@@ -228,7 +247,12 @@ local function costruisciMazzo()
 	for _, carta in pairs(carte) do
 		carta:Destroy()
 	end
-	carte, idPerIndice, bottoniAbilita = {}, {}, {}
+	-- Anche le carte della riserva rimaste dalla battaglia di prima.
+	for _, carta in pairs(carteRiserva) do
+		carta:Destroy()
+	end
+	carte, idPerIndice, bottoniAbilita, carteRiserva = {}, {}, {}, {}
+	riserva, puntamento = nil, nil
 	if suggerimento then
 		suggerimento.Text = Stile.gamepad() and "SELECT A CARD TO DEPLOY OR RECALL IT  ·  Y: FIGHT!"
 			or Stile.touch() and "TAP A CARD TO DEPLOY OR RECALL IT"
@@ -252,7 +276,11 @@ local function costruisciMazzo()
 			if posto then
 				table.remove(nuove, posto)
 			elseif #nuove >= info.maxReggimenti then
-				Notifiche.mostra(("Maximum %d regiments in this battle: recall one first."):format(info.maxReggimenti), Stile.Colori.Rosso)
+				if (info.riserva or 0) > 0 then
+					Notifiche.mostra(("Your first line is full (%d). The other cards wait in reserve: you can send %d of them in during the battle."):format(info.maxReggimenti, info.riserva), Stile.Colori.Rosso)
+				else
+					Notifiche.mostra(("Maximum %d regiments in this battle: recall one first."):format(info.maxReggimenti), Stile.Colori.Rosso)
+				end
 				return
 			else
 				table.insert(nuove, indice)
@@ -348,7 +376,8 @@ local function aggiornaPunteggio(dati)
 end
 
 -- Resoconto degli esploratori: le carte dell'armata nemica, senza dire dove si schiererà.
-local function mostraEsploratori(tipi)
+local function mostraEsploratori(tipi, inRiserva, entrata)
+	inRiserva = inRiserva or {}
 	for _, figlio in ipairs(righeEsploratori:GetChildren()) do
 		if figlio:IsA("GuiObject") then
 			figlio:Destroy()
@@ -395,6 +424,15 @@ local function mostraEsploratori(tipi)
 				TextXAlignment = Enum.TextXAlignment.Right,
 				Parent = riga,
 			})
+			-- Reggimento della riserva nemica: entra a battaglia iniziata (dalle retrovie o da un fianco).
+			if inRiserva[i] then
+				Stile.chip({
+					Name = "Riserva",
+					Position = UDim2.fromOffset(124, 46),
+					Size = UDim2.fromOffset(120, 32),
+					Parent = riga,
+				}, entrata == "FLANK" and "rosso" or "oro", "RESERVE" .. (entrata and (" · " .. entrata) or ""), 15)
+			end
 		end
 	end
 	-- Alto quanto le righe, invece di un riquadro fisso mezzo vuoto.
@@ -429,7 +467,7 @@ local function entraPiazzamento(dati)
 	aggiornaCarte()
 	costruisciFormazioni()
 	Stile.seleziona(carte[1] or bottoneCombatti)
-	mostraEsploratori(dati.esploratori)
+	mostraEsploratori(dati.esploratori, dati.riservaNemica, dati.entrata)
 	bannerRound.Visible = false
 	if dati.ranked then
 		avviso.Text = dati.round == 1 and ("RANKED vs %s: deploy your ARMY deck, pick a formation, then press FIGHT!"):format(dati.avversario or "your opponent")
@@ -447,6 +485,14 @@ local function entraPiazzamento(dati)
 	else
 		avviso.Text = "Your army is back in formation: change it or press FIGHT!"
 		avviso.TextColor3 = Stile.Colori.Testo
+	end
+	if not dati.ranked and not dati.assedio and (dati.riserva or 0) > 0 then
+		if dati.avvisoEntrata then
+			avviso.Text = dati.avvisoEntrata .. " Keep your best counter in reserve!"
+			avviso.TextColor3 = dati.entrata == "FLANK" and Stile.ACCENTI.rosso.t or Stile.Colori.Oro
+		elseif dati.round == 1 then
+			avviso.Text = ("Deploy your FIRST LINE. The other cards wait in RESERVE: %d of them can join the battle after %d seconds."):format(dati.riserva, dati.riservaDopo or 30)
+		end
 	end
 	mostraPiazzamento(true)
 	if dati.ranked then
@@ -520,62 +566,252 @@ local function spegniAbilita(id, testo)
 	end
 end
 
--- Barra in basso durante la battaglia: solo le carte schierate. I comandanti hanno il pulsante ABILITY.
-local function costruisciBarraBattaglia(reggimenti)
+-- Sigla dell'ala (L, C, R) sopra la carta di un reggimento in campo; oro se l'ala è quella scelta.
+local function siglaAla(carta, ala)
+	local vecchia = carta:FindFirstChild("Ala")
+	if vecchia then
+		vecchia:Destroy()
+	end
+	if not ala then
+		return
+	end
+	local chip = Stile.chip({
+		Name = "Ala",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0, 18),
+		Size = UDim2.fromOffset(84, 28),
+		ZIndex = 21,
+		Parent = carta,
+	}, alaScelta == ala and "oro" or "blu", NOMI_ALA[ala], 16)
+	chip:SetAttribute("Ala", ala)
+end
+
+local function aggiornaSigle()
+	for _, carta in pairs(carte) do
+		local chip = carta:FindFirstChild("Ala")
+		if chip then
+			siglaAla(carta, chip:GetAttribute("Ala"))
+		end
+	end
+end
+
+-- Il giocatore preme ABILITY: l'abilità parte dove clicca sul campo (Mattia, 3/11/2026). Con il controller,
+-- dove sta il suo generale.
+local function lanciaAbilita(id, x, y)
+	local ok, messaggio = remoti.Abilita:InvokeServer(id, x, y)
+	if ok then
+		spegniAbilita(id, "USED")
+	elseif messaggio then
+		Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+	end
+	return ok
+end
+
+-- Manda in campo la carta "indice" della riserva nel punto x, y (caselle): la sua carta passa tra quelle in campo.
+function mettiRiserva(indice, x, y)
+	local ok, messaggio, id, ala = remoti.Riserva:InvokeServer(indice, x, y)
+	if not ok then
+		if messaggio then
+			Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+		end
+		return false
+	end
+	convertiRiserva(indice, id, ala)
+	return true
+end
+
+-- La carta "indice" della riserva è entrata in campo come reggimento "id": passa tra le carte in campo.
+-- La chiama sia la risposta del server sia l'evento "rinforzi" (arriva per primo chi arriva).
+function convertiRiserva(indice, id, ala)
+	if fase ~= "battaglia" or not riserva or not id then
+		return
+	end
+	for _, altro in pairs(idPerIndice) do
+		if altro == id then
+			return -- già fatto
+		end
+	end
+	riserva.messe += 1
+	local vecchia = carteRiserva[indice]
+	carteRiserva[indice] = nil
+	if vecchia then
+		vecchia:Destroy()
+	end
+	local tipo = info and info.mazzo and info.mazzo[indice]
+	if tipo then
+		cartaInCampo({ id = id, indice = indice, tipo = tipo, ala = ala })
+		Tutorial.evento("riserva")
+	end
+	aggiornaRiserva()
+end
+
+-- Posizione del generale (l'avatar) in caselle, o nil.
+local function posizioneGenerale()
+	local character = player.Character
+	local radice = character and character:FindFirstChild("HumanoidRootPart")
+	if not radice then
+		return nil
+	end
+	return Truppe.casella(radice.Position)
+end
+
+local function avviaPuntamento(nuovo)
+	if puntamento and puntamento.tipo == nuovo.tipo and (puntamento.id == nuovo.id and puntamento.indice == nuovo.indice) then
+		puntamento = nil -- di nuovo lo stesso pulsante: annulla
+	else
+		puntamento = nuovo
+	end
+	if puntamento and Stile.gamepad() then
+		-- Col controller niente puntatore: si usa il punto dove sta il generale.
+		local x, y = posizioneGenerale()
+		local scelto = puntamento
+		puntamento = nil
+		if x then
+			if scelto.tipo == "abilita" then
+				lanciaAbilita(scelto.id, x, y)
+			else
+				task.spawn(mettiRiserva, scelto.indice, x, y)
+			end
+		end
+	end
+	if puntamento then
+		avviso.Text = puntamento.tipo == "abilita" and "Click the field where to use the ability (right click to cancel)."
+			or "Click on your half of the field where the reserve should enter (right click to cancel)."
+		avviso.TextColor3 = Stile.Colori.Oro
+	end
+	aggiornaPuntamento()
+end
+
+-- Carte della riserva: in fondo alla barra, spente finché la riserva non è pronta.
+function aggiornaRiserva()
+	if not riserva then
+		return
+	end
+	local pronta = os.clock() >= riserva.pronta
+	local finita = riserva.messe >= riserva.quante
+	for indice, carta in pairs(carteRiserva) do
+		local testo
+		if finita then
+			testo = "FULL"
+		elseif pronta then
+			testo = nil
+		else
+			testo = ("IN %ds"):format(math.max(1, math.ceil(riserva.pronta - os.clock())))
+		end
+		local scelta = puntamento ~= nil and puntamento.tipo == "riserva" and puntamento.indice == indice
+		local stato = (testo or "") .. (scelta and "*" or "")
+		-- Si rifà la carta solo quando cambia (lo si chiama più volte al secondo per il conto alla rovescia).
+		if carta:GetAttribute("StatoRiserva") ~= stato then
+			carta:SetAttribute("StatoRiserva", stato)
+			Carta.spegni(carta, testo ~= nil, testo or "")
+			Carta.seleziona(carta, scelta)
+		end
+	end
+	if riserva.etichetta then
+		riserva.etichetta.Text = finita and "RESERVE SENT" or (pronta and ("RESERVE READY! %d LEFT"):format(riserva.quante - riserva.messe) or "RESERVE")
+	end
+end
+
+-- Barra in basso durante la battaglia: le carte schierate (con l'ala e, per i comandanti, il pulsante ABILITY)
+-- e le carte della riserva.
+function cartaInCampo(r)
+	local def = Epoche.Truppe[r.tipo]
+	idPerIndice[r.indice] = r.id
+	alaDi[r.id] = r.ala
+	local carta = Carta.crea(r.tipo)
+	carta.Size = UDim2.fromOffset(112, 162)
+	carta.LayoutOrder = r.indice
+	carta.Parent = carteMazzo
+	carta.AutoButtonColor = false
+	-- Clic sulla carta: i bersagli scelti dopo valgono solo per questo reggimento (di nuovo: tutta l'armata).
+	if carta:IsA("GuiButton") then
+		carta.Activated:Connect(function()
+			if fase == "battaglia" and not carta:GetAttribute("Caduto") then
+				scegliReparto(r.id)
+			end
+		end)
+	end
+	siglaAla(carta, r.ala)
+	if def.abilita then
+		local bottone = Stile.pulsante({
+			Name = "Abilita",
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, 14),
+			Size = UDim2.fromOffset(132, 48),
+			ZIndex = 20,
+			Parent = carta,
+		}, "arancio", { Testo = "ABILITY", TestoSize = 24, Profondita = 5, Raggio = 12, Contorno = 3 })
+		bottone.Activated:Connect(function()
+			if bottoniAbilita[r.id] and fase == "battaglia" then
+				avviaPuntamento({ tipo = "abilita", id = r.id })
+			end
+		end)
+		bottoniAbilita[r.id] = bottone
+	end
+	carte[r.indice] = carta
+	return carta
+end
+
+local function costruisciBarraBattaglia(reggimenti, dati)
 	for _, carta in pairs(carte) do
 		carta:Destroy()
 	end
-	carte, idPerIndice, bottoniAbilita = {}, {}, {}
+	for _, carta in pairs(carteRiserva) do
+		carta:Destroy()
+	end
+	carte, idPerIndice, bottoniAbilita, alaDi, carteRiserva = {}, {}, {}, {}, {}
 	table.sort(reggimenti, function(a, b)
 		return a.indice < b.indice
 	end)
 	for _, r in ipairs(reggimenti) do
-		local def = Epoche.Truppe[r.tipo]
-		idPerIndice[r.indice] = r.id
-		local carta = Carta.crea(r.tipo)
-		carta.Size = UDim2.fromOffset(112, 162)
-		carta.LayoutOrder = r.indice
-		carta.Parent = carteMazzo
-		carta.AutoButtonColor = false
-		-- Clic sulla carta: i bersagli scelti dopo valgono solo per questo reggimento (di nuovo: tutta l'armata).
-		if carta:IsA("GuiButton") then
-			carta.Activated:Connect(function()
-				if fase == "battaglia" and not carta:GetAttribute("Caduto") then
-					scegliReparto(r.id)
-				end
-			end)
-		end
-		if def.abilita then
-			local bottone = Stile.pulsante({
-				Name = "Abilita",
-				AnchorPoint = Vector2.new(0.5, 1),
-				Position = UDim2.new(0.5, 0, 1, 14),
-				Size = UDim2.fromOffset(132, 48),
-				ZIndex = 20,
-				Parent = carta,
-			}, "arancio", { Testo = "ABILITY", TestoSize = 24, Profondita = 5, Raggio = 12, Contorno = 3 })
-			bottone.Activated:Connect(function()
-				if not bottoniAbilita[r.id] then
-					return
-				end
-				local ok, messaggio = remoti.Abilita:InvokeServer(r.id)
-				if ok then
-					spegniAbilita(r.id, "USED")
-				elseif messaggio then
-					Notifiche.mostra(messaggio, Stile.Colori.Rosso)
-				end
-			end)
-			bottoniAbilita[r.id] = bottone
-		end
-		carte[r.indice] = carta
+		cartaInCampo(r)
 	end
-	contatore.Text = "REGIMENTS"
+	riserva = nil
+	if dati and (dati.riserva or 0) > 0 and dati.mano and #dati.mano > 0 then
+		riserva = { mano = dati.mano, quante = dati.riserva, pronta = os.clock() + (dati.conto or 3) + 0.2 + (dati.riservaDopo or 30), messe = 0 }
+		for _, indice in ipairs(dati.mano) do
+			local tipo = info and info.mazzo and info.mazzo[indice]
+			if tipo then
+				local carta = Carta.crea(tipo)
+				carta.Size = UDim2.fromOffset(112, 162)
+				carta.LayoutOrder = 100 + indice
+				carta.Parent = carteMazzo
+				carta.AutoButtonColor = false
+				Stile.chip({
+					Name = "EtichettaRiserva",
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.new(0.5, 0, 0, 18),
+					Size = UDim2.fromOffset(96, 30),
+					ZIndex = 21,
+					Parent = carta,
+				}, "verde", "RESERVE", 16)
+				if carta:IsA("GuiButton") then
+					carta.Activated:Connect(function()
+						if fase ~= "battaglia" or not riserva or riserva.messe >= riserva.quante then
+							return
+						end
+						if os.clock() < riserva.pronta then
+							Notifiche.mostra(("Your reserve joins the battle in %d seconds."):format(math.ceil(riserva.pronta - os.clock())))
+							return
+						end
+						avviaPuntamento({ tipo = "riserva", indice = indice })
+					end)
+				end
+				carteRiserva[indice] = carta
+			end
+		end
+	end
+	contatore.Text = riserva and "REGIMENTS · RESERVE" or "REGIMENTS"
+	if riserva then
+		riserva.etichetta = contatore
+	end
+	aggiornaRiserva()
 	if Stile.gamepad() then
-		suggerimento.Text = "D-PAD / Y: ORDERS  ·  L1 / R1: TARGET  ·  SELECT A CARD FOR ONE REGIMENT"
+		suggerimento.Text = "L2 / R2: WING  ·  D-PAD / Y: ORDERS  ·  L1 / R1: TARGET"
 	elseif Stile.touch() then
-		suggerimento.Text = "TAP A CARD, THEN A TARGET  ·  TAP AN ENEMY TO ATTACK IT"
+		suggerimento.Text = "PICK A WING, THEN AN ORDER  ·  TAP AN ENEMY TO ATTACK IT"
 	else
-		suggerimento.Text = "CLICK A CARD, THEN A TARGET  ·  CLICK AN ENEMY TO ATTACK IT"
+		suggerimento.Text = "WING: Z X C V  ·  ORDERS: 1-5  ·  CLICK AN ENEMY TO ATTACK IT"
 	end
 end
 
@@ -585,15 +821,71 @@ local SPIEGAZIONE_ORDINI = {
 	tieni = "Your line stands firm and fights only who comes close.",
 	ripiega = "Your army falls back in good order, then holds the new line.",
 	fianchi = "The cavalry rides around the wings to hit the enemy archers, the rest holds.",
-	carica = "Everyone charges faster and the cavalry charges again. Once per round!",
+	carica = "They charge faster and the cavalry charges again. Once per round for each wing!",
 }
 
--- Pannello ORDERS: oro l'ordine in corso, grigia la carica se è già stata suonata.
-local function aggiornaOrdini()
-	for nome, bottone in pairs(bottoniOrdine) do
-		local finita = nome == "carica" and caricaSuonata and ordineAttuale ~= "carica"
-		Stile.coloraPulsante(bottone, nome == ordineAttuale and "oro" or (finita and "grigio" or "blu"))
+-- Ordine in corso dell'ala scelta (con tutta l'armata: quello comune alle ali, o nil se sono diversi).
+local function ordineScelto()
+	if alaScelta then
+		return ordiniAli[alaScelta] or "avanza"
 	end
+	local comune = ordiniAli.sinistra or "avanza"
+	for _, ala in ipairs(Battaglia.ALI) do
+		if (ordiniAli[ala] or "avanza") ~= comune then
+			return nil
+		end
+	end
+	return comune
+end
+
+-- Pannello ORDERS: in alto l'ala scelta (oro) con l'ordine di ogni ala; sotto, oro l'ordine in corso
+-- dell'ala scelta e grigia la carica se quell'ala (o, con tutta l'armata, ogni ala) l'ha già suonata.
+local function aggiornaOrdini()
+	local attuale = ordineScelto()
+	local caricato
+	if alaScelta then
+		caricato = caricheAli[alaScelta] == true
+	else
+		caricato = true
+		for _, ala in ipairs(Battaglia.ALI) do
+			if not caricheAli[ala] then
+				caricato = false
+			end
+		end
+	end
+	for nome, bottone in pairs(bottoniOrdine) do
+		local finita = nome == "carica" and caricato and attuale ~= "carica"
+		Stile.coloraPulsante(bottone, nome == attuale and "oro" or (finita and "grigio" or "blu"))
+	end
+	for chiave, bottone in pairs(bottoniAla) do
+		local ala = chiave ~= "tutte" and chiave or nil
+		Stile.coloraPulsante(bottone, ala == alaScelta and "oro" or "blu")
+		local sotto = bottone:FindFirstChild("Sotto", true)
+		if sotto then
+			local ordine = ala and (ordiniAli[ala] or "avanza") or ordineScelto()
+			local nome = ordine and Battaglia.NOMI_ORDINI[ordine]
+			sotto.Text = nome and string.upper(nome.nome) or "MIXED"
+		end
+	end
+	aggiornaSigle()
+end
+
+-- Sceglie l'ala a cui vanno gli ordini (nil = tutta l'armata).
+local function scegliAla(ala)
+	if fase ~= "battaglia" then
+		return
+	end
+	alaScelta = ala
+	aggiornaOrdini()
+	local quante = 0
+	for _, a in pairs(alaDi) do
+		if ala == nil or a == ala then
+			quante += 1
+		end
+	end
+	avviso.Text = ala and ("ORDERS TO YOUR %s WING (%d %s)"):format(NOMI_ALA[ala], quante, quante == 1 and "regiment" or "regiments")
+		or "ORDERS TO YOUR WHOLE ARMY"
+	avviso.TextColor3 = Stile.Colori.Oro
 end
 
 -- Nome visibile di un bersaglio: classe, generale o reggimento nemico (numero).
@@ -658,7 +950,7 @@ local function daiOrdine(nome)
 	if fase ~= "battaglia" then
 		return
 	end
-	local ok, messaggio = remoti.Ordine:InvokeServer(nome)
+	local ok, messaggio = remoti.Ordine:InvokeServer(nome, alaScelta)
 	if not ok and messaggio then
 		Notifiche.mostra(messaggio, Stile.Colori.Rosso)
 	end
@@ -672,6 +964,11 @@ local function eventoBattaglia(e)
 				carte[indice]:SetAttribute("Caduto", true)
 				Carta.spegni(carte[indice], true, "FALLEN")
 				spegniAbilita(id, "FALLEN")
+				alaDi[id] = nil
+				if puntamento and puntamento.tipo == "abilita" and puntamento.id == id then
+					puntamento = nil
+					aggiornaPuntamento()
+				end
 				if repartoScelto == id then
 					scegliReparto(id) -- deseleziona
 				end
@@ -693,21 +990,39 @@ local function eventoBattaglia(e)
 		avviso.Text = ("%s: %s!"):format(e.reggimento and "YOUR REGIMENT ATTACKS" or "ALL REGIMENTS ATTACK", nomeMira(e.filtro))
 		avviso.TextColor3 = Stile.Colori.Oro
 	elseif e.tipo == "ordine" and e.squadra == "giocatore" then
-		ordineAttuale = e.ordine
+		for _, ala in ipairs(e.ali or Battaglia.ALI) do
+			ordiniAli[ala] = e.ordine
+			if e.ordine == "carica" then
+				caricheAli[ala] = true
+			end
+		end
 		if not e.automatico then
 			Tutorial.evento("ordine")
 		end
-		if e.ordine == "carica" then
-			caricaSuonata = true
-		end
 		aggiornaOrdini()
 		local nome = Battaglia.NOMI_ORDINI[e.ordine]
+		-- Chi riceve l'ordine: un'ala sola o tutta l'armata.
+		local chi = e.ali and #e.ali == 1 and ("YOUR %s WING"):format(NOMI_ALA[e.ali[1]]) or "YOUR ARMY"
 		if e.automatico then
-			avviso.Text = e.ordine == "tieni" and "The retreat is over: your army holds the new line." or "The charge is spent: your army keeps advancing."
+			avviso.Text = e.ordine == "tieni" and ("The retreat is over: %s holds the new line."):format(string.lower(chi))
+				or ("The charge is spent: %s keeps advancing."):format(string.lower(chi))
 		elseif nome then
-			avviso.Text = ("%s %s"):format(nome.grido, SPIEGAZIONE_ORDINI[e.ordine] or "")
+			avviso.Text = ("%s %s: %s"):format(chi, nome.grido, SPIEGAZIONE_ORDINI[e.ordine] or "")
 		end
 		avviso.TextColor3 = Stile.Colori.Oro
+	elseif e.tipo == "rinforzi" and e.squadra == "giocatore" then
+		for indice in pairs(carteRiserva) do
+			if info and info.mazzo and info.mazzo[indice] == e.tipoCarta then
+				convertiRiserva(indice, e.reggimento, e.ala)
+				break
+			end
+		end
+	elseif e.tipo == "rinforzi" and e.squadra == "nemico" then
+		avviso.Text = ("ENEMY RESERVES! %s joins the battle%s"):format(
+			string.upper((Epoche.Truppe[e.tipoCarta] or {}).nome or "A regiment"),
+			info and info.entrataBattaglia == "FLANK" and " on your flank!" or "!"
+		)
+		avviso.TextColor3 = Stile.ACCENTI.rosso.t
 	elseif e.tipo == "abilita" then
 		local def = Epoche.Truppe[e.tipoCarta]
 		if def and def.abilita then
@@ -723,19 +1038,132 @@ local function eventoBattaglia(e)
 	end
 end
 
+-- Punto del campo (in caselle) sotto un punto del viewport, o nil.
+local parametriCampo = RaycastParams.new()
+parametriCampo.FilterType = Enum.RaycastFilterType.Include
+local function casellaSotto(vx, vy)
+	local campo = Truppe.campo()
+	if not campo then
+		return nil
+	end
+	local raggio = workspace.CurrentCamera:ViewportPointToRay(vx, vy)
+	parametriCampo.FilterDescendantsInstances = arena and { arena, workspace.Terrain } or { workspace.Terrain }
+	local colpo = workspace:Raycast(raggio.Origin, raggio.Direction * 1500, parametriCampo)
+	local posizione = colpo and colpo.Position
+	if not posizione and raggio.Direction.Y < -1e-3 then
+		-- Niente sotto (terreno non ancora arrivato): il piano del campo.
+		local t = (campo.origine.Y - raggio.Origin.Y) / raggio.Direction.Y
+		posizione = raggio.Origin + raggio.Direction * t
+	end
+	if not posizione then
+		return nil
+	end
+	return Truppe.casella(posizione)
+end
+
+local COLORE_STENDARDO = Color3.fromRGB(120, 200, 255)
+local COLORE_ABILITA = Color3.fromRGB(255, 200, 60)
+local COLORE_RISERVA = Color3.fromRGB(90, 230, 140)
+local COLORE_NO = Color3.fromRGB(255, 80, 70)
+
+-- Carte evidenziate e avviso del comando che aspetta un clic sul campo (il cerchio lo muove ogni frame).
+function aggiornaPuntamento()
+	for id, bottone in pairs(bottoniAbilita) do
+		local etichetta = bottone:FindFirstChild("Testo", true)
+		if etichetta then
+			etichetta.Text = puntamento and puntamento.tipo == "abilita" and puntamento.id == id and "AIM..." or "ABILITY"
+		end
+	end
+	aggiornaRiserva()
+	if not puntamento then
+		Truppe.togliAnello("Puntamento")
+	end
+end
+
+-- Come Battaglia:postoRiserva: il punto dove la riserva entra davvero (dentro la tua metà campo).
+-- lontano = il punto scelto è troppo fuori dalla tua metà: il clic non vale.
+local function postoRiserva(x, y)
+	local campo = Truppe.campo()
+	local colonne = campo and campo.colonne or 6
+	local meta = campo and (campo.righe + 1) / 2 or 3.5
+	local cx, cy = math.clamp(x, 0.75, colonne + 0.25), math.clamp(y, 0.75, meta - 0.4)
+	local lontano = math.abs(cx - x) > 2 or (y - cy) > 1.5 or (cy - y) > 3
+	return cx, cy, lontano
+end
+
+-- Clic sul campo mentre un comando aspetta il punto: abilità o riserva. Restituisce true se l'ha usato.
+local function cliccaCampo(vx, vy)
+	if not puntamento then
+		return false
+	end
+	local x, y = casellaSotto(vx, vy)
+	if not x then
+		return true
+	end
+	if puntamento.tipo == "riserva" then
+		local lontano
+		x, y, lontano = postoRiserva(x, y)
+		if lontano then
+			Notifiche.mostra("The reserve can only enter on your half of the field.", Stile.Colori.Rosso)
+			return true
+		end
+	end
+	local scelto = puntamento
+	puntamento = nil
+	aggiornaPuntamento()
+	if scelto.tipo == "abilita" then
+		task.spawn(lanciaAbilita, scelto.id, x, y)
+	else
+		task.spawn(mettiRiserva, scelto.indice, x, y)
+	end
+	return true
+end
+
+-- Ogni frame in battaglia: il cerchio dello stendardo attorno al generale e quello del comando da puntare.
+RunService.RenderStepped:Connect(function()
+	if fase ~= "battaglia" then
+		return
+	end
+	local gx, gy = posizioneGenerale()
+	local campo = Truppe.campo()
+	if gx and campo and gx >= -1.5 and gx <= campo.colonne + 2.5 and gy >= -1.5 and gy <= campo.righe + 2.5 then
+		Truppe.anello("Stendardo", gx, gy, Battaglia.RAGGIO_STENDARDO, COLORE_STENDARDO, 0.35)
+	else
+		Truppe.togliAnello("Stendardo")
+	end
+	if puntamento and not Stile.touch() then
+		local mouse = UserInputService:GetMouseLocation()
+		local x, y = casellaSotto(mouse.X, mouse.Y)
+		if x then
+			if puntamento.tipo == "abilita" then
+				Truppe.anello("Puntamento", x, y, Battaglia.RAGGIO_ABILITA, COLORE_ABILITA, 0.1)
+			else
+				local cx, cy, lontano = postoRiserva(x, y)
+				Truppe.anello("Puntamento", cx, cy, 0.45, lontano and COLORE_NO or COLORE_RISERVA, 0.1)
+			end
+		end
+	end
+	if riserva and riserva.messe < riserva.quante then
+		aggiornaRiserva()
+	end
+end)
+
 local function entraBattaglia(dati)
 	fase = "battaglia"
 	Suoni.musica("battaglia")
-	costruisciBarraBattaglia(dati.reggimenti or {})
+	alaScelta, ordiniAli, caricheAli, puntamento = nil, {}, {}, nil
+	if info then
+		info.entrataBattaglia = dati.entrata
+	end
+	costruisciBarraBattaglia(dati.reggimenti or {}, dati)
 	barraMazzo.Visible = true
 	bottoneCombatti.Visible = false
 	bottoneLobby.Visible = false
 	esploratori.Visible = false
 	pannelloFormazioni.Visible = false
 	pannelloOrdini.Visible = true
-	ordineAttuale = "avanza"
-	caricaSuonata = false
 	aggiornaOrdini()
+	aggiornaPuntamento()
 	miraArmata, mireReparti, repartoScelto = nil, {}, nil
 	aggiornaMire()
 	Tutorial.evento("battaglia")
@@ -754,6 +1182,9 @@ end
 -- il prossimo schieramento o il risultato. Senza campo, la vecchia grande scritta.
 local function mostraRound(dati)
 	fase = "round"
+	puntamento = nil
+	Truppe.togliAnello("Stendardo")
+	Truppe.togliAnello("Puntamento")
 	Tutorial.evento("round")
 	mostraPiazzamento(false)
 	pannelloOrdini.Visible = false
@@ -928,6 +1359,9 @@ end
 -- Esce dalla partita; ripristinaVista = false quando si passa alla mappa, che ha la sua telecamera.
 local function esci(ripristinaVista)
 	fase = "lobby"
+	puntamento = nil
+	Truppe.togliAnello("Stendardo")
+	Truppe.togliAnello("Puntamento")
 	Tutorial.ferma()
 	Suoni.fermaMusica()
 	Suoni.musica("lobby")
@@ -1378,12 +1812,12 @@ function Partita.inizializza(gui, r, callbackLobby)
 	})
 	Stile.crea("UITextSizeConstraint", { MaxTextSize = 18, MinTextSize = 10, Parent = descrizioneFormazione })
 
-	-- Pannello "Orders" in basso a destra durante la battaglia: un ordine vale per tutta l'armata.
+	-- Pannello "Orders" in basso a destra durante la battaglia: un ordine va all'ala scelta o a tutta l'armata.
 	pannelloOrdini = Stile.crea("Frame", {
 		Name = "Ordini",
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, -28, 1, -28),
-		Size = UDim2.fromOffset(330, 72 + #Battaglia.ORDINI * 58 + 18 + 40 + 3 * 50),
+		Size = UDim2.fromOffset(330, 72 + RIGA_ALI + #Battaglia.ORDINI * 58 + 18 + 40 + 3 * 50),
 		BackgroundColor3 = Stile.BIANCO,
 		Visible = false,
 		ZIndex = 5,
@@ -1402,10 +1836,27 @@ function Partita.inizializza(gui, r, callbackLobby)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = testataOrdini,
 	})
+	-- Riga delle ali: a chi vanno gli ordini (tasti Z X C V). Sotto il nome, l'ordine che quell'ala sta eseguendo.
+	local voci = { { chiave = "tutte", nome = "ALL" } }
+	for _, ala in ipairs(Battaglia.ALI) do
+		table.insert(voci, { chiave = ala, nome = NOMI_ALA[ala] })
+	end
+	for i, voce in ipairs(voci) do
+		local bottone = Stile.pulsante({
+			Name = "Ala" .. voce.chiave,
+			Position = UDim2.new((i - 1) / #voci, 14 - (i - 1) * 28 / #voci + 2, 0, 84),
+			Size = UDim2.new(1 / #voci, -28 / #voci - 4, 0, 62),
+			Parent = pannelloOrdini,
+		}, voce.chiave == "tutte" and "oro" or "blu", { Testo = voce.nome, TestoSize = 18, Sotto = "ADVANCE", SottoSize = 11, Profondita = 4, Raggio = 10, Contorno = 3 })
+		bottone.Activated:Connect(function()
+			scegliAla(voce.chiave ~= "tutte" and voce.chiave or nil)
+		end)
+		bottoniAla[voce.chiave] = bottone
+	end
 	for i, nome in ipairs(Battaglia.ORDINI) do
 		local bottone = Stile.pulsante({
 			Name = nome,
-			Position = UDim2.fromOffset(14, 86 + (i - 1) * 58),
+			Position = UDim2.fromOffset(14, 86 + RIGA_ALI + (i - 1) * 58),
 			Size = UDim2.new(1, -28, 0, 52),
 			Parent = pannelloOrdini,
 		}, "blu", { Testo = ("%d  %s"):format(i, string.upper(Battaglia.NOMI_ORDINI[nome].nome)), TestoSize = 26, Profondita = 5, Raggio = 12, Contorno = 3 })
@@ -1415,7 +1866,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		bottoniOrdine[nome] = bottone
 	end
 	-- Sezione TARGET: chi attaccare (tasti 6-0). Vale per il reggimento selezionato o per tutta l'armata.
-	local yMira = 86 + #Battaglia.ORDINI * 58 + 4
+	local yMira = 86 + RIGA_ALI + #Battaglia.ORDINI * 58 + 4
 	titoloMira = Stile.testo({
 		Position = UDim2.fromOffset(16, yMira),
 		Size = UDim2.new(1, -32, 0, 32),
@@ -1711,6 +2162,8 @@ function Partita.inizializza(gui, r, callbackLobby)
 
 	local TASTI = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five }
 	local TASTI_MIRA = { Enum.KeyCode.Six, Enum.KeyCode.Seven, Enum.KeyCode.Eight, Enum.KeyCode.Nine, Enum.KeyCode.Zero }
+	-- Tasti delle ali: Z tutta l'armata, X sinistra, C centro, V destra (false = tutta l'armata).
+	local TASTI_ALA = { [Enum.KeyCode.Z] = false, [Enum.KeyCode.X] = "sinistra", [Enum.KeyCode.C] = "centro", [Enum.KeyCode.V] = "destra" }
 	-- Controller (console): croce direzionale e Y per i cinque ordini, Y anche per FIGHT! nello schieramento,
 	-- dorsali L1/R1 per cambiare il bersaglio di tutta l'armata.
 	local TASTI_PAD = { Enum.KeyCode.DPadUp, Enum.KeyCode.DPadDown, Enum.KeyCode.DPadLeft, Enum.KeyCode.DPadRight, Enum.KeyCode.ButtonY }
@@ -1735,9 +2188,36 @@ function Partita.inizializza(gui, r, callbackLobby)
 				daiBersaglio(BERSAGLI[miraPad].filtro)
 				return
 			end
+			-- L2 / R2: l'ala a cui vanno gli ordini (tutta l'armata, sinistra, centro, destra).
+			if input.KeyCode == Enum.KeyCode.ButtonR2 or input.KeyCode == Enum.KeyCode.ButtonL2 then
+				local giro = { false, "sinistra", "centro", "destra" }
+				local attuale = table.find(giro, alaScelta or false) or 1
+				local passo = input.KeyCode == Enum.KeyCode.ButtonR2 and 1 or -1
+				scegliAla(giro[(attuale - 1 + passo) % #giro + 1] or nil)
+				return
+			end
 		end
 		if usatoDaGui or fase ~= "battaglia" then
 			return
+		end
+		local ala = TASTI_ALA[input.KeyCode]
+		if ala ~= nil then
+			scegliAla(ala or nil)
+			return
+		end
+		-- Comando che aspetta un punto del campo (abilità o riserva): clic sinistro lo usa, destro lo annulla.
+		if puntamento then
+			if input.UserInputType == Enum.UserInputType.MouseButton2 or input.KeyCode == Enum.KeyCode.Escape then
+				puntamento = nil
+				aggiornaPuntamento()
+				avviso.Text = "Cancelled."
+				return
+			end
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				local inset = game:GetService("GuiService"):GetGuiInset()
+				cliccaCampo(input.Position.X, input.Position.Y + inset.Y)
+				return
+			end
 		end
 		local numero = table.find(TASTI, input.KeyCode)
 		if numero and Battaglia.ORDINI[numero] then

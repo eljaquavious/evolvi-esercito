@@ -132,6 +132,7 @@ for nome, coppia in pairs({
 	Ordine = { Ranked.ordine, GestoreCampagna.ordine },
 	Abilita = { Ranked.abilita, GestoreCampagna.abilita },
 	Bersaglio = { Ranked.bersaglio, GestoreCampagna.bersaglio },
+	Riserva = { Ranked.riserva, GestoreCampagna.riserva },
 	VinciRound = { Ranked.vinciRound, GestoreCampagna.vinciRound },
 	TornaLobby = { Ranked.tornaLobby, GestoreCampagna.tornaLobby },
 }) do

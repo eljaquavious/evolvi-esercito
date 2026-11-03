@@ -18,9 +18,10 @@ return {
 		"AvviaCampagna", -- numero del livello
 		"Schiera", -- carte scelte (indici del mazzo) e formazione: i reggimenti prendono posto
 		"Combatti",
-		"Ordine", -- in battaglia: ordine generale a tutta la tua armata (avanza, tieni, ripiega, fianchi, carica)
-		"Abilita", -- in battaglia: attiva l'abilità di un tuo comandante
+		"Ordine", -- in battaglia: ordine (avanza, tieni, ripiega, fianchi, carica) e ala (sinistra, centro, destra; nil = tutte)
+		"Abilita", -- in battaglia: attiva l'abilità di un tuo comandante sul punto x, y del campo
 		"Bersaglio", -- in battaglia: bersaglio (classe, "Comandante", id di un reggimento nemico o nil) e reggimento tuo (nil = tutti)
+		"Riserva", -- in battaglia: indice della carta in mano e punto del campo (x, y in caselle) dove entra
 		"VinciRound", -- modalità prova (solo in Studio): il round in corso è vinto subito
 		"TornaLobby",
 		"AcquistaCassa", -- id di una cassa o di un pacchetto di monete (Config/Casse)

@@ -383,7 +383,7 @@ local function aggiornaPannello()
 	if livello.giungla then
 		table.insert(righe, "Jungle")
 	end
-	table.insert(righe, ("Your regiments: %d"):format(livello.maxReggimenti))
+	table.insert(righe, ("Your regiments: %d + %d in reserve"):format(Campagna.primaLinea(livello), Campagna.riserva(livello)))
 	dettagli.Text = table.concat(righe, " · ")
 
 	local scudiPieni = difficolta(livello)

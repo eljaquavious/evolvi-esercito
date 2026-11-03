@@ -34,7 +34,7 @@ local PASSI = {
 	{
 		fase = "piazzamento",
 		titolo = "2 · KNOW YOUR TROOPS",
-		testo = "OVR is the strength of the card. Infantry beats Cavalry, Cavalry beats Ranged, Ranged beats Infantry. Deploy as many regiments as the battle allows.",
+		testo = "OVR is the strength of the card. Infantry beats Cavalry, Cavalry beats Ranged, Ranged beats Infantry. Your FIRST LINE has room for a few cards: the others wait in RESERVE.",
 		mostra = "mazzo",
 	},
 	{
@@ -59,7 +59,7 @@ local PASSI = {
 	{
 		fase = "battaglia",
 		titolo = "6 · GIVE ORDERS",
-		testo = "Orders go to your whole army. Try HOLD THE LINE (key 2): your regiments stand firm and wait for the enemy. ADVANCE (key 1) sends them forward again.",
+		testo = "Pick who gets the order: ALL, or one WING (LEFT, CENTER, RIGHT, keys Z X C V). Then try HOLD THE LINE (key 2): they stand firm and wait. ADVANCE (key 1) sends them forward again.",
 		mostra = "ordini",
 		aspetta = "ordine",
 	},
@@ -73,14 +73,27 @@ local PASSI = {
 	{
 		fase = "battaglia",
 		titolo = "8 · SOUND THE CHARGE",
-		testo = "GENERAL CHARGE (key 5) can be sounded once per round: use it when the armies clash!",
+		testo = "GENERAL CHARGE (key 5) can be sounded once per round by each wing: use it when the armies clash!",
 		mostra = "ordini",
+	},
+	{
+		fase = "battaglia",
+		titolo = "9 · YOU ARE THE GENERAL",
+		testo = "Your avatar leads the army: troops inside the blue circle around you fight harder. Walk to where the battle is hottest!",
+	},
+	{
+		fase = "battaglia",
+		titolo = "10 · SEND THE RESERVE",
+		testo = "When your RESERVE is ready, click its card and then click your half of the field: the regiment marches in right there.",
+		mostra = "mazzo",
+		aspetta = "riserva",
+		saltaCon = "round", -- se il round finisce prima che la riserva sia pronta, il tutorial va avanti
 		fine = "GOT IT",
 	},
 	{
 		fase = "round",
 		titolo = "ROUND OVER",
-		testo = "The first army to win 3 rounds wins the battle. Before every round you can change your cards and formation.",
+		testo = "The first army to win 2 rounds wins the battle. Before every round you can change your cards and formation.",
 		fine = "GOT IT",
 	},
 }
@@ -308,7 +321,7 @@ function Tutorial.attivo()
 end
 
 -- Eventi della partita: "piazzamento", "battaglia", "round", "risultato" (cambi di fase) e le azioni del
--- giocatore "carta", "ordine", "bersaglio".
+-- giocatore "carta", "ordine", "bersaglio", "riserva".
 function Tutorial.evento(nome)
 	if not attivo then
 		return
@@ -321,7 +334,7 @@ function Tutorial.evento(nome)
 		end
 		-- Passi dello schieramento rimasti indietro (FIGHT premuto prima): si saltano. Quelli della battaglia
 		-- invece aspettano la battaglia del round dopo, se il round è finito prima di arrivarci.
-		while passi[indice] and passi[indice].fase == "piazzamento" and nome ~= "piazzamento" do
+		while passi[indice] and ((passi[indice].fase == "piazzamento" and nome ~= "piazzamento") or passi[indice].saltaCon == nome) do
 			indice += 1
 		end
 		-- FIGHT premuto: il passo che lo aspettava è fatto.

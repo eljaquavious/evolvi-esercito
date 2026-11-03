@@ -360,6 +360,12 @@ local function combattiRound(partita)
 				end
 			end
 		end
+		-- Lo stendardo di ogni generale segue il suo avatar.
+		for _, lato in ipairs(partita.lati) do
+			if not lato.bot and lato.player.Parent then
+				battaglia:stendardo(lato.squadra, Arena.generale(partita.arena, lato.player))
+			end
+		end
 		local eventi = battaglia:passo(TICK * VELOCITA_BATTAGLIA)
 		local pos = posizioni(battaglia)
 		for _, lato in ipairs(partita.lati) do
@@ -590,6 +596,7 @@ local function crea(a, b)
 	partita.arena = arena
 	for _, l in ipairs(partita.lati) do
 		if not l.bot and l.player.Parent then
+			Arena.scalaGenerale(l.player, true)
 			teletrasporta(l.player, l.squadra == "giocatore" and arena.arrivo or arena.arrivoOpposto)
 		end
 	end
@@ -610,6 +617,7 @@ function Ranked.chiudi(partita)
 			partite[l.player] = nil
 			if l.player.Parent then
 				remoti.Truppe:FireClient(l.player, { tipo = "pulisci" })
+				Arena.scalaGenerale(l.player, false)
 			end
 		end
 	end
@@ -757,16 +765,21 @@ function Ranked.combatti(player)
 	return true
 end
 
-function Ranked.ordine(player, nome)
+function Ranked.ordine(player, nome, ala)
 	local partita, l = latoDi(player)
 	local battaglia = partita and partita.battaglia
 	if not battaglia then
 		return false, "Orders can be given during the battle."
 	end
-	if typeof(nome) ~= "string" then
+	if typeof(nome) ~= "string" or (ala ~= nil and not table.find(Battaglia.ALI, ala)) then
 		return false
 	end
-	return battaglia:ordine(l.squadra, nome)
+	return battaglia:ordine(l.squadra, nome, false, ala)
+end
+
+-- In ranked si schiera tutto il mazzo prima di FIGHT!: niente riserva.
+function Ranked.riserva()
+	return false, "There is no reserve in ranked: deploy your whole army before FIGHT!"
 end
 
 function Ranked.bersaglio(player, filtro, proprio)
@@ -787,14 +800,18 @@ function Ranked.bersaglio(player, filtro, proprio)
 	return battaglia:bersaglio(l.squadra, filtro, proprio)
 end
 
-function Ranked.abilita(player, id)
+function Ranked.abilita(player, id, x, y)
 	local partita, l = latoDi(player)
 	local battaglia = partita and partita.battaglia
 	if not battaglia or not suoReggimento(l, id) then
 		return false, "Abilities can be used during the battle."
 	end
-	if not battaglia:attivaAbilita(id) then
-		return false, "This ability is not available right now."
+	if (x ~= nil or y ~= nil) and (typeof(x) ~= "number" or typeof(y) ~= "number" or x ~= x or y ~= y) then
+		return false
+	end
+	local ok, motivo = battaglia:attivaAbilita(id, x, y)
+	if not ok then
+		return false, motivo or "This ability is not available right now."
 	end
 	return true
 end
@@ -835,6 +852,7 @@ function Ranked.tornaLobby(player)
 		end
 	end
 	remoti.Truppe:FireClient(player, { tipo = "pulisci" })
+	Arena.scalaGenerale(player, false)
 	teletrasporta(player, Lobby.SPAWN)
 	remoti.Fase:FireClient(player, { fase = "lobby" })
 	return true

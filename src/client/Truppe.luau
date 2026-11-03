@@ -481,16 +481,50 @@ local function evento(e)
 			Suoni.effetto("grido", centro)
 		end
 	elseif e.tipo == "abilita" then
-		local centro = centroReggimento(e.reggimento)
 		local def = Epoche.Truppe[e.tipoCarta]
+		-- Abilità lanciata su un punto: la scritta e un cerchio dorato lì, scintille solo su chi è dentro.
+		local area = e.x and e.y and campo and punto(e.x, e.y)
+		local centro = area or centroReggimento(e.reggimento)
 		if centro and def and def.abilita then
 			Effetti.scritta(centro + Vector3.new(0, 8, 0), string.upper(def.abilita.nome) .. "!", Color3.fromRGB(255, 210, 70), true)
 		end
-		-- Scintille dorate su tutti i soldati della squadra che ricevono il bonus.
+		if area then
+			local nome = "Abilita" .. tostring(e.reggimento)
+			Truppe.anello(nome, e.x, e.y, e.raggio or Battaglia.RAGGIO_ABILITA, Color3.fromRGB(255, 200, 60))
+			task.delay(math.min(e.durata or 8, 8) / velocitaBattaglia, Truppe.togliAnello, nome)
+		end
+		local raggio = (e.raggio or 0) * CASELLA + 2
 		for _, s in pairs(soldati) do
-			if s.vivo and s.squadra == e.squadra then
+			if s.vivo and s.squadra == e.squadra and (not area or (Vector3.new(s.posizione.X - area.X, 0, s.posizione.Z - area.Z)).Magnitude <= raggio) then
 				Effetti.scintille(s.posizione + Vector3.new(0, s.altezzaColpo, 0), Color3.fromRGB(255, 214, 90))
 			end
+		end
+	elseif e.tipo == "rinforzi" then
+		-- La riserva entra in campo: i suoi soldati compaiono dove li ha mandati il comandante.
+		local numero = numeroBattaglia
+		task.spawn(function()
+			for _, d in ipairs(e.soldati or {}) do
+				if numero ~= numeroBattaglia or soldati[d.id] then
+					return
+				end
+				local s = nuovoSoldato(d.tipo, d.squadra, punto(d.x, d.y), d.squadra == "giocatore" and 0 or math.pi)
+				if numero ~= numeroBattaglia then
+					togli(s, true)
+					return
+				end
+				s.id = d.id
+				s.hpMax = d.hp
+				s.hp = d.hp
+				barraVita(s)
+				soldati[d.id] = s
+				Effetti.scintille(s.posizione + Vector3.new(0, 2, 0), d.squadra == "giocatore" and Color3.fromRGB(120, 200, 255) or Color3.fromRGB(255, 110, 100))
+			end
+		end)
+		if campo and e.x and e.y then
+			local p = punto(e.x, e.y)
+			local amico = e.squadra == "giocatore"
+			Effetti.scritta(p + Vector3.new(0, 9, 0), amico and "RESERVES!" or "ENEMY RESERVES!", amico and Color3.fromRGB(120, 200, 255) or Color3.fromRGB(255, 110, 100), true)
+			Suoni.effetto("grido", p)
 		end
 	elseif e.tipo == "morte" then
 		local s = soldati[e.id]
@@ -624,6 +658,91 @@ function Truppe.ritirata(squadra, durata, tipoFermo)
 	end)
 end
 
+-- Punto a terra (Vector3) per una casella del campo in corso, o nil se non c'è un campo.
+function Truppe.punto(x, y)
+	return campo and punto(x, y)
+end
+
+-- Casella (x, y, anche non intere) sotto un punto del mondo, o nil se non c'è un campo.
+function Truppe.casella(posizione)
+	if not campo then
+		return nil
+	end
+	return (posizione.X - campo.origine.X) / CASELLA + (campo.colonne + 1) / 2, (posizione.Z - campo.origine.Z) / CASELLA + (campo.righe + 1) / 2
+end
+
+function Truppe.campo()
+	return campo
+end
+
+-- Anelli colorati sul terreno (stendardo del generale, area di un'abilità, punto della riserva): uno per nome.
+-- Ogni anello è fatto di trattini che seguono il terreno, con un velo appena visibile dentro.
+local anelli = {} -- nome -> { modello, trattini, velo }
+local cartellaAnelli = Instance.new("Folder")
+cartellaAnelli.Name = "Anelli"
+cartellaAnelli.Parent = workspace
+
+local function parteAnello(nome, padre)
+	local p = Instance.new("Part")
+	p.Name = nome
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Material = Enum.Material.Neon
+	p.Parent = padre
+	return p
+end
+
+function Truppe.anello(nome, x, y, raggio, colore, trasparenza)
+	if not campo then
+		return
+	end
+	local anello = anelli[nome]
+	local numero = raggio > 1 and 36 or 18
+	if not anello or #anello.trattini ~= numero then
+		Truppe.togliAnello(nome)
+		local modello = Instance.new("Model")
+		modello.Name = nome
+		modello.Parent = cartellaAnelli
+		anello = { modello = modello, trattini = {} }
+		for i = 1, numero do
+			anello.trattini[i] = parteAnello("Trattino", modello)
+		end
+		local velo = parteAnello("Velo", modello)
+		velo.Shape = Enum.PartType.Cylinder
+		velo.Material = Enum.Material.SmoothPlastic
+		anello.velo = velo
+		anelli[nome] = anello
+	end
+	local r = raggio * CASELLA
+	local lunghezza = 2 * math.pi * r / numero * 0.62
+	for i, trattino in ipairs(anello.trattini) do
+		local angolo = (i - 0.5) / numero * 2 * math.pi
+		local qui = punto(x + math.cos(angolo) * raggio, y + math.sin(angolo) * raggio) + Vector3.new(0, 0.3, 0)
+		trattino.Size = Vector3.new(0.7, 0.3, lunghezza)
+		trattino.Color = colore
+		trattino.Transparency = trasparenza or 0.2
+		-- Il trattino corre lungo il cerchio (tangente).
+		local tangente = Vector3.new(-math.sin(angolo), 0, math.cos(angolo))
+		trattino.CFrame = CFrame.lookAt(qui, qui + tangente)
+	end
+	local centro = punto(x, y)
+	anello.velo.Size = Vector3.new(0.1, r * 2, r * 2)
+	anello.velo.Color = colore
+	anello.velo.Transparency = 0.9
+	anello.velo.CFrame = CFrame.new(centro + Vector3.new(0, 0.25, 0)) * CFrame.Angles(0, 0, math.rad(90))
+end
+
+function Truppe.togliAnello(nome)
+	local anello = anelli[nome]
+	if anello then
+		anello.modello:Destroy()
+		anelli[nome] = nil
+	end
+end
+
 function Truppe.inizializza(remoti)
 	remoti.Truppe.OnClientEvent:Connect(function(dati)
 		if dati.tipo == "schieramento" then
@@ -640,6 +759,9 @@ function Truppe.inizializza(remoti)
 				end
 			end)
 		elseif dati.tipo == "pulisci" then
+			for nome in pairs(anelli) do
+				Truppe.togliAnello(nome)
+			end
 			numeroBattaglia += 1
 			svuotaSchierati()
 			svuotaBattaglia(true)

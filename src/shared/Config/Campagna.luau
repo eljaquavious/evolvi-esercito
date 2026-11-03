@@ -45,7 +45,8 @@ Campagna.RIGHE_GIOCATORE = 2
 Campagna.TERRA_DI_NESSUNO = 2
 Campagna.PRIMA_RIGA_NEMICA = Campagna.RIGHE_GIOCATORE + Campagna.TERRA_DI_NESSUNO + 1
 Campagna.MAX_REGGIMENTI = 6
-Campagna.ROUND_PER_VINCERE = 3
+-- Al meglio di 3 (Mattia, 3/11/2026: "round più corti"): prima era al meglio di 5.
+Campagna.ROUND_PER_VINCERE = 2
 Campagna.STELLE_MASSIME = 3
 
 -- Battaglie, in ordine cronologico (scelta di Mattia: l'esercito evolve con la storia). lat/lon servono a metterle
@@ -302,8 +303,36 @@ function Campagna.livello(numero)
 	}
 end
 
--- Armata nemica di un round: { { tipo, col, riga } }. assedio = al giocatore manca una vittoria:
--- il nemico difende la fortezza dell'epoca con un solo reggimento (o il suo comandante).
+-- Riserva (Mattia, 3/11/2026): dei reggimenti della battaglia (maxReggimenti) se ne schierano prima
+-- primaLinea; gli altri si scelgono tra le carte rimaste in mano e si mettono in campo a battaglia iniziata.
+-- Anche il nemico tiene qualche reggimento in riserva (non nell'assedio).
+function Campagna.riserva(livello)
+	return math.min(livello.numero == 1 and 1 or 2, livello.maxReggimenti - 1)
+end
+
+function Campagna.primaLinea(livello)
+	return livello.maxReggimenti - Campagna.riserva(livello)
+end
+
+-- Secondi di battaglia dopo cui la riserva è pronta: nel tutorial prima, perché lì si vince in fretta.
+function Campagna.riservaDopo(livello)
+	return livello.numero == 1 and 10 or 22
+end
+
+function Campagna.riservaNemica(livello)
+	return math.floor(livello.numeroNemici / 3)
+end
+
+-- Da dove entra la riserva nemica: dalle retrovie nel primo round, da un fianco dal secondo in poi (un round
+-- diverso dall'altro, Mattia 3/11/2026). Le scritte sono in inglese (si vedono nel gioco).
+Campagna.ENTRATE = {
+	retro = { nome = "REAR", avviso = "Enemy reserves will march in from the rear." },
+	fianco = { nome = "FLANK", avviso = "AMBUSH! Enemy reserves will strike one of your flanks." },
+}
+
+-- Armata nemica di un round: { { tipo, col, riga, riserva = true se entra dopo } }, con armata.entrata
+-- (una di ENTRATE) se ha una riserva. assedio = al giocatore manca una vittoria: il nemico difende la
+-- fortezza dell'epoca con un solo reggimento (o il suo comandante).
 function Campagna.armata(livello, round, assedio)
 	local rng = Random.new(livello.numero * 7919 + round * 104729)
 	local epoca = livello.epoca
@@ -355,6 +384,26 @@ function Campagna.armata(livello, round, assedio)
 	end
 	for _ = 1, numero do
 		piazzaReggimento(livello.armata[rng:NextInteger(1, #livello.armata)])
+	end
+	-- Gli ultimi reggimenti (mai il comandante) restano in riserva: entrano a battaglia iniziata.
+	local inRiserva = math.min(Campagna.riservaNemica(livello), #armata - 1)
+	if inRiserva > 0 then
+		armata.entrata = round == 1 and "retro" or "fianco"
+		local lato = rng:NextInteger(0, 1) == 0 and 1 or Campagna.COLONNE
+		local i = #armata
+		while inRiserva > 0 and i >= 1 do
+			local r = armata[i]
+			if not Epoche.Truppe[r.tipo].comandante then
+				r.riserva = true
+				if armata.entrata == "retro" then
+					r.col, r.riga = rng:NextNumber(1.5, Campagna.COLONNE - 0.5), Campagna.RIGHE + 0.2
+				else
+					r.col, r.riga = lato == 1 and 0.85 or Campagna.COLONNE + 0.15, rng:NextNumber(3.9, 4.4)
+				end
+				inRiserva -= 1
+			end
+			i -= 1
+		end
 	end
 	return armata
 end

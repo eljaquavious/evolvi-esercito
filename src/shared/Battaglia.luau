@@ -16,7 +16,8 @@ Battaglia.BATTE = {
 }
 Battaglia.BONUS = 1.5
 Battaglia.MALUS = 0.75
-Battaglia.DURATA_MASSIMA = 90
+-- Round più corti (Mattia, 3/11/2026): prima erano 90 secondi.
+Battaglia.DURATA_MASSIMA = 60
 -- I tiratori presi in mischia colpiscono a metà.
 Battaglia.MALUS_TIRATORE_IN_MISCHIA = 0.5
 
@@ -96,13 +97,14 @@ local GESTO_MISCHIA = 0.3
 local GESTO_LANCIO = 0.45
 local VOLO_LANCIO = 2.6
 
--- Ordini generali che il giocatore dà a tutta la sua armata (il nemico avanza sempre):
+-- Ordini del giocatore, a tutta l'armata o a una sola ala (Mattia, 3/11/2026: "ordini per ala, non per tutta
+-- l'armata"). Il nemico avanza sempre. Gli ordini:
 --   avanza: ogni soldato va contro il nemico più vicino;
 --   tieni: la linea resta dov'è e si muove solo contro chi arriva vicino, con un po' di difesa in più;
 --   ripiega: ritirata ordinata di RIPIEGO caselle verso le proprie retrovie, poi si tiene la nuova linea:
 --     il nemico che insegue si allunga e arriva a pezzi;
 --   fianchi: la cavalleria gira larga sull'ala più vicina e piomba sui tiratori nemici, fanti e tiratori tengono;
---   carica: carica generale, una volta per round: tutti avanzano più veloci e la cavalleria ricarica.
+--   carica: carica, una volta per round per ogni ala: avanzano più veloci e la cavalleria ricarica.
 Battaglia.ORDINI = { "avanza", "tieni", "ripiega", "fianchi", "carica" }
 -- Nomi visibili nel gioco (inglese) e grido sopra l'armata quando arriva l'ordine.
 Battaglia.NOMI_ORDINI = {
@@ -112,8 +114,24 @@ Battaglia.NOMI_ORDINI = {
 	fianchi = { nome = "Flank Them", grido = "ON THEIR FLANKS!" },
 	carica = { nome = "General Charge", grido = "CHARGE!" },
 }
-Battaglia.ATTESA_ORDINE = 3 -- secondi di battaglia tra un ordine e il successivo
+Battaglia.ATTESA_ORDINE = 3 -- secondi di battaglia tra un ordine e il successivo alla stessa ala
 Battaglia.DURATA_CARICA = 6
+-- Ali dell'armata, viste da dietro la propria armata. Ogni reggimento ha la sua ala, decisa da dove si è
+-- schierato rispetto al resto dell'armata (o da dove entra, per la riserva).
+Battaglia.ALI = { "sinistra", "centro", "destra" }
+Battaglia.NOMI_ALI = { sinistra = "Left", centro = "Center", destra = "Right" }
+
+-- Il generale è l'avatar del giocatore: il suo stendardo dà coraggio ai soldati vicini (Battaglia:stendardo).
+Battaglia.RAGGIO_STENDARDO = 1.6 -- caselle
+Battaglia.BONUS_STENDARDO = { danno = 0.15, difesa = 0.1 }
+-- Abilità dei comandanti lanciate su un punto del campo: valgono per i propri soldati entro tanto.
+Battaglia.RAGGIO_ABILITA = 2.0
+
+-- Riserva (Mattia, 3/11/2026): dopo RISERVA_DOPO secondi di battaglia si possono schierare le carte rimaste
+-- in mano. Chi non ha più reggimenti in campo ma ha ancora la riserva non ha perso, finché la riserva non è
+-- pronta e per GRAZIA_RISERVA secondi dopo.
+Battaglia.RISERVA_DOPO = 22
+local GRAZIA_RISERVA = 8
 local RIPIEGO = 1.5
 local DURATA_RIPIEGO = 6 -- dopo tanto chi ripiega si ferma comunque e tiene la linea
 local INGAGGIO = 0.9 -- chi tiene la linea va contro un nemico solo se è entro tanto oltre la sua portata
@@ -204,8 +222,88 @@ local function distanza(a, b)
 	return math.sqrt(dx * dx + dy * dy)
 end
 
+-- Crea un reggimento con i suoi soldati e lo aggiunge alla battaglia (r come in Battaglia.nuova).
+function Battaglia:_creaReggimento(r)
+	local def = r.def
+	local forza = r.forza or 1
+	local numero = math.max(1, def.soldati or 1)
+	local reggimento = {
+		id = r.id,
+		squadra = r.squadra,
+		def = def,
+		x = r.x,
+		y = r.y,
+		soldati = {},
+		vivo = true,
+		hpMax = def.hp * forza,
+		abilitaUsata = false,
+		ala = "centro",
+	}
+	local avanti = r.squadra == "giocatore" and 1 or -1
+	local hpTotale = 0
+	for i, posto in ipairs(Battaglia.composizione(def)) do
+		-- Ogni soldato ha la sua parte del reparto da cui viene (la guardia di un generale ha quella del suo reparto).
+		local sdef = posto.def
+		local parti = sdef == def and numero or math.max(1, sdef.soldati or 1)
+		hpTotale += sdef.hp * forza / parti
+		local s = {
+			id = r.id * 16 + i,
+			numero = i,
+			reggimento = reggimento,
+			squadra = r.squadra,
+			def = sdef,
+			x = r.x + posto.x * avanti,
+			y = r.y + posto.y * avanti,
+			raggio = Battaglia.raggio(sdef),
+			hpMax = sdef.hp * forza / parti,
+			hp = sdef.hp * forza / parti,
+			danno = sdef.danno * forza / parti,
+			-- I soldati non colpiscono tutti nello stesso istante.
+			ricarica = ((i * 0.37) % 1) / (sdef.cadenza * 2),
+			vivo = true,
+			bersaglio = nil,
+			ripensa = 0,
+			caricaUsata = false,
+			lancioUsato = not sdef.lancio,
+			rivolto = r.squadra == "giocatore" and 0 or math.pi,
+			inMarcia = false,
+			inMischia = false,
+			girato = false, -- ordine "fianchi": la cavalleria ha già girato attorno all'ala
+		}
+		-- Posto da tenere con gli ordini "tieni" e "ripiega".
+		s.ax, s.ay = s.x, s.y
+		table.insert(reggimento.soldati, s)
+		table.insert(self.soldati, s)
+		self.perId[s.id] = s
+	end
+	reggimento.hpMax = hpTotale -- con la guardia di un generale è più della vita del solo generale
+	table.insert(self.reggimenti, reggimento)
+	self.perReggimento[reggimento.id] = reggimento
+	return reggimento
+end
+
+-- Ala di un reggimento: dove sta rispetto ai limiti dell'armata schierata all'inizio (limitiAli). Chi guarda
+-- dalla parte del giocatore (verso le righe alte) ha a sinistra le colonne alte, il nemico il contrario.
+function Battaglia:_ala(squadra, x)
+	local limiti = self.limitiAli[squadra]
+	if not limiti or limiti.massimo - limiti.minimo < 0.9 then
+		return "centro"
+	end
+	local t = (x - limiti.minimo) / (limiti.massimo - limiti.minimo)
+	if t > 0.34 and t < 0.66 then
+		return "centro"
+	end
+	local alto = t >= 0.66
+	if squadra == "giocatore" then
+		return alto and "sinistra" or "destra"
+	end
+	return alto and "destra" or "sinistra"
+end
+
 -- reggimenti: lista di { id = numero (1-4000), squadra = "giocatore" | "nemico", def, x, y, forza = moltiplicatore opzionale }
--- opzioni: { colonne, righe, ostacoli = { { x, y } }, terreno = { ["col,riga"] = "fiume" | "collina" | "trincea" } }
+-- opzioni: { colonne, righe, ostacoli = { { x, y } }, terreno = { ["col,riga"] = "fiume" | "collina" | "trincea" },
+--   riserve = { giocatore = n, nemico = n } (reggimenti che ogni squadra può ancora schierare, vedi schieraRiserva),
+--   riservaDopo = secondi (predefinito RISERVA_DOPO) }
 -- Ogni soldato ha id = id del reggimento * 16 + numero (1-15).
 function Battaglia.nuova(reggimenti, opzioni)
 	opzioni = opzioni or {}
@@ -218,13 +316,29 @@ function Battaglia.nuova(reggimenti, opzioni)
 	self.soldati = {}
 	self.perId = {}
 	self.colpi = {} -- colpi partiti che devono ancora arrivare
-	self.effetti = {} -- abilità dei comandanti in corso: { squadra, origine, fine, danno, velocita, difesa }
+	-- Abilità dei comandanti e cariche in corso: { squadra, origine, fine, danno, velocita, difesa,
+	-- soldati = { [id] = true } oppure nil per tutta la squadra }
+	self.effetti = {}
 	self.eventiInAttesa = {} -- eventi nati fuori da un passo (ordini, abilità): escono col passo dopo
 	self.perReggimento = {}
+	-- Stato di ogni ala: ordine in corso, quando è arrivato (anche se automatico), ultimo ordine dato dal
+	-- giocatore (per l'attesa tra un ordine e l'altro) e se la carica è già stata suonata in questo round.
+	self.ali = {}
+	for _, squadra in ipairs({ "giocatore", "nemico" }) do
+		self.ali[squadra] = {}
+		for _, ala in ipairs(Battaglia.ALI) do
+			self.ali[squadra][ala] = { ordine = "avanza", tempo = 0, ultimo = -math.huge, carica = false }
+		end
+	end
+	-- Ordine comune a tutte le ali ("misto" se sono diversi). Lo guardano i test.
 	self.ordini = { giocatore = "avanza", nemico = "avanza" }
-	self.ultimoOrdine = { giocatore = -math.huge, nemico = -math.huge }
-	self.caricaUsata = {}
 	self.mire = { giocatore = {}, nemico = {} } -- bersagli scelti: [id del proprio reggimento o 0 = tutti] -> filtro
+	self.stendardi = {} -- squadra -> { x, y } del generale (l'avatar), se è nel campo
+	self.riserve = { giocatore = 0, nemico = 0 }
+	for squadra, n in pairs(opzioni.riserve or {}) do
+		self.riserve[squadra] = n
+	end
+	self.riservaDopo = opzioni.riservaDopo or Battaglia.RISERVA_DOPO
 	self.tempo = 0
 	self.finita = false
 	self.vincitore = nil
@@ -232,61 +346,16 @@ function Battaglia.nuova(reggimenti, opzioni)
 	table.sort(ordinati, function(a, b)
 		return a.id < b.id
 	end)
+	self.limitiAli = {}
 	for _, r in ipairs(ordinati) do
-		local def = r.def
-		local forza = r.forza or 1
-		local numero = math.max(1, def.soldati or 1)
-		local reggimento = {
-			id = r.id,
-			squadra = r.squadra,
-			def = def,
-			x = r.x,
-			y = r.y,
-			soldati = {},
-			vivo = true,
-			hpMax = def.hp * forza,
-			abilitaUsata = false,
-		}
-		local avanti = r.squadra == "giocatore" and 1 or -1
-		local hpTotale = 0
-		for i, posto in ipairs(Battaglia.composizione(def)) do
-			-- Ogni soldato ha la sua parte del reparto da cui viene (la guardia di un generale ha quella del suo reparto).
-			local sdef = posto.def
-			local parti = sdef == def and numero or math.max(1, sdef.soldati or 1)
-			hpTotale += sdef.hp * forza / parti
-			local s = {
-				id = r.id * 16 + i,
-				numero = i,
-				reggimento = reggimento,
-				squadra = r.squadra,
-				def = sdef,
-				x = r.x + posto.x * avanti,
-				y = r.y + posto.y * avanti,
-				raggio = Battaglia.raggio(sdef),
-				hpMax = sdef.hp * forza / parti,
-				hp = sdef.hp * forza / parti,
-				danno = sdef.danno * forza / parti,
-				-- I soldati non colpiscono tutti nello stesso istante.
-				ricarica = ((i * 0.37) % 1) / (sdef.cadenza * 2),
-				vivo = true,
-				bersaglio = nil,
-				ripensa = 0,
-				caricaUsata = false,
-				lancioUsato = not sdef.lancio,
-				rivolto = r.squadra == "giocatore" and 0 or math.pi,
-				inMarcia = false,
-				inMischia = false,
-				girato = false, -- ordine "fianchi": la cavalleria ha già girato attorno all'ala
-			}
-			-- Posto da tenere con gli ordini "tieni" e "ripiega".
-			s.ax, s.ay = s.x, s.y
-			table.insert(reggimento.soldati, s)
-			table.insert(self.soldati, s)
-			self.perId[s.id] = s
-		end
-		reggimento.hpMax = hpTotale -- con la guardia di un generale è più della vita del solo generale
-		table.insert(self.reggimenti, reggimento)
-		self.perReggimento[reggimento.id] = reggimento
+		self:_creaReggimento(r)
+		local limiti = self.limitiAli[r.squadra] or { minimo = math.huge, massimo = -math.huge }
+		limiti.minimo = math.min(limiti.minimo, r.x)
+		limiti.massimo = math.max(limiti.massimo, r.x)
+		self.limitiAli[r.squadra] = limiti
+	end
+	for _, r in ipairs(self.reggimenti) do
+		r.ala = self:_ala(r.squadra, r.x)
 	end
 	-- Compatibilità con chi guardava i reggimenti come "unità".
 	self.unita = self.reggimenti
@@ -361,53 +430,120 @@ function Battaglia:_aura(u)
 end
 
 -- Somma dei bonus "campo" (danno, velocita, difesa) delle abilità in corso per il soldato u: chi è della
--- stessa origine del comandante prende il doppio.
+-- stessa origine del comandante prende il doppio. Più lo stendardo del generale, se u gli è vicino.
 function Battaglia:_bonus(u, campo)
 	local totale = 0
 	for _, e in ipairs(self.effetti) do
-		if e.squadra == u.squadra and e[campo] and self.tempo < e.fine then
+		if e.squadra == u.squadra and e[campo] and self.tempo < e.fine and (not e.soldati or e.soldati[u.id]) then
 			totale = totale + e[campo] * (u.def.origine ~= nil and u.def.origine == e.origine and 2 or 1)
 		end
+	end
+	local stendardo = self.stendardi[u.squadra]
+	local bonus = Battaglia.BONUS_STENDARDO[campo]
+	if stendardo and bonus and (u.x - stendardo.x) ^ 2 + (u.y - stendardo.y) ^ 2 <= Battaglia.RAGGIO_STENDARDO ^ 2 then
+		totale = totale + bonus
 	end
 	return totale
 end
 
--- Cambia l'ordine generale della squadra (uno di Battaglia.ORDINI). Restituisce false e il motivo se non si può.
-function Battaglia:ordine(squadra, nome, automatico)
-	if self.finita or not table.find(Battaglia.ORDINI, nome) or not self.ordini[squadra] then
+-- Posizione del generale della squadra (in caselle), o nil se non è nel campo.
+function Battaglia:stendardo(squadra, x, y)
+	-- Anche poco fuori dal campo (si arriva da dietro le proprie file): conta la distanza dai soldati.
+	if x and y and x >= -1.5 and x <= self.colonne + 2.5 and y >= -1.5 and y <= self.righe + 2.5 then
+		self.stendardi[squadra] = { x = x, y = y }
+	else
+		self.stendardi[squadra] = nil
+	end
+end
+
+-- Ordine in corso per il soldato u (quello della sua ala).
+function Battaglia:_ordineDi(u)
+	return self.ali[u.squadra][u.reggimento.ala].ordine
+end
+
+-- Reggimenti vivi di un'ala.
+function Battaglia:_vivi(squadra, ala)
+	local n = 0
+	for _, r in ipairs(self.reggimenti) do
+		if r.vivo and r.squadra == squadra and r.ala == ala then
+			n += 1
+		end
+	end
+	return n
+end
+
+-- Dà un ordine (uno di Battaglia.ORDINI) a un'ala della squadra (una di Battaglia.ALI) o, con ala = nil, a tutte.
+-- Ogni ala ha la sua attesa tra un ordine e l'altro e la sua carica per round: con tutta l'armata l'ordine va
+-- alle ali che possono riceverlo. Restituisce false e il motivo se non arriva a nessuna.
+function Battaglia:ordine(squadra, nome, automatico, ala)
+	local ali = self.ali[squadra]
+	if self.finita or not table.find(Battaglia.ORDINI, nome) or not ali or (ala ~= nil and not ali[ala]) then
 		return false, "Unknown order."
 	end
-	if self.ordini[squadra] == nome then
-		return false, nil
+	if ala ~= nil and not automatico and self:_vivi(squadra, ala) == 0 then
+		return false, ("No regiments left on your %s wing."):format(string.lower(Battaglia.NOMI_ALI[ala]))
 	end
-	if not automatico and self.tempo - self.ultimoOrdine[squadra] < Battaglia.ATTESA_ORDINE then
-		return false, "Your officers are still carrying out the last order."
-	end
-	if nome == "carica" then
-		if self.caricaUsata[squadra] then
-			return false, "The general charge can be sounded once per round."
+	local scelte, motivo = {}, nil
+	for _, nomeAla in ipairs(Battaglia.ALI) do
+		local stato = ali[nomeAla]
+		if (ala == nil or nomeAla == ala) and stato.ordine ~= nome then
+			local vuota = self:_vivi(squadra, nomeAla) == 0
+			if automatico then
+				table.insert(scelte, nomeAla)
+			elseif self.tempo - stato.ultimo < Battaglia.ATTESA_ORDINE then
+				motivo = "Your officers are still carrying out the last order."
+			elseif nome == "carica" and stato.carica then
+				motivo = ala and "This wing has already charged this round." or "Your wings have already charged this round."
+			elseif not (nome == "carica" and vuota) then
+				-- Un'ala vuota prende l'ordine (vale per la riserva che ci entrerà), ma non spreca la carica.
+				table.insert(scelte, nomeAla)
+			end
 		end
-		self.caricaUsata[squadra] = true
-		table.insert(self.effetti, { squadra = squadra, fine = self.tempo + Battaglia.DURATA_CARICA, velocita = 0.3, danno = 0.1 })
 	end
-	self.ordini[squadra] = nome
-	if not automatico then
-		self.ultimoOrdine[squadra] = self.tempo
+	if #scelte == 0 then
+		return false, motivo
 	end
+	local toccate = {}
+	for _, nomeAla in ipairs(scelte) do
+		local stato = ali[nomeAla]
+		stato.ordine = nome
+		stato.tempo = self.tempo
+		if not automatico then
+			stato.ultimo = self.tempo
+		end
+		if nome == "carica" then
+			stato.carica = true
+		end
+		toccate[nomeAla] = true
+	end
+	local caricati = nome == "carica" and {} or nil
 	local avanti = squadra == "giocatore" and 1 or -1
 	for _, s in ipairs(self.soldati) do
-		if s.vivo and s.squadra == squadra then
+		if s.vivo and s.squadra == squadra and toccate[s.reggimento.ala] then
 			s.ax, s.ay = s.x, s.y
 			s.girato = false
 			s.ripensa = 0
 			if nome == "ripiega" then
 				s.ay = math.clamp(s.y - RIPIEGO * avanti, 0.7, self.righe + 0.3)
-			elseif nome == "carica" and s.def.carica then
-				s.caricaUsata = false
+			elseif nome == "carica" then
+				caricati[s.id] = true
+				if s.def.carica then
+					s.caricaUsata = false
+				end
 			end
 		end
 	end
-	table.insert(self.eventiInAttesa, { tipo = "ordine", squadra = squadra, ordine = nome, automatico = automatico or nil })
+	if caricati then
+		table.insert(self.effetti, { squadra = squadra, fine = self.tempo + Battaglia.DURATA_CARICA, velocita = 0.3, danno = 0.1, soldati = caricati })
+	end
+	local comune = ali[Battaglia.ALI[1]].ordine
+	for _, nomeAla in ipairs(Battaglia.ALI) do
+		if ali[nomeAla].ordine ~= comune then
+			comune = "misto"
+		end
+	end
+	self.ordini[squadra] = comune
+	table.insert(self.eventiInAttesa, { tipo = "ordine", squadra = squadra, ordine = nome, ali = scelte, ala = ala, automatico = automatico or nil })
 	return true
 end
 
@@ -469,31 +605,51 @@ end
 -- Ordini che finiscono da soli: la carica dopo DURATA_CARICA torna avanzata, la ritirata finita (o durata
 -- troppo) diventa una linea da tenere.
 function Battaglia:_aggiornaOrdini()
-	for squadra, nome in pairs(self.ordini) do
-		local trascorso = self.tempo - self.ultimoOrdine[squadra]
-		if nome == "carica" and trascorso >= Battaglia.DURATA_CARICA then
-			self:ordine(squadra, "avanza", true)
-		elseif nome == "ripiega" then
-			local tutti = true
-			for _, s in ipairs(self.soldati) do
-				if s.vivo and s.squadra == squadra and s.def.velocita > 0 and (s.x - s.ax) ^ 2 + (s.y - s.ay) ^ 2 > 0.15 ^ 2 then
-					tutti = false
-					break
+	for squadra, ali in pairs(self.ali) do
+		for _, nomeAla in ipairs(Battaglia.ALI) do
+			local stato = ali[nomeAla]
+			local trascorso = self.tempo - stato.tempo
+			if stato.ordine == "carica" and trascorso >= Battaglia.DURATA_CARICA then
+				self:ordine(squadra, "avanza", true, nomeAla)
+			elseif stato.ordine == "ripiega" then
+				local tutti = true
+				for _, s in ipairs(self.soldati) do
+					if s.vivo and s.squadra == squadra and s.reggimento.ala == nomeAla and s.def.velocita > 0
+						and (s.x - s.ax) ^ 2 + (s.y - s.ay) ^ 2 > 0.15 ^ 2 then
+						tutti = false
+						break
+					end
 				end
-			end
-			if tutti or trascorso >= DURATA_RIPIEGO then
-				self:ordine(squadra, "tieni", true)
+				if tutti or trascorso >= DURATA_RIPIEGO then
+					self:ordine(squadra, "tieni", true, nomeAla)
+				end
 			end
 		end
 	end
 end
 
--- Abilità del comandante "id": una volta per battaglia, mentre è vivo.
-function Battaglia:attivaAbilita(id)
+-- Abilità del comandante "id": una volta per round, mentre è vivo. Con x, y (in caselle) vale solo per i
+-- soldati della sua squadra entro RAGGIO_ABILITA da quel punto (Mattia, 3/11/2026: "premi su dove la vuoi
+-- lanciare"); senza, per tutta la squadra (il nemico). Restituisce false e il motivo se non si può.
+function Battaglia:attivaAbilita(id, x, y)
 	local r = self.perReggimento[id]
 	local a = r and r.def.abilita
 	if self.finita or not a or not r.vivo or r.abilitaUsata then
 		return false
+	end
+	local area = nil
+	if x and y then
+		area = {}
+		local trovati = false
+		for _, s in ipairs(self.soldati) do
+			if s.vivo and s.squadra == r.squadra and (s.x - x) ^ 2 + (s.y - y) ^ 2 <= (Battaglia.RAGGIO_ABILITA + s.raggio) ^ 2 then
+				area[s.id] = true
+				trovati = true
+			end
+		end
+		if not trovati then
+			return false, "None of your troops are there: pick a spot near your regiments."
+		end
 	end
 	r.abilitaUsata = true
 	table.insert(self.effetti, {
@@ -503,9 +659,10 @@ function Battaglia:attivaAbilita(id)
 		danno = a.danno,
 		velocita = a.velocita,
 		difesa = a.difesa,
+		soldati = area,
 	})
 	for _, s in ipairs(self.soldati) do
-		if s.vivo and s.squadra == r.squadra then
+		if s.vivo and s.squadra == r.squadra and (not area or area[s.id]) then
 			local doppio = s.def.origine ~= nil and s.def.origine == r.def.origine
 			if a.cura then
 				s.hp = math.min(s.hpMax, s.hp + s.hpMax * a.cura * (doppio and 2 or 1))
@@ -515,8 +672,70 @@ function Battaglia:attivaAbilita(id)
 			end
 		end
 	end
-	table.insert(self.eventiInAttesa, { tipo = "abilita", reggimento = id, squadra = r.squadra, tipoCarta = r.def.id, durata = a.durata or 8 })
+	table.insert(self.eventiInAttesa, { tipo = "abilita", reggimento = id, squadra = r.squadra, tipoCarta = r.def.id, durata = a.durata or 8,
+		x = x, y = y, raggio = area and Battaglia.RAGGIO_ABILITA or nil })
 	return true
+end
+
+-- La riserva della squadra si può già schierare?
+function Battaglia:riservaPronta()
+	return self.tempo >= self.riservaDopo
+end
+
+-- Punto in cui una squadra può far entrare la riserva: nella sua metà del campo, fuori dagli ostacoli.
+-- Restituisce x, y corretti.
+function Battaglia:postoRiserva(squadra, x, y)
+	local meta = (self.righe + 1) / 2
+	x = math.clamp(x, 0.75, self.colonne + 0.25)
+	if squadra == "giocatore" then
+		y = math.clamp(y, 0.75, meta - 0.4)
+	else
+		y = math.clamp(y, meta + 0.4, self.righe + 0.25)
+	end
+	for _ = 1, 3 do
+		for _, o in ipairs(self.ostacoli) do
+			local dx, dy = x - o.x, y - o.y
+			local d = math.sqrt(dx * dx + dy * dy)
+			local minimo = RAGGIO_OSTACOLO + 0.45
+			if d < minimo then
+				if d < 1e-6 then
+					dx, dy, d = 0, squadra == "giocatore" and -1 or 1, 1
+				end
+				x, y = o.x + dx / d * minimo, o.y + dy / d * minimo
+			end
+		end
+	end
+	return x, y
+end
+
+-- Schiera un reggimento della riserva: r = { id, def, x, y, forza } come in Battaglia.nuova (x, y si
+-- correggono con postoRiserva). L'ala è quella del punto in cui entra e ne prende l'ordine in corso.
+-- Restituisce il reggimento, oppure false e il motivo.
+function Battaglia:schieraRiserva(squadra, r)
+	if self.finita then
+		return false, nil
+	end
+	if (self.riserve[squadra] or 0) <= 0 then
+		return false, "Your whole reserve is already on the field."
+	end
+	if not self:riservaPronta() then
+		return false, "The reserve is not ready yet."
+	end
+	if self.perReggimento[r.id] then
+		return false, nil
+	end
+	local x, y = self:postoRiserva(squadra, r.x, r.y)
+	self.riserve[squadra] -= 1
+	local reggimento = self:_creaReggimento({ id = r.id, squadra = squadra, def = r.def, x = x, y = y, forza = r.forza })
+	reggimento.ala = self:_ala(squadra, x)
+	reggimento.riserva = true
+	local soldati = {}
+	for _, s in ipairs(reggimento.soldati) do
+		table.insert(soldati, { id = s.id, tipo = s.def.id, squadra = s.squadra, x = s.x, y = s.y, hp = s.hpMax })
+	end
+	table.insert(self.eventiInAttesa, { tipo = "rinforzi", squadra = squadra, reggimento = r.id, tipoCarta = r.def.id, ala = reggimento.ala,
+		x = x, y = y, soldati = soldati })
+	return reggimento
 end
 
 -- Sceglie il nemico da attaccare: il più vicino, ma chi ha già tanti addosso conta come più lontano.
@@ -533,7 +752,7 @@ function Battaglia:_bersaglio(u, dt)
 	u.ripensa = RIPENSA
 	local mischia = not tiratore(u.def)
 	local cercaTiratori = false
-	if filtro == nil and self.ordini[u.squadra] == "fianchi" and u.def.classe == "Cavalleria" then
+	if filtro == nil and self:_ordineDi(u) == "fianchi" and u.def.classe == "Cavalleria" then
 		for _, altro in ipairs(self.soldati) do
 			if altro.vivo and altro.squadra ~= u.squadra and altro.def.classe == "Tiratore" then
 				cercaTiratori = true
@@ -904,7 +1123,7 @@ function Battaglia:_ferisci(b, danno, eventi, attaccante)
 		return 0
 	end
 	-- Chi tiene la linea ed è fermo para meglio.
-	local inLinea = self.ordini[b.squadra] == "tieni" and not b.inMarcia
+	local inLinea = self:_ordineDi(b) == "tieni" and not b.inMarcia
 	local reale = danno * (1 - (b.def.armatura or 0)) * (self:_terrenoSotto(b).dannoSubito or 1)
 		* (1 - math.min(0.6, self:_bonus(b, "difesa") + (inLinea and DIFESA_IN_LINEA or 0)))
 	b.hp = b.hp - reale
@@ -944,6 +1163,12 @@ function Battaglia:_controllaFine()
 		if r.vivo then
 			vivi[r.squadra] = vivi[r.squadra] + 1
 			vita[r.squadra] = vita[r.squadra] + Battaglia.vitaReggimento(r)
+		end
+	end
+	-- La riserva ancora in mano tiene in vita l'armata finché non è pronta e per un po' dopo.
+	if self.tempo < self.riservaDopo + GRAZIA_RISERVA then
+		for squadra, n in pairs(self.riserve) do
+			vivi[squadra] = vivi[squadra] + n
 		end
 	end
 	if vivi.giocatore == 0 or vivi.nemico == 0 then
@@ -1000,7 +1225,7 @@ function Battaglia:passo(dt)
 			u.inMarcia = false
 			u.ricarica = math.max(0, u.ricarica - dt)
 			local b = self:_bersaglio(u, dt)
-			local ordine = self.ordini[u.squadra]
+			local ordine = self:_ordineDi(u)
 			local mobile = u.def.velocita > 0
 			local lontanoDalPosto = (u.x - u.ax) ^ 2 + (u.y - u.ay) ^ 2
 			-- Il generale segue il suo reggimento: combatte solo chi gli arriva a tiro, non va mai all'attacco da solo.

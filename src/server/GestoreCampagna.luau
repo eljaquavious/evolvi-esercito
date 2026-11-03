@@ -27,6 +27,8 @@ local VELOCITA_BATTAGLIA = 0.75
 local PAUSA_TRA_ROUND = 6.5
 -- Secondi di battaglia dopo cui i comandanti nemici usano la loro abilità.
 local ATTESA_ABILITA_NEMICA = 6
+-- Secondi di battaglia tra quando è pronta la riserva del giocatore e quando entra quella del nemico.
+local ATTESA_RISERVA_NEMICA = 3
 
 local sessioni = {}
 local remoti
@@ -56,6 +58,7 @@ local function chiudiSessione(player)
 	sessioni[player] = nil
 	if player.Parent then
 		remoti.Truppe:FireClient(player, { tipo = "pulisci" })
+		Arena.scalaGenerale(player, false)
 	end
 end
 
@@ -117,10 +120,12 @@ local function inizioRound(player, sessione)
 	inviaSchieramento(player, sessione)
 	-- Niente caselle: i reggimenti stanno in formazione sul terreno.
 	Arena.mostraCaselle(sessione.arena, false)
-	local esploratori = {}
+	local esploratori, riservaNemica = {}, {}
 	for _, nemico in ipairs(sessione.armata) do
 		table.insert(esploratori, nemico.tipo)
+		riservaNemica[#esploratori] = nemico.riserva == true
 	end
+	local entrata = sessione.armata.entrata and Campagna.ENTRATE[sessione.armata.entrata]
 	remoti.Fase:FireClient(player, {
 		fase = "piazzamento",
 		livello = livello.numero,
@@ -130,7 +135,10 @@ local function inizioRound(player, sessione)
 		epoca = livello.epoca.nome,
 		bioma = sessione.arena.bioma.nome,
 		atmosfera = sessione.arena.bioma.atmosfera,
-		maxReggimenti = livello.maxReggimenti,
+		-- Prima linea: quanti reggimenti si schierano prima di FIGHT!; riserva: quanti si aggiungono dopo.
+		maxReggimenti = Campagna.primaLinea(livello),
+		riserva = Campagna.riserva(livello),
+		riservaDopo = math.floor(Campagna.riservaDopo(livello) / VELOCITA_BATTAGLIA + 0.5),
 		mazzo = sessione.mazzo,
 		usate = table.clone(sessione.scelte),
 		formazione = sessione.formazione,
@@ -145,6 +153,9 @@ local function inizioRound(player, sessione)
 		perVincere = Campagna.ROUND_PER_VINCERE,
 		assedio = sessione.assedio,
 		esploratori = esploratori,
+		riservaNemica = riservaNemica, -- [indice in esploratori] = true se quel reggimento entra dopo (lista piena: i buchi non passano)
+		entrata = entrata and entrata.nome or nil,
+		avvisoEntrata = entrata and entrata.avviso or nil,
 		fiume = sessione.arena.rigaFiume ~= nil,
 		tutorial = sessione.tutorial or nil,
 	})
@@ -179,7 +190,7 @@ function GestoreCampagna.avvia(player, numero)
 	local tutorial = numero == 1 and not (dati.stelle and dati.stelle["1"])
 	-- All'inizio sono scelte le prime carte del mazzo, nella formazione usata l'ultima volta.
 	local scelte = {}
-	for indice = 1, math.min(#dati.mazzo, livello.maxReggimenti) do
+	for indice = 1, math.min(#dati.mazzo, Campagna.primaLinea(livello)) do
 		table.insert(scelte, indice)
 	end
 	if tutorial then
@@ -210,7 +221,9 @@ function GestoreCampagna.avvia(player, numero)
 	end
 	sessione.arena = arena
 	sessione.fase = "piazzamento"
-	-- Il giocatore entra nel campo a piedi: si muove liberamente anche durante la battaglia.
+	-- Il giocatore entra nel campo a piedi: è il generale, si muove liberamente anche durante la battaglia e il
+	-- suo stendardo dà coraggio ai soldati vicini.
+	Arena.scalaGenerale(player, true)
 	teletrasporta(player, arena.arrivo, false)
 	inizioRound(player, sessione)
 	Statistiche.battaglia(player, sessione, 1)
@@ -240,8 +253,9 @@ function GestoreCampagna.schiera(player, indici, formazione)
 		viste[indice] = true
 		table.insert(scelte, indice)
 	end
-	if #scelte > sessione.livello.maxReggimenti then
-		return false, "Maximum " .. sessione.livello.maxReggimenti .. " regiments in this battle."
+	local primaLinea = Campagna.primaLinea(sessione.livello)
+	if #scelte > primaLinea then
+		return false, ("Maximum %d regiments in the first line: the other cards wait in your reserve."):format(primaLinea)
 	end
 	if formazione ~= nil and formazione ~= sessione.formazione then
 		local dati = Dati.ottieni(player)
@@ -298,7 +312,7 @@ local function eventiPerClient(eventi)
 			table.insert(lista, { tipo = "colpo", a = e.a, danno = e.danno, area = area })
 		elseif e.tipo == "morte" then
 			table.insert(lista, { tipo = "morte", id = e.id, reggimento = e.reggimentoCaduto and e.reggimento or nil })
-		elseif e.tipo == "ordine" or e.tipo == "abilita" or e.tipo == "bersaglio" then
+		elseif e.tipo == "ordine" or e.tipo == "abilita" or e.tipo == "bersaglio" or e.tipo == "rinforzi" then
 			table.insert(lista, e)
 		end
 	end
@@ -323,17 +337,34 @@ local function combattiRound(player, sessione)
 		table.insert(reggimenti, { id = id, squadra = "giocatore", def = Epoche.Truppe[piazzata.tipo], x = piazzata.x, y = piazzata.y })
 		table.insert(mieiReggimenti, { id = id, indice = piazzata.indice, tipo = piazzata.tipo })
 	end
+	-- Riserva del nemico: entra da sola poco dopo che è pronta quella del giocatore.
+	local riservaNemica = {}
 	for i, nemico in ipairs(sessione.armata) do
-		table.insert(reggimenti, {
+		local r = {
 			id = 100 + i,
 			squadra = "nemico",
 			def = Epoche.Truppe[nemico.tipo],
 			x = nemico.col,
 			y = nemico.riga,
 			forza = Campagna.forza(livello, sessione.round, nemico.tipo),
-		})
-		table.insert(reggimentiNemici, { id = 100 + i, tipo = nemico.tipo })
+		}
+		if nemico.riserva and not sessione.assedio then
+			table.insert(riservaNemica, r)
+		else
+			table.insert(reggimenti, r)
+			table.insert(reggimentiNemici, { id = 100 + i, tipo = nemico.tipo })
+		end
 	end
+	-- Riserva del giocatore: le carte del mazzo rimaste fuori dalla prima linea, fino a Campagna.riserva.
+	local mano = {}
+	for indice in ipairs(sessione.mazzo) do
+		if not table.find(sessione.scelte, indice) then
+			table.insert(mano, indice)
+		end
+	end
+	local quanteRiserva = math.min(#mano, Campagna.riserva(livello))
+	sessione.mano = mano
+	sessione.prossimoId = id
 
 	local ostacoli, terreno = {}, {}
 	for _, t in ipairs(livello.terreno) do
@@ -345,7 +376,18 @@ local function combattiRound(player, sessione)
 		end
 	end
 
-	local battaglia = Battaglia.nuova(reggimenti, { colonne = Arena.COLONNE, righe = Arena.RIGHE, ostacoli = ostacoli, terreno = terreno })
+	local battaglia = Battaglia.nuova(reggimenti, {
+		colonne = Arena.COLONNE,
+		righe = Arena.RIGHE,
+		ostacoli = ostacoli,
+		terreno = terreno,
+		riserve = { giocatore = quanteRiserva, nemico = #riservaNemica },
+		riservaDopo = Campagna.riservaDopo(livello),
+	})
+	-- Il client scrive sulle carte a quale ala appartiene ogni reggimento.
+	for _, r in ipairs(mieiReggimenti) do
+		r.ala = battaglia.perReggimento[r.id].ala
+	end
 	local elenco = {}
 	for _, s in ipairs(battaglia.soldati) do
 		table.insert(elenco, { id = s.id, tipo = s.def.id, squadra = s.squadra, x = s.x, y = s.y, hp = s.hpMax })
@@ -365,6 +407,12 @@ local function combattiRound(player, sessione)
 		assedio = sessione.assedio,
 		reggimenti = mieiReggimenti,
 		nemici = reggimentiNemici,
+		-- Carte che si potranno schierare dalla riserva (indici del mazzo), quante e dopo quanti secondi veri.
+		mano = mano,
+		riserva = quanteRiserva,
+		riservaDopo = Campagna.riservaDopo(livello) / VELOCITA_BATTAGLIA,
+		riservaNemica = #riservaNemica,
+		entrata = sessione.armata.entrata and Campagna.ENTRATE[sessione.armata.entrata].nome or nil,
 	})
 	task.wait(3.2) -- conto alla rovescia sul client, intanto si vede lo schieramento nemico
 	if not sessione.attiva then
@@ -372,6 +420,8 @@ local function combattiRound(player, sessione)
 	end
 
 	sessione.battaglia = battaglia
+	sessione.mieiReggimenti = mieiReggimenti
+	local riservaEntrata = false
 	while sessione.attiva and not battaglia.finita and not sessione.vinciSubito do
 		-- I comandanti nemici usano la loro abilità quando gli eserciti stanno per scontrarsi.
 		if battaglia.tempo >= ATTESA_ABILITA_NEMICA then
@@ -379,11 +429,22 @@ local function combattiRound(player, sessione)
 				battaglia:attivaAbilita(r.id)
 			end
 		end
+		if not riservaEntrata and battaglia.tempo >= battaglia.riservaDopo + ATTESA_RISERVA_NEMICA then
+			riservaEntrata = true
+			for _, r in ipairs(riservaNemica) do
+				if battaglia:schieraRiserva("nemico", r) then
+					table.insert(reggimentiNemici, { id = r.id, tipo = r.def.id })
+				end
+			end
+		end
+		-- Lo stendardo del generale segue l'avatar del giocatore.
+		battaglia:stendardo("giocatore", Arena.generale(arena, player))
 		local eventi = battaglia:passo(TICK * VELOCITA_BATTAGLIA)
 		remoti.Truppe:FireClient(player, { tipo = "passo", posizioni = posizioni(battaglia), eventi = eventiPerClient(eventi) })
 		task.wait(TICK)
 	end
 	sessione.battaglia = nil
+	sessione.mieiReggimenti = nil
 	if not sessione.attiva then
 		return nil
 	end
@@ -434,10 +495,10 @@ local function fineLivello(player, sessione)
 	local livello = sessione.livello
 	local vittoria = sessione.vinti >= Campagna.ROUND_PER_VINCERE
 	local stelle = vittoria and Campagna.stelle(sessione.persi) or 0
-	Statistiche.battaglia(player, sessione, 6)
+	Statistiche.battaglia(player, sessione, 5)
 	Statistiche.fineBattaglia(player, sessione, vittoria)
 	if vittoria then
-		Statistiche.battaglia(player, sessione, 7)
+		Statistiche.battaglia(player, sessione, 6)
 		local primi = { [1] = "Battaglia 1 vinta", [2] = "Battaglia 2 vinta", [3] = "Battaglia 3 vinta", [5] = "Battaglia 5 vinta" }
 		if primi[livello.numero] then
 			Statistiche.passo(player, primi[livello.numero])
@@ -549,7 +610,7 @@ local function round(player, sessione)
 	else
 		sessione.persi += 1
 	end
-	if sessione.round <= 3 then
+	if sessione.round <= 2 then
 		Statistiche.battaglia(player, sessione, 2 + sessione.round)
 	end
 	Statistiche.passo(player, "Primo round finito")
@@ -608,21 +669,50 @@ function GestoreCampagna.combatti(player)
 	return true
 end
 
--- Ordine generale del giocatore a tutta la sua armata (uno di Battaglia.ORDINI). Restituisce ok, messaggio.
-function GestoreCampagna.ordine(player, nome)
+-- Ordine del giocatore (uno di Battaglia.ORDINI) a un'ala (una di Battaglia.ALI) o, con ala = nil, a tutta
+-- l'armata. Restituisce ok, messaggio.
+function GestoreCampagna.ordine(player, nome, ala)
 	local sessione = sessioni[player]
 	local battaglia = sessione and sessione.battaglia
 	if not battaglia then
 		return false, "Orders can be given during the battle."
 	end
-	if typeof(nome) ~= "string" then
+	if typeof(nome) ~= "string" or (ala ~= nil and not table.find(Battaglia.ALI, ala)) then
 		return false
 	end
-	local ok, messaggio = battaglia:ordine("giocatore", nome)
+	local ok, messaggio = battaglia:ordine("giocatore", nome, false, ala)
 	if ok then
-		Statistiche.comando(player, sessione, "Ordine", nome)
+		Statistiche.comando(player, sessione, "Ordine", nome, ala or "Tutte")
 	end
 	return ok, messaggio
+end
+
+-- Riserva: la carta "indice" del mazzo (tra quelle rimaste in mano) entra nel punto x, y del campo (in caselle).
+-- Restituisce ok, messaggio, id del nuovo reggimento, ala.
+function GestoreCampagna.riserva(player, indice, x, y)
+	local sessione = sessioni[player]
+	local battaglia = sessione and sessione.battaglia
+	if not battaglia or not sessione.mano then
+		return false, "The reserve can join the battle once it has started."
+	end
+	if typeof(indice) ~= "number" or typeof(x) ~= "number" or typeof(y) ~= "number" or x ~= x or y ~= y then
+		return false
+	end
+	local posto = table.find(sessione.mano, indice)
+	local tipo = sessione.mazzo[indice]
+	if not posto or not tipo then
+		return false, "That card is not in your reserve."
+	end
+	local id = sessione.prossimoId + 1
+	local reggimento, messaggio = battaglia:schieraRiserva("giocatore", { id = id, def = Epoche.Truppe[tipo], x = x, y = y })
+	if not reggimento then
+		return false, messaggio
+	end
+	sessione.prossimoId = id
+	table.remove(sessione.mano, posto)
+	table.insert(sessione.mieiReggimenti, { id = id, indice = indice, tipo = tipo, ala = reggimento.ala })
+	Statistiche.comando(player, sessione, "Riserva", tipo)
+	return true, nil, id, reggimento.ala
 end
 
 -- Bersaglio del giocatore: filtro = classe, "Comandante" o id di un reggimento nemico (nil = libero);
@@ -647,15 +737,20 @@ function GestoreCampagna.bersaglio(player, filtro, proprio)
 	return ok, messaggio
 end
 
--- Abilità del comandante "id" del giocatore, una volta per round.
-function GestoreCampagna.abilita(player, id)
+-- Abilità del comandante "id" del giocatore, una volta per round, sui suoi soldati vicini al punto x, y
+-- (in caselle; senza punto, su tutta l'armata).
+function GestoreCampagna.abilita(player, id, x, y)
 	local sessione = sessioni[player]
 	local battaglia = sessione and sessione.battaglia
 	if not battaglia or typeof(id) ~= "number" or id < 1 or id >= 100 then
 		return false, "Abilities can be used during the battle."
 	end
-	if not battaglia:attivaAbilita(id) then
-		return false, "This ability is not available right now."
+	if (x ~= nil or y ~= nil) and (typeof(x) ~= "number" or typeof(y) ~= "number" or x ~= x or y ~= y) then
+		return false
+	end
+	local ok, motivo = battaglia:attivaAbilita(id, x, y)
+	if not ok then
+		return false, motivo or "This ability is not available right now."
 	end
 	local r = battaglia.reggimenti and battaglia.reggimenti[id]
 	Statistiche.comando(player, sessione, "Abilita", r and r.def and r.def.id or "Comandante")
@@ -734,6 +829,7 @@ function GestoreCampagna.inizializza(r)
 	remoti.Ordine.OnServerInvoke = GestoreCampagna.ordine
 	remoti.Abilita.OnServerInvoke = GestoreCampagna.abilita
 	remoti.Bersaglio.OnServerInvoke = GestoreCampagna.bersaglio
+	remoti.Riserva.OnServerInvoke = GestoreCampagna.riserva
 	remoti.VinciRound.OnServerInvoke = GestoreCampagna.vinciRound
 	remoti.TornaLobby.OnServerInvoke = GestoreCampagna.tornaLobby
 end

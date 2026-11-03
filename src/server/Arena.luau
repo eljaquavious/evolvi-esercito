@@ -692,6 +692,36 @@ function Arena.mostraCaselle(arena, visibile)
 	end
 end
 
+-- Casella (colonna, riga, anche non intere) sotto un punto del mondo: il contrario di Arena.posizione.
+function Arena.casellaDi(arena, punto)
+	local d = punto - arena.origine
+	return d.X / Arena.CASELLA + (Arena.COLONNE + 1) / 2, d.Z / Arena.CASELLA + (Arena.RIGHE + 1) / 2
+end
+
+-- Nel campo l'avatar è il generale (Mattia, 3/11/2026): alto come un comandante e non molto più delle truppe,
+-- che sono circa 4 studs contro i 5 del giocatore. Fuori dal campo torna normale.
+local SCALA_GENERALE = 0.85
+function Arena.scalaGenerale(player, nelCampo)
+	local character = player.Character
+	if not (character and character:FindFirstChildOfClass("Humanoid")) then
+		return
+	end
+	local voluta = nelCampo and SCALA_GENERALE or 1
+	if math.abs(character:GetScale() - voluta) > 1e-3 then
+		pcall(character.ScaleTo, character, voluta)
+	end
+end
+
+-- Posizione del generale (l'avatar del giocatore) in caselle, o nil se non ha un personaggio.
+function Arena.generale(arena, player)
+	local character = player.Character
+	local radice = character and character:FindFirstChild("HumanoidRootPart")
+	if not radice then
+		return nil
+	end
+	return Arena.casellaDi(arena, radice.Position)
+end
+
 function Arena.distruggi(arena)
 	if arena.modello then
 		arena.modello:Destroy()

@@ -43,7 +43,7 @@ for i, nome in ipairs(Statistiche.PRIMI_PASSI) do
 end
 
 -- Passi del funnel "Battaglia".
-local BATTAGLIA = { "Avviata", "FIGHT", "Round 1 finito", "Round 2 finito", "Round 3 finito", "Finita", "Vinta" }
+local BATTAGLIA = { "Avviata", "FIGHT", "Round 1 finito", "Round 2 finito", "Finita", "Vinta" }
 
 local escluso = {} -- player -> true: godmode (Mattia), i suoi giri di prova non devono sporcare i dati
 
@@ -141,10 +141,10 @@ function Statistiche.evento(player, nome, valore, a, b, c)
 	end
 end
 
--- Un comando dato in battaglia (Ordine, Bersaglio, Abilita): quale e in che livello.
-function Statistiche.comando(player, sessione, tipo, dettaglio)
+-- Un comando dato in battaglia (Ordine, Bersaglio, Abilita, Riserva): quale, in che livello e (extra) a che ala.
+function Statistiche.comando(player, sessione, tipo, dettaglio, extra)
 	sessione.comandi = (sessione.comandi or 0) + 1
-	Statistiche.evento(player, tipo, 1, tostring(dettaglio), Statistiche.nomeLivello(sessione.livello))
+	Statistiche.evento(player, tipo, 1, tostring(dettaglio), Statistiche.nomeLivello(sessione.livello), extra)
 end
 
 -- Fine della battaglia: quanti comandi ha dato il giocatore in tutta la battaglia.
