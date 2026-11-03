@@ -360,12 +360,6 @@ local function combattiRound(partita)
 				end
 			end
 		end
-		-- Lo stendardo di ogni generale segue il suo avatar.
-		for _, lato in ipairs(partita.lati) do
-			if not lato.bot and lato.player.Parent then
-				battaglia:stendardo(lato.squadra, Arena.generale(partita.arena, lato.player))
-			end
-		end
 		local eventi = battaglia:passo(TICK * VELOCITA_BATTAGLIA)
 		local pos = posizioni(battaglia)
 		for _, lato in ipairs(partita.lati) do
@@ -596,7 +590,6 @@ local function crea(a, b)
 	partita.arena = arena
 	for _, l in ipairs(partita.lati) do
 		if not l.bot and l.player.Parent then
-			Arena.scalaGenerale(l.player, true)
 			teletrasporta(l.player, l.squadra == "giocatore" and arena.arrivo or arena.arrivoOpposto)
 		end
 	end
@@ -617,7 +610,6 @@ function Ranked.chiudi(partita)
 			partite[l.player] = nil
 			if l.player.Parent then
 				remoti.Truppe:FireClient(l.player, { tipo = "pulisci" })
-				Arena.scalaGenerale(l.player, false)
 			end
 		end
 	end
@@ -852,7 +844,6 @@ function Ranked.tornaLobby(player)
 		end
 	end
 	remoti.Truppe:FireClient(player, { tipo = "pulisci" })
-	Arena.scalaGenerale(player, false)
 	teletrasporta(player, Lobby.SPAWN)
 	remoti.Fase:FireClient(player, { fase = "lobby" })
 	return true

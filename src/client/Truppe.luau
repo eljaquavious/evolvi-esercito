@@ -675,7 +675,7 @@ function Truppe.campo()
 	return campo
 end
 
--- Anelli colorati sul terreno (stendardo del generale, area di un'abilità, punto della riserva): uno per nome.
+-- Anelli colorati sul terreno (area di un'abilità, punto della riserva): uno per nome.
 -- Ogni anello è fatto di trattini che seguono il terreno, con un velo appena visibile dentro.
 local anelli = {} -- nome -> { modello, trattini, velo }
 local cartellaAnelli = Instance.new("Folder")

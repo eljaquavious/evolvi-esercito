@@ -66,8 +66,7 @@ local PASSI = {
 	{
 		fase = "battaglia",
 		titolo = "7 · CHOOSE THE TARGET",
-		testo = "Pick a TARGET (keys 6-0) or click an enemy regiment on the field: your troops attack it. Click one of your cards first to command only that regiment.",
-		mostra = "ordini",
+		testo = "Click an enemy regiment on the field: your troops attack it. Click one of your cards first to command only that regiment.",
 		aspetta = "bersaglio",
 	},
 	{
@@ -78,12 +77,7 @@ local PASSI = {
 	},
 	{
 		fase = "battaglia",
-		titolo = "9 · YOU ARE THE GENERAL",
-		testo = "Your avatar leads the army: troops inside the blue circle around you fight harder. Walk to where the battle is hottest!",
-	},
-	{
-		fase = "battaglia",
-		titolo = "10 · SEND THE RESERVE",
+		titolo = "9 · SEND THE RESERVE",
 		testo = "When your RESERVE is ready, click its card and then click your half of the field: the regiment marches in right there.",
 		mostra = "mazzo",
 		aspetta = "riserva",

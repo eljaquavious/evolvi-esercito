@@ -98,8 +98,6 @@ local ZOOM_LOBBY = 14
 local zoomOriginale
 
 local AZZURRO = Stile.ACCENTI.blu.t
--- Altezza della riga delle ali in cima al pannello ORDERS.
-local RIGA_ALI = 72
 local NOTTE_SCURA = Color3.fromHex("#15161C")
 
 local function seguiPersonaggio()
@@ -596,7 +594,7 @@ local function aggiornaSigle()
 end
 
 -- Il giocatore preme ABILITY: l'abilità parte dove clicca sul campo (Mattia, 3/11/2026). Con il controller,
--- dove sta il suo generale.
+-- dove sta il suo avatar.
 local function lanciaAbilita(id, x, y)
 	local ok, messaggio = remoti.Abilita:InvokeServer(id, x, y)
 	if ok then
@@ -645,8 +643,8 @@ function convertiRiserva(indice, id, ala)
 	aggiornaRiserva()
 end
 
--- Posizione del generale (l'avatar) in caselle, o nil.
-local function posizioneGenerale()
+-- Posizione dell'avatar in caselle, o nil.
+local function posizioneAvatar()
 	local character = player.Character
 	local radice = character and character:FindFirstChild("HumanoidRootPart")
 	if not radice then
@@ -662,8 +660,8 @@ local function avviaPuntamento(nuovo)
 		puntamento = nuovo
 	end
 	if puntamento and Stile.gamepad() then
-		-- Col controller niente puntatore: si usa il punto dove sta il generale.
-		local x, y = posizioneGenerale()
+		-- Col controller niente puntatore: si usa il punto dove sta l'avatar.
+		local x, y = posizioneAvatar()
 		local scelto = puntamento
 		puntamento = nil
 		if x then
@@ -1017,6 +1015,14 @@ local function eventoBattaglia(e)
 				break
 			end
 		end
+	elseif e.tipo == "riservaPronta" and e.squadra == "giocatore" then
+		-- Nessuno dei tuoi è più in campo: la riserva si può schierare subito, e va fatto in fretta.
+		if riserva and riserva.messe < riserva.quante then
+			riserva.pronta = math.min(riserva.pronta, os.clock())
+			avviso.Text = "Your front line has fallen! Send your RESERVE now or the round is lost."
+			avviso.TextColor3 = Stile.ACCENTI.rosso.t
+			aggiornaRiserva()
+		end
 	elseif e.tipo == "rinforzi" and e.squadra == "nemico" then
 		avviso.Text = ("ENEMY RESERVES! %s joins the battle%s"):format(
 			string.upper((Epoche.Truppe[e.tipoCarta] or {}).nome or "A regiment"),
@@ -1061,7 +1067,6 @@ local function casellaSotto(vx, vy)
 	return Truppe.casella(posizione)
 end
 
-local COLORE_STENDARDO = Color3.fromRGB(120, 200, 255)
 local COLORE_ABILITA = Color3.fromRGB(255, 200, 60)
 local COLORE_RISERVA = Color3.fromRGB(90, 230, 140)
 local COLORE_NO = Color3.fromRGB(255, 80, 70)
@@ -1119,17 +1124,10 @@ local function cliccaCampo(vx, vy)
 	return true
 end
 
--- Ogni frame in battaglia: il cerchio dello stendardo attorno al generale e quello del comando da puntare.
+-- Ogni frame in battaglia: il cerchio del comando da puntare.
 RunService.RenderStepped:Connect(function()
 	if fase ~= "battaglia" then
 		return
-	end
-	local gx, gy = posizioneGenerale()
-	local campo = Truppe.campo()
-	if gx and campo and gx >= -1.5 and gx <= campo.colonne + 2.5 and gy >= -1.5 and gy <= campo.righe + 2.5 then
-		Truppe.anello("Stendardo", gx, gy, Battaglia.RAGGIO_STENDARDO, COLORE_STENDARDO, 0.35)
-	else
-		Truppe.togliAnello("Stendardo")
 	end
 	if puntamento and not Stile.touch() then
 		local mouse = UserInputService:GetMouseLocation()
@@ -1183,7 +1181,6 @@ end
 local function mostraRound(dati)
 	fase = "round"
 	puntamento = nil
-	Truppe.togliAnello("Stendardo")
 	Truppe.togliAnello("Puntamento")
 	Tutorial.evento("round")
 	mostraPiazzamento(false)
@@ -1360,7 +1357,6 @@ end
 local function esci(ripristinaVista)
 	fase = "lobby"
 	puntamento = nil
-	Truppe.togliAnello("Stendardo")
 	Truppe.togliAnello("Puntamento")
 	Tutorial.ferma()
 	Suoni.fermaMusica()
@@ -1677,6 +1673,10 @@ function Partita.inizializza(gui, r, callbackLobby)
 			centro = math.max(sinistraFight - 20 - meta, 20 + meta)
 		end
 		barraMazzo.Position = UDim2.new(0, centro, 1, -16)
+		-- La barra degli ordini sta sopra il vassoio, allineata con lui.
+		if pannelloOrdini then
+			pannelloOrdini.Position = UDim2.new(0, centro, 1, pannelloOrdini.Position.Y.Offset)
+		end
 	end
 	Stile.ScalaCambiata:Connect(function()
 		task.defer(sistemaVassoio)
@@ -1812,83 +1812,59 @@ function Partita.inizializza(gui, r, callbackLobby)
 	})
 	Stile.crea("UITextSizeConstraint", { MaxTextSize = 18, MinTextSize = 10, Parent = descrizioneFormazione })
 
-	-- Pannello "Orders" in basso a destra durante la battaglia: un ordine va all'ala scelta o a tutta l'armata.
+	-- Barra "Orders" durante la battaglia, sopra le carte e larga come loro (Mattia, 4/11/2026: il pannello di
+	-- lato aveva troppe cose). Sopra le ali (tasti Z X C V, sotto il nome l'ordine che sta eseguendo), sotto i
+	-- 5 ordini (tasti 1-5). I bersagli si scelgono cliccando un nemico sul campo (o coi tasti 6-0).
+	local LARGHEZZA_ORDINI, ALTEZZA_ORDINI = 1100, 160
 	pannelloOrdini = Stile.crea("Frame", {
 		Name = "Ordini",
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -28, 1, -28),
-		Size = UDim2.fromOffset(330, 72 + RIGA_ALI + #Battaglia.ORDINI * 58 + 18 + 40 + 3 * 50),
-		BackgroundColor3 = Stile.BIANCO,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, -80, 1, -16 - 246 - 10),
+		Size = UDim2.fromOffset(LARGHEZZA_ORDINI, ALTEZZA_ORDINI),
+		BackgroundColor3 = Color3.fromHex("#16171D"),
+		BackgroundTransparency = 0.12,
 		Visible = false,
 		ZIndex = 5,
 		Parent = tela,
-	}, { Stile.angoli(26), Stile.bordo(Stile.CONTORNO, 5), Stile.sfumatura(Stile.PAL.notte.b, Stile.PAL.notte.d) })
-	local testataOrdini = targa({
-		Name = "Testata",
-		Size = UDim2.new(1, 0, 0, 72),
-		Parent = pannelloOrdini,
-	}, Stile.PAL.arancio, 24)
-	Stile.scritta({
-		Position = UDim2.fromOffset(22, 0),
-		Size = UDim2.new(1, -30, 1, 0),
-		Text = "Orders",
-		TextSize = 42,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = testataOrdini,
-	})
-	-- Riga delle ali: a chi vanno gli ordini (tasti Z X C V). Sotto il nome, l'ordine che quell'ala sta eseguendo.
-	local voci = { { chiave = "tutte", nome = "ALL" } }
-	for _, ala in ipairs(Battaglia.ALI) do
-		table.insert(voci, { chiave = ala, nome = NOMI_ALA[ala] })
+	}, { Stile.angoli(22), Stile.bordo(Stile.CONTORNO, 4) })
+	local voci = { { chiave = "tutte", nome = "ALL", tasto = "Z" } }
+	for i, ala in ipairs(Battaglia.ALI) do
+		table.insert(voci, { chiave = ala, nome = NOMI_ALA[ala], tasto = ({ "X", "C", "V" })[i] })
 	end
+	local etichettaAli = Stile.scritta({
+		Position = UDim2.fromOffset(16, 10),
+		Size = UDim2.fromOffset(110, 60),
+		Text = "WING",
+		TextSize = 26,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = pannelloOrdini,
+	})
+	etichettaAli.ZIndex = 6
+	local largoAla = (LARGHEZZA_ORDINI - 16 - 110 - 16 - 3 * 8) / #voci
 	for i, voce in ipairs(voci) do
 		local bottone = Stile.pulsante({
 			Name = "Ala" .. voce.chiave,
-			Position = UDim2.new((i - 1) / #voci, 14 - (i - 1) * 28 / #voci + 2, 0, 84),
-			Size = UDim2.new(1 / #voci, -28 / #voci - 4, 0, 62),
+			Position = UDim2.fromOffset(16 + 110 + (i - 1) * (largoAla + 8), 10),
+			Size = UDim2.fromOffset(largoAla, 60),
 			Parent = pannelloOrdini,
-		}, voce.chiave == "tutte" and "oro" or "blu", { Testo = voce.nome, TestoSize = 18, Sotto = "ADVANCE", SottoSize = 11, Profondita = 4, Raggio = 10, Contorno = 3 })
+		}, voce.chiave == "tutte" and "oro" or "blu", { Testo = ("%s  %s"):format(voce.tasto, voce.nome), TestoSize = 24, Sotto = "ADVANCE", SottoSize = 15, Profondita = 4, Raggio = 10, Contorno = 3 })
 		bottone.Activated:Connect(function()
 			scegliAla(voce.chiave ~= "tutte" and voce.chiave or nil)
 		end)
 		bottoniAla[voce.chiave] = bottone
 	end
+	local largoOrdine = (LARGHEZZA_ORDINI - 32 - (#Battaglia.ORDINI - 1) * 8) / #Battaglia.ORDINI
 	for i, nome in ipairs(Battaglia.ORDINI) do
 		local bottone = Stile.pulsante({
 			Name = nome,
-			Position = UDim2.fromOffset(14, 86 + RIGA_ALI + (i - 1) * 58),
-			Size = UDim2.new(1, -28, 0, 52),
+			Position = UDim2.fromOffset(16 + (i - 1) * (largoOrdine + 8), 80),
+			Size = UDim2.fromOffset(largoOrdine, 70),
 			Parent = pannelloOrdini,
 		}, "blu", { Testo = ("%d  %s"):format(i, string.upper(Battaglia.NOMI_ORDINI[nome].nome)), TestoSize = 26, Profondita = 5, Raggio = 12, Contorno = 3 })
 		bottone.Activated:Connect(function()
 			daiOrdine(nome)
 		end)
 		bottoniOrdine[nome] = bottone
-	end
-	-- Sezione TARGET: chi attaccare (tasti 6-0). Vale per il reggimento selezionato o per tutta l'armata.
-	local yMira = 86 + RIGA_ALI + #Battaglia.ORDINI * 58 + 4
-	titoloMira = Stile.testo({
-		Position = UDim2.fromOffset(16, yMira),
-		Size = UDim2.new(1, -32, 0, 32),
-		Text = "TARGET · WHOLE ARMY",
-		TextColor3 = Stile.Colori.Oro,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = pannelloOrdini,
-	})
-	Stile.crea("UITextSizeConstraint", { MaxTextSize = 22, MinTextSize = 10, Parent = titoloMira })
-	for i, b in ipairs(BERSAGLI) do
-		local ultima = i == #BERSAGLI
-		local colonna, riga = (i - 1) % 2, (i - 1) // 2
-		local bottone = Stile.pulsante({
-			Name = "Mira" .. i,
-			Position = ultima and UDim2.fromOffset(14, yMira + 40 + riga * 50) or UDim2.new(colonna * 0.5, 14 - colonna * 7, 0, yMira + 40 + riga * 50),
-			Size = ultima and UDim2.new(1, -28, 0, 44) or UDim2.new(0.5, -21, 0, 44),
-			Parent = pannelloOrdini,
-		}, "blu", { Testo = ("%d  %s"):format(i == 5 and 0 or i + 5, string.upper(b.nome)), TestoSize = 22, Profondita = 4, Raggio = 12, Contorno = 3 })
-		bottone.Activated:Connect(function()
-			daiBersaglio(b.filtro)
-		end)
-		bottoniMira[i] = bottone
 	end
 
 	-- Grande scritta di fine round.

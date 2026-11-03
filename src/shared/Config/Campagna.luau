@@ -256,23 +256,35 @@ function Campagna.livello(numero)
 	-- Grado da 1 a 10: quanto si è avanti nell'epoca, qualunque sia il numero dei suoi livelli.
 	local grado = 1 + (locale - 1) * 9 / math.max(1, livelliEpoca - 1)
 	-- Più si va avanti nella campagna, più reggimenti ci sono in campo (richiesta di Mattia): il conto non
-	-- riparte da capo a ogni epoca ma cresce dall'inizio alla fine, da 1 nemico contro 2 fino a 6 contro 6.
+	-- riparte da capo a ogni epoca ma cresce dall'inizio alla fine, da 2 contro 2 fino a 6 contro 6.
 	local avanzamento = (numero - 1) / math.max(1, Campagna.TOTALE - 1)
 	-- Dal livello 2 si schierano più truppe (Mattia, 21/10/2026: "troppe poche all'inizio"), ma l'IA deve
 	-- reggere (Mattia: "nel primo livello ci sta che sia scarsa, dopo deve durare"). Il primo livello resta
-	-- 2 contro 1 (tutorial); poi il giocatore ne ha 4, 5 (dal livello 6) e 6 (dal livello 14) e il nemico uno in
-	-- meno fino a metà campagna, poi pari. Livello 2: 4 contro 3; 6: 5 contro 4; 14: 6 contro 6.
-	-- Misurato con la simulazione (mazzo iniziale, formazione in linea, senza ordini): vince circa 6 volte su 10,
-	-- battaglie da 20 a 50 secondi.
-	local numeroNemici, maxReggimenti
+	-- 2 contro 2 (tutorial); poi ognuno ne ha 4, 5 (dal livello 6) e 6 (dal livello 14).
+	local maxReggimenti
 	if numero == 1 then
-		numeroNemici, maxReggimenti = 1, 2
+		maxReggimenti = 2
 	else
 		maxReggimenti = math.clamp(4 + math.floor(avanzamento * 3 + 0.5), 4, Campagna.MAX_REGGIMENTI)
-		numeroNemici = avanzamento < 0.5 and maxReggimenti - 1 or maxReggimenti
 	end
-	-- Per bilanciare il reggimento in più del giocatore, quelli nemici sono più forti: +12% per reggimento di vantaggio.
-	local vantaggio = math.max(0, maxReggimenti - numeroNemici)
+	-- Il nemico ha tanti reggimenti quanti il giocatore, con la stessa riserva (Mattia, 4/11/2026: "il numero
+	-- di riserve che hai tu lo ha anche l'IA"). Livelli 1 e 2 più duri di prima (Mattia: "IA troppo debole nei
+	-- primi 2 scontri"). Dal 3 la forza vale quanto la vecchia armata con un reggimento in meno e +12%, meno il 7%
+	-- (era il bonus dello stendardo, tolto). Simulazione (mazzo iniziale, linea, senza ordini, riserva appena
+	-- pronta): 26 round vinti su 52 come con le regole vecchie; livello 1 vinto in ~25 s, livello 2 in 38-51 s.
+	local vecchiNemici = numero == 1 and 1 or (avanzamento < 0.5 and maxReggimenti - 1 or maxReggimenti)
+	local vantaggio = math.max(0, maxReggimenti - vecchiNemici)
+	local base = 1 + 0.025 * (grado - 1)
+	local forzaNemici
+	if numero == 1 then
+		forzaNemici = 0.92
+	elseif numero == 2 then
+		forzaNemici = 1.06
+	else
+		forzaNemici = 0.93 * base * vecchiNemici * (1 + 0.12 * vantaggio) / maxReggimenti
+			* (vecchiNemici >= Campagna.MAX_REGGIMENTI and 0.93 or 1)
+	end
+	local numeroNemici = maxReggimenti
 
 	return {
 		numero = numero,
@@ -292,8 +304,7 @@ function Campagna.livello(numero)
 		terreno = generaTerreno(numero, locale, battaglia, indiceEpoca),
 		numeroNemici = numeroNemici,
 		maxReggimenti = maxReggimenti,
-		-- A parità di reggimenti (in fondo alla campagna) i nemici sono un po' più deboli.
-		forzaNemici = (1 + 0.025 * (grado - 1)) * (numeroNemici >= Campagna.MAX_REGGIMENTI and 0.93 or 1) * (1 + 0.12 * vantaggio),
+		forzaNemici = forzaNemici,
 		ricompensa = math.floor(40 + 15 * grado + 60 * (indiceEpoca - 1)),
 		-- Prima vittoria: il comandante del livello, oppure una carta dell'epoca a rotazione.
 		-- premio = la carta della prima vittoria quando non è né il boss né una dell'armata (gli Spartani alle Termopili).
@@ -320,7 +331,7 @@ function Campagna.riservaDopo(livello)
 end
 
 function Campagna.riservaNemica(livello)
-	return math.floor(livello.numeroNemici / 3)
+	return Campagna.riserva(livello) -- uguale a quella del giocatore
 end
 
 -- Da dove entra la riserva nemica: dalle retrovie nel primo round, da un fianco dal secondo in poi (un round

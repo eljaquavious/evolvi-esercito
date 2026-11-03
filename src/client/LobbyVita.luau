@@ -20,9 +20,7 @@ local LobbyVita = {}
 
 local VELOCITA_LOBBY = 30
 local VELOCITA_TAPPETO = 58
--- In battaglia l'avatar è il generale: cammina come le sue truppe (Mattia, 3/11/2026: "se sei più veloce sarebbe
--- un po' bruttino"). Prima era veloce come in lobby.
-local VELOCITA_CAMPO = 16
+local VELOCITA_CAMPO = VELOCITA_LOBBY -- in battaglia come in lobby (Mattia: più veloce del normale)
 local FOV = 70
 local FOV_CORSA = 80
 

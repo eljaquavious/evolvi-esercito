@@ -27,8 +27,6 @@ local VELOCITA_BATTAGLIA = 0.75
 local PAUSA_TRA_ROUND = 6.5
 -- Secondi di battaglia dopo cui i comandanti nemici usano la loro abilità.
 local ATTESA_ABILITA_NEMICA = 6
--- Secondi di battaglia tra quando è pronta la riserva del giocatore e quando entra quella del nemico.
-local ATTESA_RISERVA_NEMICA = 3
 
 local sessioni = {}
 local remoti
@@ -58,7 +56,6 @@ local function chiudiSessione(player)
 	sessioni[player] = nil
 	if player.Parent then
 		remoti.Truppe:FireClient(player, { tipo = "pulisci" })
-		Arena.scalaGenerale(player, false)
 	end
 end
 
@@ -221,9 +218,6 @@ function GestoreCampagna.avvia(player, numero)
 	end
 	sessione.arena = arena
 	sessione.fase = "piazzamento"
-	-- Il giocatore entra nel campo a piedi: è il generale, si muove liberamente anche durante la battaglia e il
-	-- suo stendardo dà coraggio ai soldati vicini.
-	Arena.scalaGenerale(player, true)
 	teletrasporta(player, arena.arrivo, false)
 	inizioRound(player, sessione)
 	Statistiche.battaglia(player, sessione, 1)
@@ -312,7 +306,7 @@ local function eventiPerClient(eventi)
 			table.insert(lista, { tipo = "colpo", a = e.a, danno = e.danno, area = area })
 		elseif e.tipo == "morte" then
 			table.insert(lista, { tipo = "morte", id = e.id, reggimento = e.reggimentoCaduto and e.reggimento or nil })
-		elseif e.tipo == "ordine" or e.tipo == "abilita" or e.tipo == "bersaglio" or e.tipo == "rinforzi" then
+		elseif e.tipo == "ordine" or e.tipo == "abilita" or e.tipo == "bersaglio" or e.tipo == "rinforzi" or e.tipo == "riservaPronta" then
 			table.insert(lista, e)
 		end
 	end
@@ -337,7 +331,7 @@ local function combattiRound(player, sessione)
 		table.insert(reggimenti, { id = id, squadra = "giocatore", def = Epoche.Truppe[piazzata.tipo], x = piazzata.x, y = piazzata.y })
 		table.insert(mieiReggimenti, { id = id, indice = piazzata.indice, tipo = piazzata.tipo })
 	end
-	-- Riserva del nemico: entra da sola poco dopo che è pronta quella del giocatore.
+	-- Riserva del nemico: la manda in campo l'IA quando vuole (Battaglia:riservaIA).
 	local riservaNemica = {}
 	for i, nemico in ipairs(sessione.armata) do
 		local r = {
@@ -421,7 +415,8 @@ local function combattiRound(player, sessione)
 
 	sessione.battaglia = battaglia
 	sessione.mieiReggimenti = mieiReggimenti
-	local riservaEntrata = false
+	-- Quanto aspetta l'IA, dopo che la riserva è pronta, se nessun motivo la spinge a mandarla prima.
+	local pazienza = Random.new():NextNumber(0, 12)
 	while sessione.attiva and not battaglia.finita and not sessione.vinciSubito do
 		-- I comandanti nemici usano la loro abilità quando gli eserciti stanno per scontrarsi.
 		if battaglia.tempo >= ATTESA_ABILITA_NEMICA then
@@ -429,16 +424,15 @@ local function combattiRound(player, sessione)
 				battaglia:attivaAbilita(r.id)
 			end
 		end
-		if not riservaEntrata and battaglia.tempo >= battaglia.riservaDopo + ATTESA_RISERVA_NEMICA then
-			riservaEntrata = true
+		-- La riserva nemica entra quando lo decide l'IA (Battaglia:riservaIA), tutta insieme.
+		if #riservaNemica > 0 and battaglia:riservaIA("nemico", pazienza) then
 			for _, r in ipairs(riservaNemica) do
 				if battaglia:schieraRiserva("nemico", r) then
 					table.insert(reggimentiNemici, { id = r.id, tipo = r.def.id })
 				end
 			end
+			riservaNemica = {}
 		end
-		-- Lo stendardo del generale segue l'avatar del giocatore.
-		battaglia:stendardo("giocatore", Arena.generale(arena, player))
 		local eventi = battaglia:passo(TICK * VELOCITA_BATTAGLIA)
 		remoti.Truppe:FireClient(player, { tipo = "passo", posizioni = posizioni(battaglia), eventi = eventiPerClient(eventi) })
 		task.wait(TICK)

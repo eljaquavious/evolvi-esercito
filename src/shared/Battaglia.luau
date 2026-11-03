@@ -121,15 +121,12 @@ Battaglia.DURATA_CARICA = 6
 Battaglia.ALI = { "sinistra", "centro", "destra" }
 Battaglia.NOMI_ALI = { sinistra = "Left", centro = "Center", destra = "Right" }
 
--- Il generale è l'avatar del giocatore: il suo stendardo dà coraggio ai soldati vicini (Battaglia:stendardo).
-Battaglia.RAGGIO_STENDARDO = 1.6 -- caselle
-Battaglia.BONUS_STENDARDO = { danno = 0.15, difesa = 0.1 }
 -- Abilità dei comandanti lanciate su un punto del campo: valgono per i propri soldati entro tanto.
 Battaglia.RAGGIO_ABILITA = 2.0
 
 -- Riserva (Mattia, 3/11/2026): dopo RISERVA_DOPO secondi di battaglia si possono schierare le carte rimaste
--- in mano. Chi non ha più reggimenti in campo ma ha ancora la riserva non ha perso, finché la riserva non è
--- pronta e per GRAZIA_RISERVA secondi dopo.
+-- in mano. Chi resta senza reggimenti in campo può schierarla subito, e non ha perso finché ha GRAZIA_RISERVA
+-- secondi per farlo (Mattia, 4/11/2026: il round non deve restare fermo ad aspettare la riserva).
 Battaglia.RISERVA_DOPO = 22
 local GRAZIA_RISERVA = 8
 local RIPIEGO = 1.5
@@ -333,8 +330,8 @@ function Battaglia.nuova(reggimenti, opzioni)
 	-- Ordine comune a tutte le ali ("misto" se sono diversi). Lo guardano i test.
 	self.ordini = { giocatore = "avanza", nemico = "avanza" }
 	self.mire = { giocatore = {}, nemico = {} } -- bersagli scelti: [id del proprio reggimento o 0 = tutti] -> filtro
-	self.stendardi = {} -- squadra -> { x, y } del generale (l'avatar), se è nel campo
 	self.riserve = { giocatore = 0, nemico = 0 }
+	self.vuotoDa = {} -- squadra -> tempo in cui è rimasta senza reggimenti in campo (con la riserva ancora in mano)
 	for squadra, n in pairs(opzioni.riserve or {}) do
 		self.riserve[squadra] = n
 	end
@@ -430,7 +427,7 @@ function Battaglia:_aura(u)
 end
 
 -- Somma dei bonus "campo" (danno, velocita, difesa) delle abilità in corso per il soldato u: chi è della
--- stessa origine del comandante prende il doppio. Più lo stendardo del generale, se u gli è vicino.
+-- stessa origine del comandante prende il doppio.
 function Battaglia:_bonus(u, campo)
 	local totale = 0
 	for _, e in ipairs(self.effetti) do
@@ -438,22 +435,7 @@ function Battaglia:_bonus(u, campo)
 			totale = totale + e[campo] * (u.def.origine ~= nil and u.def.origine == e.origine and 2 or 1)
 		end
 	end
-	local stendardo = self.stendardi[u.squadra]
-	local bonus = Battaglia.BONUS_STENDARDO[campo]
-	if stendardo and bonus and (u.x - stendardo.x) ^ 2 + (u.y - stendardo.y) ^ 2 <= Battaglia.RAGGIO_STENDARDO ^ 2 then
-		totale = totale + bonus
-	end
 	return totale
-end
-
--- Posizione del generale della squadra (in caselle), o nil se non è nel campo.
-function Battaglia:stendardo(squadra, x, y)
-	-- Anche poco fuori dal campo (si arriva da dietro le proprie file): conta la distanza dai soldati.
-	if x and y and x >= -1.5 and x <= self.colonne + 2.5 and y >= -1.5 and y <= self.righe + 2.5 then
-		self.stendardi[squadra] = { x = x, y = y }
-	else
-		self.stendardi[squadra] = nil
-	end
 end
 
 -- Ordine in corso per il soldato u (quello della sua ala).
@@ -677,9 +659,36 @@ function Battaglia:attivaAbilita(id, x, y)
 	return true
 end
 
--- La riserva della squadra si può già schierare?
-function Battaglia:riservaPronta()
-	return self.tempo >= self.riservaDopo
+-- La riserva della squadra si può già schierare? Sì dopo riservaDopo, o subito se non ha più nessuno in campo.
+function Battaglia:riservaPronta(squadra)
+	return self.tempo >= self.riservaDopo or (squadra ~= nil and self.vuotoDa[squadra] ~= nil)
+end
+
+-- L'IA decide da sola quando mandare la sua riserva (Mattia, 4/11/2026: "lo fa quando vuole"), non
+-- quando la manda il giocatore: subito se è rimasta senza nessuno in campo, se ha perso un reggimento o
+-- sta perdendo lo scontro, altrimenti dopo "pazienza" secondi da quando è pronta.
+function Battaglia:riservaIA(squadra, pazienza)
+	if (self.riserve[squadra] or 0) <= 0 or not self:riservaPronta(squadra) then
+		return false
+	end
+	if self.vuotoDa[squadra] or self.tempo >= self.riservaDopo + (pazienza or 0) then
+		return true
+	end
+	local vivi, iniziali = 0, 0
+	local vita = { giocatore = 0, nemico = 0 }
+	for _, r in ipairs(self.reggimenti) do
+		if r.squadra == squadra and not r.riserva then
+			iniziali += 1
+		end
+		if r.vivo then
+			if r.squadra == squadra then
+				vivi += 1
+			end
+			vita[r.squadra] += Battaglia.vitaReggimento(r)
+		end
+	end
+	local altra = squadra == "giocatore" and "nemico" or "giocatore"
+	return vivi < iniziali or vita[squadra] < vita[altra] * 0.85
 end
 
 -- Punto in cui una squadra può far entrare la riserva: nella sua metà del campo, fuori dagli ostacoli.
@@ -718,7 +727,7 @@ function Battaglia:schieraRiserva(squadra, r)
 	if (self.riserve[squadra] or 0) <= 0 then
 		return false, "Your whole reserve is already on the field."
 	end
-	if not self:riservaPronta() then
+	if not self:riservaPronta(squadra) then
 		return false, "The reserve is not ready yet."
 	end
 	if self.perReggimento[r.id] then
@@ -1165,10 +1174,19 @@ function Battaglia:_controllaFine()
 			vita[r.squadra] = vita[r.squadra] + Battaglia.vitaReggimento(r)
 		end
 	end
-	-- La riserva ancora in mano tiene in vita l'armata finché non è pronta e per un po' dopo.
-	if self.tempo < self.riservaDopo + GRAZIA_RISERVA then
-		for squadra, n in pairs(self.riserve) do
-			vivi[squadra] = vivi[squadra] + n
+	-- La riserva ancora in mano tiene in vita l'armata: chi resta senza nessuno in campo può schierarla
+	-- subito e ha GRAZIA_RISERVA secondi per farlo.
+	for squadra, n in pairs(self.riserve) do
+		if n > 0 then
+			if vivi[squadra] == 0 and not self.vuotoDa[squadra] then
+				self.vuotoDa[squadra] = self.tempo
+				table.insert(self.eventiInAttesa, { tipo = "riservaPronta", squadra = squadra })
+			elseif vivi[squadra] > 0 then
+				self.vuotoDa[squadra] = nil
+			end
+			if self.vuotoDa[squadra] == nil or self.tempo < self.vuotoDa[squadra] + GRAZIA_RISERVA then
+				vivi[squadra] = vivi[squadra] + n
+			end
 		end
 	end
 	if vivi.giocatore == 0 or vivi.nemico == 0 then
