@@ -16,6 +16,7 @@ local Dati = require(script.Parent.Dati)
 local Lobby = require(script.Parent.Lobby)
 local MappaCampagna = require(script.Parent.MappaCampagna)
 local Shop = require(script.Parent.Shop)
+local Statistiche = require(script.Parent.Statistiche)
 
 local GestoreCampagna = {}
 
@@ -212,6 +213,12 @@ function GestoreCampagna.avvia(player, numero)
 	-- Il giocatore entra nel campo a piedi: si muove liberamente anche durante la battaglia.
 	teletrasporta(player, arena.arrivo, false)
 	inizioRound(player, sessione)
+	Statistiche.battaglia(player, sessione, 1)
+	if numero == 1 then
+		Statistiche.passo(player, "Battaglia 1 avviata")
+	elseif numero == 2 then
+		Statistiche.passo(player, "Battaglia 2 avviata")
+	end
 	return true
 end
 
@@ -427,6 +434,18 @@ local function fineLivello(player, sessione)
 	local livello = sessione.livello
 	local vittoria = sessione.vinti >= Campagna.ROUND_PER_VINCERE
 	local stelle = vittoria and Campagna.stelle(sessione.persi) or 0
+	Statistiche.battaglia(player, sessione, 6)
+	Statistiche.fineBattaglia(player, sessione, vittoria)
+	if vittoria then
+		Statistiche.battaglia(player, sessione, 7)
+		local primi = { [1] = "Battaglia 1 vinta", [2] = "Battaglia 2 vinta", [3] = "Battaglia 3 vinta", [5] = "Battaglia 5 vinta" }
+		if primi[livello.numero] then
+			Statistiche.passo(player, primi[livello.numero])
+		end
+		if livello.ultimoDellEpoca and Campagna.epocaDi(livello.numero) == 1 then
+			Statistiche.passo(player, "Prima epoca finita")
+		end
+	end
 	local dati = Dati.ottieni(player)
 	local stellePrima = Dati.stelle(dati, livello.numero)
 	-- Rigiocare un livello già vinto rende metà monete.
@@ -530,6 +549,13 @@ local function round(player, sessione)
 	else
 		sessione.persi += 1
 	end
+	if sessione.round <= 3 then
+		Statistiche.battaglia(player, sessione, 2 + sessione.round)
+	end
+	Statistiche.passo(player, "Primo round finito")
+	if vinto then
+		Statistiche.passo(player, "Primo round vinto")
+	end
 	sessione.fase = "round"
 	local finita = sessione.vinti >= Campagna.ROUND_PER_VINCERE or sessione.persi >= Campagna.ROUND_PER_VINCERE
 	remoti.Fase:FireClient(player, {
@@ -577,6 +603,8 @@ function GestoreCampagna.combatti(player)
 	-- Un generale da solo ora può combattere: la sua carta porta con sé la guardia del corpo (Epoche, GUARDIE).
 	sessione.fase = "battaglia"
 	task.spawn(round, player, sessione)
+	Statistiche.battaglia(player, sessione, 2)
+	Statistiche.passo(player, "Primo FIGHT")
 	return true
 end
 
@@ -590,7 +618,11 @@ function GestoreCampagna.ordine(player, nome)
 	if typeof(nome) ~= "string" then
 		return false
 	end
-	return battaglia:ordine("giocatore", nome)
+	local ok, messaggio = battaglia:ordine("giocatore", nome)
+	if ok then
+		Statistiche.comando(player, sessione, "Ordine", nome)
+	end
+	return ok, messaggio
 end
 
 -- Bersaglio del giocatore: filtro = classe, "Comandante" o id di un reggimento nemico (nil = libero);
@@ -607,7 +639,12 @@ function GestoreCampagna.bersaglio(player, filtro, proprio)
 	if proprio ~= nil and (typeof(proprio) ~= "number" or proprio < 1 or proprio >= 100) then
 		return false
 	end
-	return battaglia:bersaglio("giocatore", filtro, proprio)
+	local ok, messaggio = battaglia:bersaglio("giocatore", filtro, proprio)
+	if ok then
+		-- id di un reggimento nemico = "Reggimento", per non avere un valore diverso per ogni id
+		Statistiche.comando(player, sessione, "Bersaglio", typeof(filtro) == "number" and "Reggimento" or (filtro or "Libero"))
+	end
+	return ok, messaggio
 end
 
 -- Abilità del comandante "id" del giocatore, una volta per round.
@@ -620,6 +657,8 @@ function GestoreCampagna.abilita(player, id)
 	if not battaglia:attivaAbilita(id) then
 		return false, "This ability is not available right now."
 	end
+	local r = battaglia.reggimenti and battaglia.reggimenti[id]
+	Statistiche.comando(player, sessione, "Abilita", r and r.def and r.def.id or "Comandante")
 	return true
 end
 
@@ -660,6 +699,7 @@ function GestoreCampagna.apriMappa(player)
 	chiudiSessione(player)
 	teletrasporta(player, MappaCampagna.ATTESA, true)
 	remoti.Fase:FireClient(player, { fase = "mappa", livello = dati.livello })
+	Statistiche.passo(player, "Mappa aperta")
 	return true
 end
 
@@ -681,6 +721,7 @@ function GestoreCampagna.occupato(player)
 end
 
 function GestoreCampagna.giocatoreUscito(player)
+	Statistiche.uscitoInBattaglia(player, sessioni[player])
 	chiudiSessione(player)
 end
 

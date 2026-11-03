@@ -22,6 +22,7 @@ local Feedback = require(script.Feedback)
 local Ranked = require(script.Ranked)
 local Classifica = require(script.Classifica)
 local Giornaliero = require(script.Giornaliero)
+local Statistiche = require(script.Statistiche)
 
 -- Crea gli eventi tra server e client.
 local cartellaRemoti = Instance.new("Folder")
@@ -105,6 +106,9 @@ remoti.Impostazioni.OnServerInvoke = function(player, chiave, valore)
 	Dati.modifica(player, function(d)
 		d.impostazioni[chiave] = valore
 	end)
+	if chiave == "tutorialLobby" and valore then
+		Statistiche.passo(player, "Tutorial lobby finito")
+	end
 	return true
 end
 
@@ -168,7 +172,9 @@ Lobby.costruisci({
 })
 
 local function giocatoreEntrato(player)
-	Dati.carica(player)
+	local dati = Dati.carica(player)
+	-- Statistiche per il dashboard di Roblox (funnel dei primi passi): solo nel gioco pubblicato.
+	Statistiche.entrato(player, dati)
 end
 
 Players.PlayerAdded:Connect(giocatoreEntrato)
@@ -185,6 +191,7 @@ task.spawn(MappaCampagna.costruisci)
 
 Players.PlayerRemoving:Connect(function(player)
 	GestoreCampagna.giocatoreUscito(player)
+	Statistiche.uscito(player)
 	Ricompense.giocatoreUscito(player)
 	Dati.rilascia(player)
 end)
