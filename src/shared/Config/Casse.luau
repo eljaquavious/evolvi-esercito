@@ -42,7 +42,7 @@ Casse.Truppe = {
 		id = "CassaGrande",
 		nome = "Big Crate",
 		descrizione = "A NEW regiment, guaranteed. Commanders can drop!",
-		robux = { prezzo = 99, prodotto = 0 },
+		robux = { prezzo = 99, prodotto = 3728215631 },
 		nuova = 1,
 		pesi = { bronze = 20, silver = 36, gold = 40, legend = 4 },
 		icona = "crate_big",
@@ -67,7 +67,7 @@ Casse.Cosmetici = {
 		nome = "Medium Armory Crate",
 		descrizione = "Better odds of epic and legendary gear.",
 		-- Ogni cosa costa almeno 80 R$, circa 1 euro (Mattia, 24/10/2026).
-		robux = { prezzo = 89, prodotto = 0 },
+		robux = { prezzo = 89, prodotto = 3728215690 },
 		pesi = { comune = 35, raro = 38, epico = 21, leggendario = 6 },
 		icona = "chest_medium",
 		colore = Color3.fromRGB(150, 70, 230), -- piedistallo nella lobby
@@ -77,7 +77,7 @@ Casse.Cosmetici = {
 		id = "ArmeriaGrande",
 		nome = "Big Armory Crate",
 		descrizione = "No commons. The best shot at legendary gear.",
-		robux = { prezzo = 149, prodotto = 0 },
+		robux = { prezzo = 149, prodotto = 3728215746 },
 		pesi = { comune = 0, raro = 40, epico = 42, leggendario = 18 },
 		icona = "chest_big",
 		colore = Color3.fromRGB(255, 70, 200), -- piedistallo nella lobby
@@ -88,12 +88,12 @@ Casse.Cosmetici = {
 -- Pacchetti di monete (solo Robux). Il più piccolo costa 80 R$ (circa 1 euro, il minimo voluto da Mattia);
 -- più grande è il pacchetto, più monete per ogni Robux (da 12,5 a 22).
 Casse.Monete = {
-	{ id = "Monete1", monete = 1000, robux = { prezzo = 80, prodotto = 0 }, icona = "coins_1" },
-	{ id = "Monete2", monete = 2500, robux = { prezzo = 169, prodotto = 0 }, icona = "coins_2" },
-	{ id = "Monete3", monete = 6000, robux = { prezzo = 369, prodotto = 0 }, icona = "coins_3" },
-	{ id = "Monete4", monete = 10000, robux = { prezzo = 599, prodotto = 0 }, icona = "coins_4" },
-	{ id = "Monete5", monete = 15000, robux = { prezzo = 799, prodotto = 0 }, icona = "coins_5" },
-	{ id = "Monete6", monete = 40000, robux = { prezzo = 1799, prodotto = 0 }, icona = "coins_6", migliore = true },
+	{ id = "Monete1", monete = 1000, robux = { prezzo = 80, prodotto = 3728215747 }, icona = "coins_1" },
+	{ id = "Monete2", monete = 2500, robux = { prezzo = 169, prodotto = 3728215751 }, icona = "coins_2" },
+	{ id = "Monete3", monete = 6000, robux = { prezzo = 369, prodotto = 3728215753 }, icona = "coins_3" },
+	{ id = "Monete4", monete = 10000, robux = { prezzo = 599, prodotto = 3728215759 }, icona = "coins_4" },
+	{ id = "Monete5", monete = 15000, robux = { prezzo = 799, prodotto = 3728215762 }, icona = "coins_5" },
+	{ id = "Monete6", monete = 40000, robux = { prezzo = 1799, prodotto = 3728215767 }, icona = "coins_6", migliore = true },
 }
 
 local indice = {}

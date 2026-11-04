@@ -52,14 +52,14 @@ Ricompense.Titoli = {
 	{ id = "Generalissimo", nome = "Generalissimo", rarita = "leggendario", condizione = { "ranked", 100 } },
 	{ id = "Mercenario", nome = "Mercenary", rarita = "raro", monete = 4000 },
 	{ id = "Fedele", nome = "Loyal Ally", rarita = "raro", condizione = { "preferito" } },
-	{ id = "Magnifico", nome = "The Magnificent", rarita = "leggendario", robux = { prezzo = 99, prodotto = 0 } },
+	{ id = "Magnifico", nome = "The Magnificent", rarita = "leggendario", robux = { prezzo = 99, prodotto = 3728215770 } },
 	{ id = "Fondatore", nome = "Founder", rarita = "esclusivo", soloCodice = true },
 	-- In vendita nello shop (sezione Titles).
 	{ id = "Sergente", nome = "Drill Sergeant", rarita = "raro", monete = 2500 },
 	{ id = "Profittatore", nome = "War Profiteer", rarita = "epico", monete = 7500 },
-	{ id = "Guerrafondaio", nome = "Warmonger", rarita = "epico", robux = { prezzo = 89, prodotto = 0 } },
-	{ id = "Indistruttibile", nome = "The Unbreakable", rarita = "leggendario", robux = { prezzo = 149, prodotto = 0 } },
-	{ id = "SignoreGuerra", nome = "Lord of War", rarita = "leggendario", robux = { prezzo = 249, prodotto = 0 } },
+	{ id = "Guerrafondaio", nome = "Warmonger", rarita = "epico", robux = { prezzo = 89, prodotto = 3728215774 } },
+	{ id = "Indistruttibile", nome = "The Unbreakable", rarita = "leggendario", robux = { prezzo = 149, prodotto = 3728215778 } },
+	{ id = "SignoreGuerra", nome = "Lord of War", rarita = "leggendario", robux = { prezzo = 249, prodotto = 3728215781 } },
 }
 
 -- I modelli 3D sono in Shared.Cosmetici3D (stesso id).
@@ -78,7 +78,7 @@ Ricompense.Cosmetici = {
 	{ id = "Piastre", nome = "Knight's Plate", slot = "Corpo", rarita = "epico", condizione = { "battaglia", 12 }, epoca = 2 },
 	{ id = "Cartucciera", nome = "Bandolier", slot = "Corpo", rarita = "epico", condizione = { "battaglia", 24 }, epoca = 4 },
 	{ id = "Giubbotto", nome = "Flak Jacket", slot = "Corpo", rarita = "epico", condizione = { "battaglia", 26 }, epoca = 5 },
-	{ id = "CorazzaOro", nome = "Golden Cuirass", slot = "Corpo", rarita = "leggendario", robux = { prezzo = 149, prodotto = 0 } },
+	{ id = "CorazzaOro", nome = "Golden Cuirass", slot = "Corpo", rarita = "leggendario", robux = { prezzo = 149, prodotto = 3728215787 } },
 	-- Schiena
 	{ id = "Scudo", nome = "Roman Scutum", slot = "Schiena", rarita = "raro", condizione = { "battaglia", 3 }, epoca = 1 },
 	{ id = "Arco", nome = "English Longbow", slot = "Schiena", rarita = "raro", condizione = { "battaglia", 11 }, epoca = 2 },
@@ -86,7 +86,7 @@ Ricompense.Cosmetici = {
 	{ id = "Fucile", nome = "Lebel Rifle", slot = "Schiena", rarita = "raro", condizione = { "battaglia", 21 }, epoca = 4 },
 	{ id = "Radio", nome = "Field Radio", slot = "Schiena", rarita = "epico", condizione = { "stelleEpoca", 5 }, epoca = 5 },
 	{ id = "Stendardo", nome = "War Banner", slot = "Schiena", rarita = "raro", monete = 2500 },
-	{ id = "Aquila", nome = "Imperial Eagle", slot = "Schiena", rarita = "leggendario", robux = { prezzo = 99, prodotto = 0 } },
+	{ id = "Aquila", nome = "Imperial Eagle", slot = "Schiena", rarita = "leggendario", robux = { prezzo = 99, prodotto = 3728215791 } },
 	-- Solo dalle casse dell'armeria (Config/Casse.Cosmetici): epoche mischiate, i leggendari sono accesi e fantascientifici.
 	{ id = "BerrettoFrigio", nome = "Phrygian Cap", slot = "Testa", rarita = "comune", cassa = true },
 	{ id = "Tricorno", nome = "Tricorne", slot = "Testa", rarita = "comune", cassa = true },
@@ -113,7 +113,7 @@ Ricompense.Cosmetici = {
 	{ id = "AuraFumo", nome = "Smoke of War", slot = "Aura", rarita = "raro", condizione = { "battaglia", 23 }, epoca = 4 },
 	{ id = "AuraSangue", nome = "Crimson Aura", slot = "Aura", rarita = "epico", condizione = { "sconfitti", 250 } },
 	{ id = "AuraTempesta", nome = "Storm Aura", slot = "Aura", rarita = "epico", condizione = { "vittorie", 50 } },
-	{ id = "AuraReale", nome = "Royal Aura", slot = "Aura", rarita = "leggendario", robux = { prezzo = 149, prodotto = 0 } },
+	{ id = "AuraReale", nome = "Royal Aura", slot = "Aura", rarita = "leggendario", robux = { prezzo = 149, prodotto = 3728215794 } },
 }
 
 local indiceTitoli, indiceCosmetici = {}, {}
