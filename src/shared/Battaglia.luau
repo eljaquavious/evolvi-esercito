@@ -134,6 +134,10 @@ local DURATA_RIPIEGO = 6 -- dopo tanto chi ripiega si ferma comunque e tiene la 
 local INGAGGIO = 0.9 -- chi tiene la linea va contro un nemico solo se è entro tanto oltre la sua portata
 local DIFESA_IN_LINEA = 0.15
 local SCARTO_LINEA = 0.3 -- chi tiene la linea ed è stato spinto più in là di tanto torna al suo posto
+-- Carri, cannoni ed elefanti girano piano, in radianti al secondo (Mattia, 5/11/2026: "a volte i carri armati
+-- spinnano su se stessi"): prima si giravano di colpo e vicino agli ostacoli andavano avanti e indietro di 180°.
+local GIRO_VEICOLI = math.rad(140)
+local TENUTA_TIRO = 0.12
 
 -- Effetti del terreno della casella su cui sta un soldato.
 Battaglia.TERRENO = {
@@ -145,6 +149,7 @@ Battaglia.TERRENO = {
 -- Strade attorno agli ostacoli: una griglia fine di punti in cui un soldato ci sta.
 local PASSO_GRIGLIA = 0.25
 local MARGINE_STRADA = 0.1 + RAGGIO_OSTACOLO
+local MARGINE_LARGO = RAGGI.carro + 0.02 + RAGGIO_OSTACOLO
 local VALIDITA_CAMPO = 0.5
 local VICINI = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }
 
@@ -358,18 +363,19 @@ function Battaglia.nuova(reggimenti, opzioni)
 	self.unita = self.reggimenti
 	self.larghezzaGriglia = math.floor((self.colonne - 1) / PASSO_GRIGLIA + 0.5) + 1
 	self.altezzaGriglia = math.floor((self.righe - 1) / PASSO_GRIGLIA + 0.5) + 1
-	self.nodoLibero = {}
+	-- Due griglie di strade: una per fanti e cavalli, una per i mezzi larghi (carri, cannoni, elefanti), che
+	-- non passano dai varchi stretti (prima ci si incastravano e facevano avanti e indietro).
+	self.nodoLibero, self.nodoLiberoLargo = {}, {}
 	for j = 0, self.altezzaGriglia - 1 do
 		for i = 0, self.larghezzaGriglia - 1 do
 			local x, y = 1 + i * PASSO_GRIGLIA, 1 + j * PASSO_GRIGLIA
-			local libero = true
+			local vicino = math.huge
 			for _, o in ipairs(self.ostacoli) do
-				if (o.x - x) ^ 2 + (o.y - y) ^ 2 < MARGINE_STRADA ^ 2 then
-					libero = false
-					break
-				end
+				vicino = math.min(vicino, (o.x - x) ^ 2 + (o.y - y) ^ 2)
 			end
-			self.nodoLibero[j * self.larghezzaGriglia + i + 1] = libero
+			local k = j * self.larghezzaGriglia + i + 1
+			self.nodoLibero[k] = vicino >= MARGINE_STRADA ^ 2
+			self.nodoLiberoLargo[k] = vicino >= MARGINE_LARGO ^ 2
 		end
 	end
 	self.campi = {}
@@ -864,7 +870,9 @@ function Battaglia:_vistaLibera(x0, y0, x1, y1, raggio)
 	local margine = (raggio or RAGGI.fante) + RAGGIO_OSTACOLO + 0.01
 	for _, o in ipairs(self.ostacoli) do
 		local partenza = math.sqrt((o.x - x0) ^ 2 + (o.y - y0) ^ 2)
-		if distanzaDalSegmento(o.x, o.y, x0, y0, x1, y1) < math.min(margine, partenza) - 1e-6 then
+		-- 3 cm di tolleranza: chi costeggia un ostacolo a filo veniva respinto per un arrotondamento e
+		-- restava a fare avanti e indietro tra due tappe (i carri armati soprattutto, che sono larghi).
+		if distanzaDalSegmento(o.x, o.y, x0, y0, x1, y1) < math.min(margine, partenza) - 0.03 then
 			return false
 		end
 	end
@@ -876,8 +884,9 @@ function Battaglia:_nodo(k)
 	return 1 + i * PASSO_GRIGLIA, 1 + j * PASSO_GRIGLIA, i, j
 end
 
--- Vicini di un nodo raggiungibili senza tagliare l'angolo di un ostacolo.
-function Battaglia:_vicini(k)
+-- Vicini di un nodo raggiungibili senza tagliare l'angolo di un ostacolo (libero = la griglia da usare).
+function Battaglia:_vicini(k, libero)
+	libero = libero or self.nodoLibero
 	local w, h = self.larghezzaGriglia, self.altezzaGriglia
 	local _, _, i, j = self:_nodo(k)
 	local risultato = {}
@@ -886,8 +895,8 @@ function Battaglia:_vicini(k)
 		if ni >= 0 and ni < w and nj >= 0 and nj < h then
 			local n = nj * w + ni + 1
 			local diagonaleLibera = v[1] == 0 or v[2] == 0
-				or (self.nodoLibero[j * w + ni + 1] and self.nodoLibero[nj * w + i + 1])
-			if self.nodoLibero[n] and diagonaleLibera then
+				or (libero[j * w + ni + 1] and libero[nj * w + i + 1])
+			if libero[n] and diagonaleLibera then
 				table.insert(risultato, { n, PASSO_GRIGLIA * math.sqrt(v[1] * v[1] + v[2] * v[2]) })
 			end
 		end
@@ -896,8 +905,9 @@ function Battaglia:_vicini(k)
 end
 
 -- Distanza a piedi da ogni nodo fino a un punto da cui si colpisce il bersaglio (nil = irraggiungibile).
-function Battaglia:_campo(b, portata)
-	local chiave = b.id .. ":" .. math.floor(portata * 10 + 0.5)
+function Battaglia:_campo(b, portata, largo)
+	local libero = largo and self.nodoLiberoLargo or self.nodoLibero
+	local chiave = b.id .. ":" .. math.floor(portata * 10 + 0.5) .. (largo and ":L" or "")
 	local campo = self.campi[chiave]
 	if campo and self.tempo - campo.tempo < VALIDITA_CAMPO and math.abs(campo.x - b.x) + math.abs(campo.y - b.y) < 0.3 then
 		return campo.distanze
@@ -942,7 +952,7 @@ function Battaglia:_campo(b, portata)
 	end
 	local raggiungibile = math.max(portata * 0.9, PASSO_GRIGLIA * 0.75)
 	for k = 1, self.larghezzaGriglia * self.altezzaGriglia do
-		if self.nodoLibero[k] then
+		if libero[k] then
 			local x, y = self:_nodo(k)
 			if (x - b.x) ^ 2 + (y - b.y) ^ 2 <= raggiungibile ^ 2 then
 				distanze[k] = 0
@@ -954,7 +964,7 @@ function Battaglia:_campo(b, portata)
 		local voce = estrai()
 		local d, k = voce[1], voce[2]
 		if d <= distanze[k] then
-			for _, v in ipairs(self:_vicini(k)) do
+			for _, v in ipairs(self:_vicini(k, libero)) do
 				local n, costo = v[1], d + v[2]
 				if not distanze[n] or costo < distanze[n] then
 					distanze[n] = costo
@@ -967,9 +977,21 @@ function Battaglia:_campo(b, portata)
 	return distanze
 end
 
--- Prossima tappa verso il bersaglio quando un ostacolo copre la strada dritta.
+-- Prossima tappa verso il bersaglio quando un ostacolo copre la strada dritta. I mezzi larghi cercano prima
+-- una strada senza varchi stretti; se non c'è, quella di tutti.
 function Battaglia:_tappa(u, b, portata)
-	local distanze = self:_campo(b, portata)
+	if u.raggio >= RAGGI.carro then
+		local tx, ty = self:_tappaSu(u, b, portata, true)
+		if tx then
+			return tx, ty
+		end
+	end
+	return self:_tappaSu(u, b, portata, false)
+end
+
+function Battaglia:_tappaSu(u, b, portata, largo)
+	local libero = largo and self.nodoLiberoLargo or self.nodoLibero
+	local distanze = self:_campo(b, portata, largo)
 	local w, h = self.larghezzaGriglia, self.altezzaGriglia
 	local ci, cj = math.floor((u.x - 1) / PASSO_GRIGLIA + 0.5), math.floor((u.y - 1) / PASSO_GRIGLIA + 0.5)
 	local partenza, migliore = nil, math.huge
@@ -995,7 +1017,7 @@ function Battaglia:_tappa(u, b, portata)
 	local tx, ty = self:_nodo(k)
 	for _ = 1, 24 do
 		local prossimo, dMin = nil, distanze[k]
-		for _, v in ipairs(self:_vicini(k)) do
+		for _, v in ipairs(self:_vicini(k, libero)) do
 			local n = v[1]
 			if distanze[n] and distanze[n] < dMin then
 				prossimo, dMin = n, distanze[n]
@@ -1028,12 +1050,25 @@ function Battaglia:_muovi(u, b, dt, portata)
 		local lunghezza = tx and math.sqrt((tx - u.x) ^ 2 + (ty - u.y) ^ 2) or 0
 		if lunghezza > 1e-3 then
 			dirX, dirY = (tx - u.x) / lunghezza, (ty - u.y) / lunghezza
+			-- Non oltre la tappa: superandola la si ritrovava alle spalle e ci si girava indietro a ogni passo.
+			passo = math.min(passo, lunghezza)
 		end
 	end
 	u.x = u.x + dirX * passo
 	u.y = u.y + dirY * passo
-	u.rivolto = math.atan2(dirX, dirY)
+	self:_gira(u, math.atan2(dirX, dirY), dt)
 	u.inMarcia = true
+end
+
+-- Rivolge il soldato verso "angolo": subito, tranne i veicoli che girano al massimo di GIRO_VEICOLI al secondo.
+function Battaglia:_gira(u, angolo, dt)
+	if not u.def.veicolo or not dt then
+		u.rivolto = angolo
+		return
+	end
+	local d = (angolo - u.rivolto + math.pi) % (2 * math.pi) - math.pi
+	local massimo = GIRO_VEICOLI * dt
+	u.rivolto = u.rivolto + math.clamp(d, -massimo, massimo)
 end
 
 -- Una passata di spinte tra soldati sovrapposti.
@@ -1262,10 +1297,14 @@ function Battaglia:passo(dt)
 			elseif b then
 				local portata = self:_portata(u, b)
 				local lancia = u.def.lancio and self:_puoLanciare(u, b)
-				local inGittata = distanza(u, b) <= portata + 1e-3
+				-- Un veicolo già a tiro di questo bersaglio resta a tiro finché non si allontana di TENUTA_TIRO: al
+				-- limite della portata, spinto dentro e fuori dagli altri, si girava avanti e indietro.
+				local tenuta = (u.def.veicolo and u.aTiro == b.id) and TENUTA_TIRO or 1e-3
+				local inGittata = distanza(u, b) <= portata + tenuta
+				u.aTiro = inGittata and b.id or nil
 				u.inMischia = inGittata and not tiratore(u.def)
 				if inGittata or lancia then
-					u.rivolto = math.atan2(b.x - u.x, b.y - u.y)
+					self:_gira(u, math.atan2(b.x - u.x, b.y - u.y), dt)
 					if u.ricarica <= 0 then
 						local danno, carica = self:_dannoBase(u, b, lancia)
 						local tempi = Battaglia.TEMPI[u.def.id]
@@ -1307,7 +1346,7 @@ function Battaglia:passo(dt)
 					elseif (u.x - postoX) ^ 2 + (u.y - postoY) ^ 2 > 0.3 ^ 2 then
 						self:_muovi(u, { id = "scorta" .. u.id, x = postoX, y = postoY }, dt, 0)
 					else
-						u.rivolto = math.atan2(b.x - u.x, b.y - u.y)
+						self:_gira(u, math.atan2(b.x - u.x, b.y - u.y), dt)
 					end
 				elseif mobile then
 					-- Con "tieni", dopo una ritirata e con "fianchi" (tranne la cavalleria) la linea resta ferma:
@@ -1321,7 +1360,7 @@ function Battaglia:passo(dt)
 						elseif lontanoDalPosto > SCARTO_LINEA ^ 2 then
 							self:_muovi(u, { id = "posto" .. u.id, x = u.ax, y = u.ay }, dt, 0)
 						else
-							u.rivolto = math.atan2(b.x - u.x, b.y - u.y)
+							self:_gira(u, math.atan2(b.x - u.x, b.y - u.y), dt)
 						end
 					elseif ordine == "fianchi" and not u.girato and distanza(u, b) > 1.5 then
 						-- Aggiramento: prima larga sull'ala più vicina fino all'altezza del bersaglio, poi dentro.
