@@ -14,21 +14,22 @@ local tela -- la tela 1920x1080 della partita
 local bersagli = {} -- nome -> funzione che restituisce l'elemento GUI da evidenziare
 local riquadro, testo, titolo, numeroPasso, bottoneAvanti, testoAvanti, contorno, freccia
 local passi, indice, attivo = nil, 0, false
+local nascondiNonSpiegati
 local connessione
 
 -- Passi: chiave dell'elemento da evidenziare, testo, e "aspetta" = l'evento che fa andare avanti (nil = NEXT).
 -- "fase" = in quale momento della partita si mostra (il passo aspetta che la partita ci arrivi).
+-- "richiamo" = scritta grande che salta sopra l'elemento (il gesto da fare, per chi non legge).
+-- Nei testi si scrive "Click": sul telefono diventa "Tap" (testoPer).
+-- Collaudo "bambino di 9 anni sul telefono" (6/11/2026): il primo passo era un muro di testo (WELCOME) e
+-- intorno c'erano carte, formazioni e FIGHT tutti insieme. Ora si parte subito col gesto: tocca la prima carta.
 local PASSI = {
 	{
 		fase = "piazzamento",
-		titolo = "WELCOME, COMMANDER!",
-		testo = "This is your first battle. Follow these steps and you will win it. Your army fights by itself, but YOU command it.",
-	},
-	{
-		fase = "piazzamento",
-		titolo = "1 · DEPLOY YOUR REGIMENTS",
-		testo = "These are your regiment cards. Click a card to send that regiment onto the field. Click it again to call it back.",
-		mostra = "mazzo",
+		titolo = "CLICK A CARD!",
+		testo = "Every card is a whole regiment. Click it to send it onto the field.",
+		mostra = "primaCarta",
+		richiamo = "CLICK!",
 		aspetta = "carta",
 	},
 	{
@@ -56,24 +57,27 @@ local PASSI = {
 		mostra = "combatti",
 		aspetta = "battaglia",
 	},
+	-- In battaglia si parte dal gesto più forte (tromba, onda, scossa): il bambino del collaudo restava a
+	-- guardare senza sapere cosa toccare, e il vecchio passo "GIVE ORDERS" era un testo lungo pieno di tasti.
 	{
 		fase = "battaglia",
-		titolo = "6 · GIVE ORDERS",
-		testo = "Pick who gets the order: ALL, or one WING (LEFT, CENTER, RIGHT, keys Z X C V). Then try HOLD THE LINE (key 2): they stand firm and wait. ADVANCE (key 1) sends them forward again.",
-		mostra = "ordini",
+		titolo = "6 · SOUND THE CHARGE!",
+		testo = "Your army fights by itself, but YOU command it. Click GENERAL CHARGE: everyone attacks at full strength!",
+		mostra = "carica",
+		richiamo = "CLICK!",
 		aspetta = "ordine",
 	},
 	{
 		fase = "battaglia",
-		titolo = "7 · CHOOSE THE TARGET",
-		testo = "Click an enemy regiment on the field: your troops attack it. Click one of your cards first to command only that regiment.",
-		aspetta = "bersaglio",
+		titolo = "7 · GIVE ORDERS",
+		testo = "Pick ALL or one WING, then an order. HOLD THE LINE: they stand firm. ADVANCE: forward again. Each wing can CHARGE once per round.",
+		mostra = "ordini",
 	},
 	{
 		fase = "battaglia",
-		titolo = "8 · SOUND THE CHARGE",
-		testo = "GENERAL CHARGE (key 5) can be sounded once per round by each wing: use it when the armies clash!",
-		mostra = "ordini",
+		titolo = "8 · CHOOSE THE TARGET",
+		testo = "Click an enemy regiment on the field: your troops attack it. Click one of your cards first to command only that regiment.",
+		aspetta = "bersaglio",
 	},
 	{
 		fase = "battaglia",
@@ -91,6 +95,25 @@ local PASSI = {
 		fine = "GOT IT",
 	},
 }
+
+-- Sul telefono si tocca, non si clicca.
+local function testoPer(s)
+	if Stile.touch() then
+		s = s:gsub("Click", "Tap"):gsub("click", "tap"):gsub("CLICK", "TAP")
+	end
+	return s
+end
+
+-- Pannelli che restano nascosti finché il tutorial non arriva al passo che li indica (uno alla volta).
+local NASCOSTI_FINO_AL_PASSO = { "formazioni" }
+local function passoCheMostra(nome)
+	for i, passo in ipairs(PASSI) do
+		if passo.mostra == nome then
+			return i
+		end
+	end
+	return nil
+end
 
 local function chiudiRiquadro()
 	if riquadro then
@@ -120,6 +143,18 @@ local function seguiBersaglio()
 	contorno.UIStroke.Transparency = 0.1 + 0.5 * lampo
 	-- La freccia sta sopra l'elemento; per i pannelli alti sui lati, di fianco (verso il centro dello schermo).
 	local larghezza = tela.AbsoluteSize.X / scala
+	if passo.richiamo then
+		freccia.Text = testoPer(passo.richiamo) .. "\n▼"
+		freccia.TextSize = 84
+		freccia.Size = UDim2.fromOffset(320, 200)
+		freccia.AnchorPoint = Vector2.new(0.5, 1)
+		freccia.Position = UDim2.new(0.5, 0, 0, -6 - 22 * lampo)
+		freccia.Rotation = 6 * math.sin(os.clock() * 9)
+		return
+	end
+	freccia.TextSize = 64
+	freccia.Size = UDim2.fromOffset(80, 70)
+	freccia.Rotation = 0
 	if pos.Y > 200 or dim.Y < 300 then
 		freccia.Text = "▼"
 		freccia.AnchorPoint = Vector2.new(0.5, 1)
@@ -188,8 +223,8 @@ local function mostraPasso()
 		return
 	end
 	impostaLayout()
-	titolo.Text = passo.titolo
-	testo.Text = passo.testo
+	titolo.Text = testoPer(passo.titolo)
+	testo.Text = testoPer(passo.testo)
 	numeroPasso.Text = ("%d / %d"):format(indice, #passi)
 	bottoneAvanti.Visible = passo.aspetta == nil
 	testoAvanti.Text = passo.fine or "NEXT"
@@ -289,14 +324,37 @@ function Tutorial.inizializza(t, elementi)
 	})
 end
 
+-- Durante lo schieramento, i pannelli di NASCOSTI_FINO_AL_PASSO non si vedono finché il tutorial non ci arriva;
+-- al loro passo ricompaiono (una volta sola: dopo li comanda di nuovo Partita).
+local mostrati = {}
+function nascondiNonSpiegati()
+	if faseAttuale ~= "piazzamento" or not passi then
+		return
+	end
+	for _, nome in ipairs(NASCOSTI_FINO_AL_PASSO) do
+		local passo = passoCheMostra(nome)
+		local elemento = bersagli[nome] and bersagli[nome]()
+		if passo and elemento and not mostrati[nome] then
+			if indice >= passo then
+				elemento.Visible = true
+				mostrati[nome] = true
+			else
+				elemento.Visible = false
+			end
+		end
+	end
+end
+
 -- Inizia il tutorial dal primo passo (il livello di tutorial è appena partito).
 function Tutorial.avvia()
 	passi, indice, attivo = PASSI, 1, true
 	faseAttuale = nil
+	mostrati = {}
 
 	if not connessione then
 		connessione = RunService.RenderStepped:Connect(function()
 			if attivo then
+				nascondiNonSpiegati()
 				posiziona()
 				seguiBersaglio()
 			end

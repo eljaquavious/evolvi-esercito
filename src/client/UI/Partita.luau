@@ -1468,6 +1468,94 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
+-- Collaudo "bambino di 9 anni sul telefono" (6/11/2026): l'avatar arriva a più di 100 studs dallo scontro e
+-- sul telefono la battaglia era una macchiolina lontana. Quando parte la battaglia, se l'avatar è lontano
+-- dai suoi reggimenti, si mette 20 studs dietro di loro guardando il nemico, con la telecamera alle spalle.
+-- Poi cammina da solo dietro il suo esercito che avanza, come un comandante, così lo scontro resta vicino.
+-- Appena il giocatore muove l'avatar a mano (tasti, levetta, levetta del telefono) smette di seguirlo.
+-- In ranked no: i due giocatori stanno su lati opposti del campo.
+local LONTANO_DALLA_BATTAGLIA = 40
+local DIETRO_LE_FILE = 20
+local PIATTO = Vector3.new(1, 0, 1)
+local TASTI_CAMMINA = {
+	[Enum.KeyCode.W] = true, [Enum.KeyCode.A] = true, [Enum.KeyCode.S] = true, [Enum.KeyCode.D] = true,
+	[Enum.KeyCode.Up] = true, [Enum.KeyCode.Down] = true, [Enum.KeyCode.Left] = true, [Enum.KeyCode.Right] = true,
+	[Enum.KeyCode.Thumbstick1] = true, [Enum.KeyCode.Space] = true,
+}
+local battagliaSeguita = 0 -- cresce a ogni battaglia: un ciclo di camminata vecchio si ferma da solo
+local seguendo = false -- l'avatar sta camminando da solo dietro l'esercito
+
+-- Punto 20 studs dietro il centro dei nostri, sulla linea verso il nemico (nil se una squadra non c'è più).
+local function puntoDietroLeFile()
+	local nostri, nemici = Truppe.centro("giocatore"), Truppe.centro("nemico")
+	if not (nostri and nemici) then
+		return nil
+	end
+	local verso = ((nemici - nostri) * PIATTO)
+	if verso.Magnitude < 1 then
+		return nil
+	end
+	verso = verso.Unit
+	return nostri - verso * DIETRO_LE_FILE, verso, nostri, nemici
+end
+
+local function avvicinaAllaBattaglia(dati)
+	if dati.ranked or (info and info.girato) then
+		return
+	end
+	battagliaSeguita += 1
+	local questa = battagliaSeguita
+	task.delay(0.3, function()
+		if fase ~= "battaglia" or battagliaSeguita ~= questa then
+			return
+		end
+		local character = player.Character
+		local radice = character and character:FindFirstChild("HumanoidRootPart")
+		local umanoide = character and character:FindFirstChildOfClass("Humanoid")
+		local punto, verso, nostri, nemici = puntoDietroLeFile()
+		if not (radice and umanoide and punto) then
+			return
+		end
+		if ((radice.Position - nostri) * PIATTO).Magnitude >= LONTANO_DALLA_BATTAGLIA then
+			local arrivo = punto + Vector3.new(0, 4, 0)
+			character:PivotTo(CFrame.lookAt(arrivo, arrivo + verso))
+			radice.AssemblyLinearVelocity = Vector3.zero
+			workspace.CurrentCamera.CFrame = CFrame.lookAt(arrivo - verso * 24 + Vector3.new(0, 12, 0), (nostri + nemici) / 2)
+		end
+		-- Segue l'esercito finché dura la battaglia e il giocatore non prende i comandi.
+		seguendo = true
+		while fase == "battaglia" and battagliaSeguita == questa and umanoide.Parent and umanoide.Health > 0 do
+			punto = puntoDietroLeFile()
+			if punto and ((radice.Position - punto) * PIATTO).Magnitude > 6 then
+				umanoide:MoveTo(Vector3.new(punto.X, radice.Position.Y, punto.Z))
+			end
+			task.wait(0.4)
+		end
+		if battagliaSeguita == questa then
+			seguendo = false
+		end
+	end)
+end
+
+-- Il giocatore muove l'avatar da sé: l'avatar non segue più l'esercito in questa battaglia.
+UserInputService.InputBegan:Connect(function(input, usatoDaGui)
+	if not seguendo or usatoDaGui then
+		return
+	end
+	local mano = TASTI_CAMMINA[input.KeyCode]
+	-- Sul telefono la levetta è nella metà sinistra dello schermo (i tocchi sulle carte li prende la GUI).
+	local levetta = input.UserInputType == Enum.UserInputType.Touch and input.Position.X < workspace.CurrentCamera.ViewportSize.X / 2
+	if mano or levetta then
+		battagliaSeguita += 1
+		seguendo = false
+		local umanoide = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		local radice = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if umanoide and radice then
+			umanoide:MoveTo(radice.Position) -- ferma la camminata automatica
+		end
+	end
+end)
+
 local function entraBattaglia(dati)
 	fase = "battaglia"
 	Suoni.musica("battaglia")
@@ -1492,6 +1580,7 @@ local function entraBattaglia(dati)
 	miraArmata, mireReparti, repartoScelto = nil, {}, nil
 	aggiornaMire()
 	Tutorial.evento("battaglia")
+	avvicinaAllaBattaglia(dati)
 	sottotitolo.Text = "GET READY!"
 	sottotitolo.TextColor3 = Stile.Colori.Oro
 	avviso.Text = dati.assedio and "Storm the fortress!" or "The enemy army is revealed!"
@@ -2450,6 +2539,9 @@ function Partita.inizializza(gui, r, callbackLobby)
 		mazzo = function()
 			return barraMazzo
 		end,
+		primaCarta = function()
+			return carte[1]
+		end,
 		esploratori = function()
 			return esploratori
 		end,
@@ -2461,6 +2553,9 @@ function Partita.inizializza(gui, r, callbackLobby)
 		end,
 		ordini = function()
 			return pannelloOrdini
+		end,
+		carica = function()
+			return bottoniOrdine.carica
 		end,
 	})
 
