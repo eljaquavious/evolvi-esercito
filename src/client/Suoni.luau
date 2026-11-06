@@ -24,7 +24,8 @@ local gruppoEffetti = gruppo("Effetti", 0.4) -- ben sotto la musica (UI/Impostaz
 local gruppoMusica = gruppo("Musica", 1)
 
 local function id(n)
-	return "rbxassetid://" .. n
+	-- Un testo è già un indirizzo completo (i suoni che Roblox installa col gioco: rbxasset://sounds/...).
+	return type(n) == "string" and n or "rbxassetid://" .. n
 end
 
 -- volume = volume della singola copia; pausa = secondi minimi tra due copie; massimo = copie che suonano insieme.
@@ -47,6 +48,8 @@ local EFFETTI = {
 	urlo = { ids = { 9125651079, 9125651083, 9125651408, 9125652676 }, volume = 0.08, pausa = 0.7, massimo = 2 },
 	-- Un soldato che cade: le versioni brevi degli stessi (1, 4, 5, 8, 9, 16).
 	morte = { ids = { 9125650883, 9125652443, 9125652432, 9125652675, 9125651364, 9125652949 }, volume = 0.26, pausa = 0.12, massimo = 4 },
+	-- Un reggimento che tocca terra quando si schiera: il tonfo di un salto (suono di Roblox), più grave.
+	atterra = { ids = { "rbxasset://sounds/action_jump_land.mp3" }, volume = 0.9, pausa = 0.05, massimo = 4, velocita = 0.62 },
 }
 
 -- Oltre questa distanza dalla telecamera un rumore non si suona nemmeno.
@@ -77,7 +80,7 @@ function Suoni.effetto(nome, posizione)
 	local suono = Instance.new("Sound")
 	suono.SoundId = id(conf.ids[math.random(#conf.ids)])
 	suono.Volume = conf.volume
-	suono.PlaybackSpeed = 0.92 + math.random() * 0.16
+	suono.PlaybackSpeed = (conf.velocita or 1) * (0.92 + math.random() * 0.16)
 	suono.SoundGroup = gruppoEffetti
 	suono.RollOffMode = Enum.RollOffMode.InverseTapered
 	suono.RollOffMinDistance = 45
@@ -107,6 +110,96 @@ function Suoni.effetto(nome, posizione)
 	suono.Ended:Connect(fine)
 	-- Se l'audio non si carica, Ended non arriva mai: si libera il posto lo stesso.
 	task.delay(6, fine)
+	suono:Play()
+end
+
+-- ===================================================================== interfaccia
+
+-- Suoni di pulsanti, carte e ordini (6/11/2026, idea presa da come lavora Nintendo): ogni azione risponde SUBITO
+-- con un suono breve, prima ancora che il server confermi; azioni opposte si rispondono (schierare una carta sale
+-- di tono, ritirarla scende); ripetere la stessa azione cambia appena il tono, così l'orecchio non si stanca.
+-- Tutti nel gruppo Effetti: "remove sound effects" nelle impostazioni spegne anche questi.
+-- varia = quanto cambia il tono a caso (0.03 = 3%); canale = un suono lungo che si interrompe se ne parte un altro
+-- dello stesso canale (due trombe non suonano mai insieme).
+local UI = {
+	-- "Roblox_UI_Small_Click" (Roblox): passare sopra un pulsante col mouse, piano.
+	sopra = { ids = { 15675032796 }, volume = 0.35, pausa = 0.06, varia = 0.04 },
+	-- "Roblox_UI_Bright_Click" (Roblox): pressione di un pulsante.
+	premi = { ids = { 15675059323 }, volume = 0.8, pausa = 0.03, varia = 0.03 },
+	-- "Roblox_UI_Delete" (Roblox): azione rifiutata (prima linea piena, ordine non valido).
+	errore = { ids = { 15675075163 }, volume = 0.7, pausa = 0.15 },
+	-- "Roblox_UI_Paper_Swipe" (Roblox): carta giocata o ritirata; il tono lo sceglie chi chiama.
+	carta = { ids = { 15675037413 }, volume = 0.9, pausa = 0.02 },
+	-- "Roblox_UI_Whoosh_04" (Roblox): scelta di un'ala o di un proprio reggimento.
+	ala = { ids = { 15675012262 }, volume = 0.6, pausa = 0.05 },
+	-- "Roblox_UI_Sweep" (Roblox): nemico scelto come bersaglio.
+	mira = { ids = { 15675046931 }, volume = 0.6, pausa = 0.1, varia = 0.04 },
+	-- "Bugle Call (a)" e "(b)" (APM, KPM): tromba per Advance; "Bugle Call (c)": la carica.
+	tromba = { ids = { 1842335206, 1842335210 }, volume = 0.55, pausa = 0.25, canale = "tromba" },
+	carica = { ids = { 1842368482 }, volume = 0.7, pausa = 0.25, canale = "tromba" },
+	-- "Drama Sting 16" (APM, Sonoton): un colpo grave, per Hold the Line, Fall Back e Flank Them.
+	tamburo = { ids = { 1846902656 }, volume = 0.6, pausa = 0.25, canale = "tromba" },
+}
+
+-- Caricati subito, in sottofondo: il primo clic deve suonare senza ritardo.
+task.spawn(function()
+	local lista = {}
+	for _, conf in pairs(UI) do
+		for _, n in ipairs(conf.ids) do
+			table.insert(lista, id(n))
+		end
+	end
+	table.insert(lista, id(EFFETTI.atterra.ids[1]))
+	-- Con oggetti Sound, non con i soli indirizzi: con gli indirizzi Roblox prova a caricarli come immagini
+	-- e scrive "Asset type does not match" per gli audio APM.
+	local suoni = {}
+	for _, indirizzo in ipairs(lista) do
+		local suono = Instance.new("Sound")
+		suono.SoundId = indirizzo
+		table.insert(suoni, suono)
+	end
+	pcall(function()
+		game:GetService("ContentProvider"):PreloadAsync(suoni)
+	end)
+	for _, suono in ipairs(suoni) do
+		suono:Destroy()
+	end
+end)
+
+local ultimoUi = {}
+local canali = {}
+
+-- Suono d'interfaccia "nome" (vedi UI). tono = moltiplica la velocità (1.12 = un tono sopra, 0.89 = sotto).
+function Suoni.ui(nome, tono)
+	local conf = UI[nome]
+	if not conf then
+		return
+	end
+	local adesso = os.clock()
+	if adesso - (ultimoUi[nome] or 0) < conf.pausa then
+		return
+	end
+	ultimoUi[nome] = adesso
+	local suono = Instance.new("Sound")
+	suono.SoundId = id(conf.ids[math.random(#conf.ids)])
+	suono.Volume = conf.volume
+	suono.PlaybackSpeed = (tono or 1) * (1 + (math.random() * 2 - 1) * (conf.varia or 0))
+	suono.SoundGroup = gruppoEffetti
+	suono.Parent = SoundService
+	if conf.canale then
+		local prima = canali[conf.canale]
+		if prima and prima.Parent then
+			TweenService:Create(prima, TweenInfo.new(0.12), { Volume = 0 }):Play()
+			task.delay(0.15, prima.Destroy, prima)
+		end
+		canali[conf.canale] = suono
+	end
+	suono.Ended:Connect(function()
+		suono:Destroy()
+	end)
+	task.delay(8, function()
+		suono:Destroy()
+	end)
 	suono:Play()
 end
 

@@ -203,9 +203,74 @@ function Effetti.scritta(posizione, testo, colore, grande)
 	etichetta.Font = Enum.Font.LuckiestGuy
 	etichetta.TextStrokeTransparency = 0.2
 	etichetta.Parent = gui
+	if grande then
+		-- Le scritte grandi (ordini, abilità) "scoppiano": nascono piccole e crescono oltre la misura in 0,16 s.
+		local misura = gui.Size
+		gui.Size = UDim2.fromOffset(misura.X.Offset * 0.35, misura.Y.Offset * 0.35)
+		TweenService:Create(gui, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = misura }):Play()
+	end
 	TweenService:Create(ancora, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = posizione + Vector3.new(0, 4, 0) }):Play()
 	TweenService:Create(etichetta, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
 	Debris:AddItem(ancora, 1)
+end
+
+-- Nuvoletta di polvere bassa che si allarga a terra (un reggimento che atterra o se ne va dallo schieramento).
+function Effetti.polvere(posizione, raggio)
+	raggio = raggio or 4
+	local ancora = parte({ Size = Vector3.new(raggio * 1.6, 0.2, raggio * 1.6), Transparency = 1, Position = posizione + Vector3.new(0, 0.4, 0) })
+	ancora.Parent = cartella
+	local polvere = Instance.new("ParticleEmitter")
+	polvere.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	polvere.Color = ColorSequence.new(Color3.fromRGB(176, 160, 132), Color3.fromRGB(206, 196, 178))
+	polvere.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 3.2) })
+	polvere.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 1) })
+	polvere.Lifetime = NumberRange.new(0.45, 0.7)
+	polvere.Speed = NumberRange.new(4, 8)
+	polvere.SpreadAngle = Vector2.new(80, 80)
+	polvere.EmissionDirection = Enum.NormalId.Top
+	polvere.Acceleration = Vector3.new(0, -6, 0)
+	polvere.Drag = 5
+	polvere.Rotation = NumberRange.new(0, 360)
+	polvere.LightInfluence = 1
+	polvere.Rate = 0
+	polvere.Parent = ancora
+	polvere:Emit(Impostazioni.prestazioni() and 4 or 10)
+	Debris:AddItem(ancora, 1)
+end
+
+-- Onda: un anello luminoso a terra che si allarga da "raggio * 0,3" a "raggio" e sparisce in "durata" secondi.
+-- Conferma a colpo d'occhio CHI ha ricevuto un ordine o QUALE nemico è il bersaglio.
+local PEZZI_ONDA = 16
+function Effetti.onda(posizione, raggio, colore, durata)
+	durata = durata or 0.45
+	local pezzi = {}
+	for i = 1, PEZZI_ONDA do
+		local p = parte({ Color = colore, Material = Enum.Material.Neon, Transparency = 0.15, Size = Vector3.new(0.5, 0.18, 1) })
+		p.Parent = cartella
+		pezzi[i] = p
+	end
+	local inizio = os.clock()
+	local base = posizione + Vector3.new(0, 0.35, 0)
+	local collegamento
+	collegamento = RunService.RenderStepped:Connect(function()
+		local t = math.min((os.clock() - inizio) / durata, 1)
+		local uscita = 1 - (1 - t) * (1 - t) -- veloce all'inizio, poi rallenta
+		local r = raggio * (0.3 + 0.7 * uscita)
+		local lunghezza = 2 * math.pi * r / PEZZI_ONDA * 0.7
+		for i, p in ipairs(pezzi) do
+			local angolo = (i - 0.5) / PEZZI_ONDA * 2 * math.pi
+			local qui = base + Vector3.new(math.cos(angolo) * r, 0, math.sin(angolo) * r)
+			p.Size = Vector3.new(0.5 * (1 - 0.5 * t), 0.18, lunghezza)
+			p.CFrame = CFrame.lookAt(qui, qui + Vector3.new(-math.sin(angolo), 0, math.cos(angolo)))
+			p.Transparency = 0.15 + 0.85 * t * t
+		end
+		if t >= 1 then
+			collegamento:Disconnect()
+			for _, p in ipairs(pezzi) do
+				p:Destroy()
+			end
+		end
+	end)
 end
 
 function Effetti.pulisci()

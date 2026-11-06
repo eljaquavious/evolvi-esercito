@@ -8,6 +8,7 @@ local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
 
 local Icone = require(script.Parent.Icone)
+local Suoni = require(script.Parent.Parent.Suoni)
 
 local Stile = {}
 
@@ -300,16 +301,45 @@ local function riflesso(genitore, raggio, trasparenza)
 	}, { Stile.angoli(math.max(4, raggio - 6)) })
 end
 
+-- Pulsante -> funzione che lo "preme" come un clic (Stile.premi: tasti della tastiera e del controller).
+local premitori = setmetatable({}, { __mode = "k" })
+
+-- Animazione e suono di un pulsante (6/11/2026, come Nintendo rende piacevoli le azioni semplici):
+-- 1) la risposta parte alla PRESSIONE, non al rilascio: in 0,05 s il pulsante si schiaccia (scala 0,9) e fa clic;
+-- 2) al rilascio torna su con un piccolo rimbalzo oltre la misura (anticipo e "follow through" degli animatori);
+-- 3) un lampo bianco sulla faccia per 0,18 s conferma che il comando è partito.
+-- Passandoci sopra col mouse (o col controller) cresce un po' e fa un tic leggero (Mattia, 29/10/2026: cresce).
 local function animaPressione(bottone, faccia, profondita)
 	local scala = Stile.crea("UIScale", { Parent = bottone })
 	local info = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	local infoSopra = TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	local infoGiu = TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local infoSu = TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local infoAssesta = TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 	local premuto = false
+	local ultimoRilascio = 0
+	local versione = 0
+	local lampo
+	if faccia then
+		local angolo = faccia:FindFirstChildOfClass("UICorner")
+		lampo = Stile.crea("Frame", {
+			Name = "Lampo",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = Stile.BIANCO,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ZIndex = 8,
+			Parent = faccia,
+		}, { Stile.crea("UICorner", { CornerRadius = angolo and angolo.CornerRadius or UDim.new(0, 18) }) })
+	end
+	local function misura()
+		return bottone:GetAttribute("Sopra") and 1.08 or 1
+	end
 	local function aggiorna()
 		local sopra = bottone:GetAttribute("Sopra")
-		-- Passando sopra il pulsante cresce un po' (Mattia, 29/10/2026); premuto si abbassa.
-		TweenService:Create(scala, sopra and not premuto and infoSopra or info, {
-			Scale = premuto and 0.96 or (sopra and 1.08 or 1),
+		versione += 1
+		TweenService:Create(scala, premuto and infoGiu or (sopra and infoSopra or info), {
+			Scale = premuto and 0.9 or misura(),
 		}):Play()
 		if faccia then
 			faccia.Position = UDim2.fromOffset(0, premuto and math.floor(profondita / 2) or 0)
@@ -326,24 +356,80 @@ local function animaPressione(bottone, faccia, profondita)
 			end
 		end
 	end
-	bottone.MouseEnter:Connect(function()
-		bottone:SetAttribute("Sopra", true)
-		aggiorna()
-	end)
-	bottone.MouseLeave:Connect(function()
-		bottone:SetAttribute("Sopra", false)
-		premuto = false
-		aggiorna()
-	end)
-	bottone.MouseButton1Down:Connect(function()
+	local function giu()
 		premuto = true
 		aggiorna()
-	end)
-	bottone.MouseButton1Up:Connect(function()
+		Suoni.ui("premi")
+	end
+	-- Rilascio: su oltre la misura (+0,07), poi si assesta; il lampo si spegne.
+	local function su()
 		premuto = false
+		ultimoRilascio = os.clock()
 		aggiorna()
+		versione += 1
+		local mia = versione
+		if faccia then
+			faccia.Position = UDim2.fromOffset(0, 0)
+		end
+		local salto = TweenService:Create(scala, infoSu, { Scale = misura() + 0.07 })
+		salto.Completed:Connect(function()
+			if versione == mia then
+				TweenService:Create(scala, infoAssesta, { Scale = misura() }):Play()
+			end
+		end)
+		salto:Play()
+		if lampo then
+			lampo.BackgroundTransparency = 0.45
+			TweenService:Create(lampo, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
+		end
+	end
+	local function sopra(acceso)
+		bottone:SetAttribute("Sopra", acceso)
+		if not acceso then
+			premuto = false
+		elseif UserInputService:GetLastInputType() ~= Enum.UserInputType.Touch then
+			Suoni.ui("sopra")
+		end
+		aggiorna()
+	end
+	bottone.MouseEnter:Connect(function()
+		sopra(true)
 	end)
+	bottone.MouseLeave:Connect(function()
+		sopra(false)
+	end)
+	bottone.SelectionGained:Connect(function()
+		sopra(true)
+	end)
+	bottone.SelectionLost:Connect(function()
+		sopra(false)
+	end)
+	bottone.MouseButton1Down:Connect(giu)
+	bottone.MouseButton1Up:Connect(function()
+		if premuto then
+			su()
+		end
+	end)
+	-- Controller (A) e tasti: Activated arriva senza MouseButton1Down, si fa tutta la pressione qui.
+	local function premiTutto()
+		giu()
+		task.delay(0.06, su)
+	end
+	bottone.Activated:Connect(function()
+		if os.clock() - ultimoRilascio > 0.15 and not premuto then
+			premiTutto()
+		end
+	end)
+	premitori[bottone] = premiTutto
 	return scala
+end
+
+-- Fa "premere" un pulsante (animazione e clic) quando il comando arriva da un tasto e non dal mouse.
+function Stile.premi(bottone)
+	local premi = bottone and premitori[bottone]
+	if premi then
+		premi()
+	end
 end
 
 -- Colora (o ricolora) un pulsante creato con Stile.pulsante.

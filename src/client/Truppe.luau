@@ -23,6 +23,10 @@ local Truppe = {}
 local CASELLA = 16
 local SEGUI = 12 -- quanto in fretta il modello raggiunge la posizione ricevuta (1/s)
 local ALTEZZA_COLPO = { cavalleria = 3.6, carro = 3, fortezza = 6 }
+-- Un reggimento schierato cade dall'alto e atterra con un tonfo e un po' di polvere (6/11/2026): la carta
+-- giocata deve avere un effetto che si vede e si sente sul campo. CADUTA in secondi, a gravità (accelera).
+local CADUTA = 0.2
+local ALTEZZA_CADUTA = 7
 
 local cartella = Instance.new("Folder")
 cartella.Name = "TruppeClient"
@@ -247,6 +251,24 @@ local function impostaCampo(dati)
 end
 
 -- Reggimenti del giocatore al loro posto durante lo schieramento.
+-- Centro di un gruppo di soldati (posizione d'arrivo) e quanto è largo, per polvere e onde.
+local function centroGruppo(gruppo)
+	local somma, n = Vector3.zero, 0
+	for _, s in ipairs(gruppo) do
+		somma += s.obiettivo
+		n += 1
+	end
+	if n == 0 then
+		return nil, 0
+	end
+	local centro = somma / n
+	local raggio = 0
+	for _, s in ipairs(gruppo) do
+		raggio = math.max(raggio, (Vector3.new(s.obiettivo.X - centro.X, 0, s.obiettivo.Z - centro.Z)).Magnitude)
+	end
+	return centro, raggio
+end
+
 local function schieramento(dati)
 	impostaCampo(dati)
 	versioneSchieramento += 1
@@ -271,7 +293,23 @@ local function schieramento(dati)
 					togli(s, true)
 					break
 				end
+				-- In cascata: ogni soldato parte con un ritardo diverso, come pioggia.
+				s.atterraggio = os.clock() + math.random() * 0.12
+				-- Subito in alto: se no per un fotogramma il soldato si vede già a terra.
+				s.modello.PrimaryPart.CFrame += Vector3.new(0, ALTEZZA_CADUTA, 0)
 				table.insert(gruppo, s)
+			end
+			if schierati[chiave] == gruppo then
+				task.delay(CADUTA + 0.12, function()
+					if schierati[chiave] ~= gruppo then
+						return
+					end
+					local centro, raggio = centroGruppo(gruppo)
+					if centro then
+						Effetti.polvere(centro, raggio + 2)
+						Suoni.effetto("atterra", centro)
+					end
+				end)
 			end
 		end
 	end
@@ -281,6 +319,11 @@ local function schieramento(dati)
 	end
 	for chiave, gruppo in pairs(schierati) do
 		if not visti[chiave] then
+			-- Ritirato: sparisce in una nuvoletta di polvere.
+			local centro, raggio = centroGruppo(gruppo)
+			if centro then
+				Effetti.polvere(centro, raggio + 2)
+			end
 			for _, s in ipairs(gruppo) do
 				togli(s, true)
 			end
@@ -299,6 +342,22 @@ local function centroReggimento(id)
 		end
 	end
 	return n > 0 and somma / n or nil
+end
+
+-- Onda luminosa a terra sotto un reggimento in battaglia (ordine ricevuto, bersaglio scelto, reggimento
+-- selezionato): larga quanto il reggimento, si allarga e sparisce in mezzo secondo.
+function Truppe.impulso(id, colore)
+	local centro = centroReggimento(id)
+	if not centro then
+		return
+	end
+	local raggio = 0
+	for idSoldato, s in pairs(soldati) do
+		if s.vivo and idSoldato // 16 == id then
+			raggio = math.max(raggio, (Vector3.new(s.posizione.X - centro.X, 0, s.posizione.Z - centro.Z)).Magnitude)
+		end
+	end
+	Effetti.onda(Vector3.new(centro.X, quota(centro.X, centro.Z), centro.Z), raggio + 4, colore)
 end
 
 -- Centro dei soldati vivi di una squadra (nil se non ne restano).
@@ -584,8 +643,18 @@ local function aggiorna(s, dt, t)
 	local orizzontale = Vector3.new(s.posizione.X - prima.X, 0, s.posizione.Z - prima.Z)
 	local velocita = dt > 0 and orizzontale.Magnitude / dt or 0
 	s.animatore:aggiorna(dt, velocita)
-	s.modello.PrimaryPart.CFrame = CFrame.lookAt(s.posizione, s.posizione + direzione(s.angolo))
+	local alto = 0
+	if s.atterraggio then
+		local e = (os.clock() - s.atterraggio) / CADUTA
+		if e < 1 then
+			alto = ALTEZZA_CADUTA * (1 - math.max(e, 0) ^ 2)
+		else
+			s.atterraggio = nil
+		end
+	end
+	s.modello.PrimaryPart.CFrame = CFrame.lookAt(s.posizione, s.posizione + direzione(s.angolo)) + Vector3.new(0, alto, 0)
 end
+
 
 RunService.RenderStepped:Connect(function(dt)
 	local t = 1 - math.exp(-SEGUI * dt)

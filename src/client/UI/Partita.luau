@@ -162,6 +162,72 @@ local function pop(oggetto, da, durata)
 	TweenService:Create(scala, TweenInfo.new(durata or 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 end
 
+-- ===================================================================== sensazione delle azioni
+-- (6/11/2026) Le tre azioni più frequenti (pulsanti, carte, ordini) rispondono come nei giochi Nintendo:
+-- subito, con un suono e un movimento brevi, e con un effetto che si vede sul campo dove l'azione arriva.
+
+-- Toni della scala maggiore (do re mi fa sol la si do): ogni carta schierata suona una nota più alta della
+-- precedente, come le monete prese in fila. Ritirarla scende.
+local TONI = { 1, 1.122, 1.26, 1.335, 1.498, 1.682, 1.888, 2 }
+local AZZURRO = Color3.fromRGB(120, 200, 255)
+local ORO = Color3.fromRGB(255, 205, 70)
+local ROSSO = Color3.fromRGB(255, 90, 80)
+
+-- Carta schierata (o reggimento selezionato): si alza di 18 px sopra le altre, come una carta presa in mano.
+local function alzaCarta(carta, su)
+	local corpo = carta and carta:FindFirstChild("Corpo")
+	if not corpo then
+		return
+	end
+	local y = su and -18 or 0
+	if corpo.Position.Y.Offset == y then
+		return
+	end
+	TweenService:Create(corpo, TweenInfo.new(su and 0.22 or 0.14, su and Enum.EasingStyle.Back or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = UDim2.fromOffset(0, y),
+	}):Play()
+end
+
+-- Piccola rotazione che si assesta (la carta "schiocca" quando la giochi).
+local function dondola(carta, gradi)
+	carta.Rotation = gradi
+	TweenService:Create(carta, TweenInfo.new(0.35, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), { Rotation = 0 }):Play()
+end
+
+-- "No" con la testa: la carta trema di lato tre volte (azione rifiutata).
+local function scuoti(carta)
+	local corpo = carta and carta:FindFirstChild("Corpo")
+	if not corpo then
+		return
+	end
+	local y = corpo.Position.Y.Offset
+	task.spawn(function()
+		for _, x in ipairs({ -10, 9, -7, 5, -3, 0 }) do
+			corpo.Position = UDim2.fromOffset(x, y)
+			task.wait(0.035)
+		end
+	end)
+end
+
+-- Colpo di telecamera (la carica): il campo visivo si stringe di 5 gradi e torna in 0,4 s.
+local fovBase = nil
+local function colpoCamera()
+	local camera = workspace.CurrentCamera
+	if not camera or fovBase then
+		return
+	end
+	fovBase = camera.FieldOfView
+	local stringi = TweenService:Create(camera, TweenInfo.new(0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { FieldOfView = fovBase - 5 })
+	stringi.Completed:Connect(function()
+		local torna = TweenService:Create(camera, TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { FieldOfView = fovBase })
+		torna.Completed:Connect(function()
+			fovBase = nil
+		end)
+		torna:Play()
+	end)
+	stringi:Play()
+end
+
 -- Il messaggio sotto il tabellone scende quando si vede la pillola rossa del conto alla rovescia.
 local function posizionaAvviso()
 	avviso.Position = UDim2.new(0.5, 0, 0, timer.Visible and 214 or 146)
@@ -180,6 +246,7 @@ local function aggiornaCarte()
 		-- Le carte schierate brillano, quelle rimaste fuori sono scure.
 		Carta.spegni(carta, not usate[indice], "RESERVE")
 		Carta.seleziona(carta, usate[indice] == true)
+		alzaCarta(carta, usate[indice] == true)
 	end
 	if (info.riserva or 0) > 0 then
 		contatore.Text = ("FIRST LINE %d/%d · RESERVE +%d"):format(#scelte, info.maxReggimenti, info.riserva)
@@ -236,8 +303,13 @@ local function inviaScelte(nuove, formazione)
 		if #scelte > 0 then
 			Tutorial.evento("carta")
 		end
-	elseif messaggio then
-		Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+	else
+		-- Rifiutata dal server: suono di errore e le carte tornano come erano.
+		Suoni.ui("errore")
+		aggiornaCarte()
+		if messaggio then
+			Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+		end
 	end
 end
 
@@ -273,7 +345,12 @@ local function costruisciMazzo()
 			local posto = table.find(nuove, indice)
 			if posto then
 				table.remove(nuove, posto)
+				-- Ritirata: subito giù, suono che scende.
+				Suoni.ui("carta", 0.8 * TONI[math.min(#nuove + 1, #TONI)])
+				alzaCarta(carta, false)
 			elseif #nuove >= info.maxReggimenti then
+				Suoni.ui("errore")
+				scuoti(carta)
 				if (info.riserva or 0) > 0 then
 					Notifiche.mostra(("Your first line is full (%d). The other cards wait in reserve: you can send %d of them in during the battle."):format(info.maxReggimenti, info.riserva), Stile.Colori.Rosso)
 				else
@@ -282,6 +359,11 @@ local function costruisciMazzo()
 				return
 			else
 				table.insert(nuove, indice)
+				-- Schierata: subito su, con lo schiocco e la nota successiva della scala; le truppe atterrano
+				-- sul campo appena il server risponde (Truppe.schieramento).
+				Suoni.ui("carta", TONI[math.min(#nuove, #TONI)])
+				alzaCarta(carta, true)
+				dondola(carta, -6)
 			end
 			inviaScelte(nuove, nil)
 		end)
@@ -875,10 +957,13 @@ local function scegliAla(ala)
 	end
 	alaScelta = ala
 	aggiornaOrdini()
+	-- Sinistra più grave, destra più acuta: si "sente" dove va l'ordine.
+	Suoni.ui("ala", ala == "sinistra" and 0.89 or ala == "destra" and 1.12 or 1)
 	local quante = 0
-	for _, a in pairs(alaDi) do
+	for id, a in pairs(alaDi) do
 		if ala == nil or a == ala then
 			quante += 1
+			Truppe.impulso(id, ORO)
 		end
 	end
 	avviso.Text = ala and ("ORDERS TO YOUR %s WING (%d %s)"):format(NOMI_ALA[ala], quante, quante == 1 and "regiment" or "regiments")
@@ -927,19 +1012,34 @@ local function daiBersaglio(filtro)
 		return
 	end
 	local ok, messaggio = remoti.Bersaglio:InvokeServer(filtro, repartoScelto)
-	if not ok and messaggio then
-		Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+	if ok then
+		Suoni.ui("mira")
+		if type(filtro) == "number" then
+			Truppe.impulso(filtro, ROSSO)
+		end
+	else
+		Suoni.ui("errore")
+		if messaggio then
+			Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+		end
 	end
 end
 
 -- Seleziona (o deseleziona) un proprio reggimento: i bersagli valgono solo per lui.
-scegliReparto = function(id)
+scegliReparto = function(id, silenzioso)
 	if repartoScelto == id then
 		id = nil
 	end
 	repartoScelto = id
 	for indice, carta in pairs(carte) do
 		Carta.seleziona(carta, id ~= nil and idPerIndice[indice] == id)
+		alzaCarta(carta, id ~= nil and idPerIndice[indice] == id)
+	end
+	if not silenzioso then
+		Suoni.ui("ala", id and 1.26 or 0.84)
+	end
+	if id then
+		Truppe.impulso(id, AZZURRO)
 	end
 	aggiornaMire()
 end
@@ -949,8 +1049,24 @@ local function daiOrdine(nome)
 		return
 	end
 	local ok, messaggio = remoti.Ordine:InvokeServer(nome, alaScelta)
-	if not ok and messaggio then
-		Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+	if ok then
+		-- Tromba per avanzare e caricare, colpo di tamburo per gli altri ordini; onda sotto chi lo riceve.
+		Suoni.ui(nome == "carica" and "carica" or nome == "avanza" and "tromba" or "tamburo")
+		local colore = nome == "carica" and ORO or AZZURRO
+		for id, a in pairs(alaDi) do
+			if alaScelta == nil or a == alaScelta then
+				Truppe.impulso(id, colore)
+			end
+		end
+		if nome == "carica" then
+			colpoCamera()
+		end
+		pop(avviso, 0.75, 0.25)
+	else
+		Suoni.ui("errore")
+		if messaggio then
+			Notifiche.mostra(messaggio, Stile.Colori.Rosso)
+		end
 	end
 end
 
@@ -968,7 +1084,7 @@ local function eventoBattaglia(e)
 					aggiornaPuntamento()
 				end
 				if repartoScelto == id then
-					scegliReparto(id) -- deseleziona
+					scegliReparto(id, true) -- deseleziona, senza suono
 				end
 			end
 		end
@@ -2156,6 +2272,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		if fase == "battaglia" then
 			local pad = table.find(TASTI_PAD, input.KeyCode)
 			if pad and Battaglia.ORDINI[pad] then
+				Stile.premi(bottoniOrdine[Battaglia.ORDINI[pad]])
 				daiOrdine(Battaglia.ORDINI[pad])
 				return
 			end
@@ -2170,7 +2287,9 @@ function Partita.inizializza(gui, r, callbackLobby)
 				local giro = { false, "sinistra", "centro", "destra" }
 				local attuale = table.find(giro, alaScelta or false) or 1
 				local passo = input.KeyCode == Enum.KeyCode.ButtonR2 and 1 or -1
-				scegliAla(giro[(attuale - 1 + passo) % #giro + 1] or nil)
+				local nuova = giro[(attuale - 1 + passo) % #giro + 1]
+				Stile.premi(bottoniAla[nuova or "tutte"])
+				scegliAla(nuova or nil)
 				return
 			end
 		end
@@ -2179,6 +2298,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 		end
 		local ala = TASTI_ALA[input.KeyCode]
 		if ala ~= nil then
+			Stile.premi(bottoniAla[ala or "tutte"])
 			scegliAla(ala or nil)
 			return
 		end
@@ -2198,10 +2318,12 @@ function Partita.inizializza(gui, r, callbackLobby)
 		end
 		local numero = table.find(TASTI, input.KeyCode)
 		if numero and Battaglia.ORDINI[numero] then
+			Stile.premi(bottoniOrdine[Battaglia.ORDINI[numero]])
 			daiOrdine(Battaglia.ORDINI[numero])
 		end
 		local mira = table.find(TASTI_MIRA, input.KeyCode)
 		if mira then
+			Stile.premi(bottoniMira[mira])
 			daiBersaglio(BERSAGLI[mira].filtro)
 		end
 		-- Clic (o tocco) sul campo: un nemico diventa il bersaglio, un proprio soldato seleziona il suo reggimento.
