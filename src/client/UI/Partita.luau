@@ -8,6 +8,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local GuiService = game:GetService("GuiService")
+local ContextActionService = game:GetService("ContextActionService")
 
 local Cielo = require(script.Parent.Parent.Cielo)
 local Meteo = require(script.Parent.Parent.Meteo)
@@ -64,6 +66,8 @@ local repartoScelto = nil -- id del proprio reggimento selezionato (nil = tutta 
 local titoloMira
 local scegliReparto -- definita più sotto (la usano le carte della barra)
 local inviando = false -- una richiesta di schieramento alla volta
+local inAttesa = nil -- { nuove, formazione }: scelte fatte mentre il server rispondeva, partono subito dopo
+local confermate = {} -- le ultime carte schierate confermate dal server (per tornare indietro se rifiuta)
 -- Ali (Mattia, 3/11/2026: "ordini per ala, non per tutta l'armata"): gli ordini vanno all'ala scelta
 -- (nil = tutta l'armata). Ogni reggimento ha la sua ala, scritta sulla sua carta.
 local NOMI_ALA = { sinistra = "LEFT", centro = "CENTER", destra = "RIGHT" }
@@ -172,6 +176,42 @@ local TONI = { 1, 1.122, 1.26, 1.335, 1.498, 1.682, 1.888, 2 }
 local AZZURRO = Color3.fromRGB(120, 200, 255)
 local ORO = Color3.fromRGB(255, 205, 70)
 local ROSSO = Color3.fromRGB(255, 90, 80)
+
+-- Nome di un tasto del controller per i suggerimenti: SQUARE / CIRCLE / CROSS / TRIANGLE su PlayStation,
+-- X / B / A / Y su Xbox (Roblox restituisce "ButtonSquare" o "ButtonX" secondo il controller collegato).
+local function nomeTasto(tasto)
+	local ok, nome = pcall(UserInputService.GetStringForKeyCode, UserInputService, tasto)
+	if not ok or type(nome) ~= "string" or nome == "" then
+		nome = tasto.Name
+	end
+	return string.upper((nome:gsub("^Button", "")))
+end
+
+-- Suggerimento sopra le carte: cosa si preme, secondo il momento ("piazzamento" o "battaglia") e il comando
+-- in uso (mouse, tocco, controller). Si rifà quando il giocatore passa da uno all'altro.
+local momentoSuggerimento = nil
+local function aggiornaSuggerimento(momento)
+	momentoSuggerimento = momento or momentoSuggerimento
+	if not suggerimento or not momentoSuggerimento then
+		return
+	end
+	if momentoSuggerimento == "piazzamento" then
+		suggerimento.Text = Stile.gamepad() and ("%s DEPLOY  ·  %s RECALL  ·  L1/R1 FORMATION  ·  %s FIGHT!"):format(
+			nomeTasto(Enum.KeyCode.ButtonX), nomeTasto(Enum.KeyCode.ButtonB), nomeTasto(Enum.KeyCode.ButtonY))
+			or Stile.touch() and "TAP A CARD TO DEPLOY OR RECALL IT"
+			or "CLICK A CARD TO DEPLOY OR RECALL IT"
+	elseif Stile.gamepad() then
+		suggerimento.Text = ("%s REGIMENT  ·  %s ABILITY  ·  %s RESERVE  ·  D-PAD/%s ORDERS  ·  L2/R2 WING  ·  L1/R1 TARGET"):format(
+			nomeTasto(Enum.KeyCode.ButtonX), nomeTasto(Enum.KeyCode.ButtonB), nomeTasto(Enum.KeyCode.ButtonA), nomeTasto(Enum.KeyCode.ButtonY))
+	elseif Stile.touch() then
+		suggerimento.Text = "PICK A WING, THEN AN ORDER  ·  TAP AN ENEMY TO ATTACK IT"
+	else
+		suggerimento.Text = "WING: Z X C V  ·  ORDERS: 1-5  ·  CLICK AN ENEMY TO ATTACK IT"
+	end
+end
+UserInputService.LastInputTypeChanged:Connect(function()
+	aggiornaSuggerimento()
+end)
 
 -- Carta schierata (o reggimento selezionato): si alza di 18 px sopra le altre, come una carta presa in mano.
 local function alzaCarta(carta, su)
@@ -285,12 +325,28 @@ end
 -- Manda al server le carte scelte e (se cambia) la formazione: i reggimenti prendono subito posto sul campo.
 local function inviaScelte(nuove, formazione)
 	if inviando then
+		inAttesa = { nuove = nuove, formazione = formazione or (inAttesa and inAttesa.formazione) }
 		return
 	end
 	inviando = true
 	local ok, messaggio, lista = remoti.Schiera:InvokeServer(nuove, formazione)
 	inviando = false
 	if fase ~= "piazzamento" then
+		inAttesa = nil
+		return
+	end
+	if ok then
+		confermate = table.clone(lista or {})
+		if formazione then
+			info.formazione = formazione
+		end
+	end
+	-- Il giocatore ha già scelto altro mentre si aspettava (carte giocate di fila col controller o col mouse):
+	-- si manda subito l'ultima scelta, senza tornare indietro a quella vecchia.
+	if inAttesa then
+		local prossima = inAttesa
+		inAttesa = nil
+		inviaScelte(prossima.nuove, prossima.formazione)
 		return
 	end
 	if ok then
@@ -306,11 +362,50 @@ local function inviaScelte(nuove, formazione)
 	else
 		-- Rifiutata dal server: suono di errore e le carte tornano come erano.
 		Suoni.ui("errore")
+		impostaScelte(confermate)
 		aggiornaCarte()
 		if messaggio then
 			Notifiche.mostra(messaggio, Stile.Colori.Rosso)
 		end
 	end
+end
+
+-- Schiera o ritira la carta "indice" del mazzo (clic, tocco, o i tasti del controller). Le scelte cambiano
+-- subito anche sul client, così una seconda carta giocata prima della risposta del server parte dalla prima.
+local function giocaCarta(indice)
+	local carta = carte[indice]
+	if not carta then
+		return
+	end
+	if fase ~= "piazzamento" then
+		return
+	end
+	local nuove = table.clone(scelte)
+	local posto = table.find(nuove, indice)
+	if posto then
+		table.remove(nuove, posto)
+		-- Ritirata: subito giù, suono che scende.
+		Suoni.ui("carta", 0.8 * TONI[math.min(#nuove + 1, #TONI)])
+		alzaCarta(carta, false)
+	elseif #nuove >= info.maxReggimenti then
+		Suoni.ui("errore")
+		scuoti(carta)
+		if (info.riserva or 0) > 0 then
+			Notifiche.mostra(("Your first line is full (%d). The other cards wait in reserve: you can send %d of them in during the battle."):format(info.maxReggimenti, info.riserva), Stile.Colori.Rosso)
+		else
+			Notifiche.mostra(("Maximum %d regiments in this battle: recall one first."):format(info.maxReggimenti), Stile.Colori.Rosso)
+		end
+		return
+	else
+		table.insert(nuove, indice)
+		-- Schierata: subito su, con lo schiocco e la nota successiva della scala; le truppe atterrano
+		-- sul campo appena il server risponde (Truppe.schieramento).
+		Suoni.ui("carta", TONI[math.min(#nuove, #TONI)])
+		alzaCarta(carta, true)
+		dondola(carta, -6)
+	end
+	impostaScelte(nuove)
+	inviaScelte(nuove, nil)
 end
 
 local function costruisciMazzo()
@@ -323,11 +418,7 @@ local function costruisciMazzo()
 	end
 	carte, idPerIndice, bottoniAbilita, carteRiserva = {}, {}, {}, {}
 	riserva, puntamento = nil, nil
-	if suggerimento then
-		suggerimento.Text = Stile.gamepad() and "SELECT A CARD TO DEPLOY OR RECALL IT  ·  Y: FIGHT!"
-			or Stile.touch() and "TAP A CARD TO DEPLOY OR RECALL IT"
-			or "CLICK A CARD TO DEPLOY OR RECALL IT"
-	end
+	aggiornaSuggerimento("piazzamento")
 	local layout = carteMazzo:FindFirstChildOfClass("UIListLayout")
 	if layout then
 		layout.Padding = UDim.new(0, #info.mazzo > 7 and 12 or 56)
@@ -338,34 +429,7 @@ local function costruisciMazzo()
 		carta.LayoutOrder = indice
 		carta.Parent = carteMazzo
 		carta.Activated:Connect(function()
-			if fase ~= "piazzamento" then
-				return
-			end
-			local nuove = table.clone(scelte)
-			local posto = table.find(nuove, indice)
-			if posto then
-				table.remove(nuove, posto)
-				-- Ritirata: subito giù, suono che scende.
-				Suoni.ui("carta", 0.8 * TONI[math.min(#nuove + 1, #TONI)])
-				alzaCarta(carta, false)
-			elseif #nuove >= info.maxReggimenti then
-				Suoni.ui("errore")
-				scuoti(carta)
-				if (info.riserva or 0) > 0 then
-					Notifiche.mostra(("Your first line is full (%d). The other cards wait in reserve: you can send %d of them in during the battle."):format(info.maxReggimenti, info.riserva), Stile.Colori.Rosso)
-				else
-					Notifiche.mostra(("Maximum %d regiments in this battle: recall one first."):format(info.maxReggimenti), Stile.Colori.Rosso)
-				end
-				return
-			else
-				table.insert(nuove, indice)
-				-- Schierata: subito su, con lo schiocco e la nota successiva della scala; le truppe atterrano
-				-- sul campo appena il server risponde (Truppe.schieramento).
-				Suoni.ui("carta", TONI[math.min(#nuove, #TONI)])
-				alzaCarta(carta, true)
-				dondola(carta, -6)
-			end
-			inviaScelte(nuove, nil)
+			giocaCarta(indice)
 		end)
 		carte[indice] = carta
 	end
@@ -543,6 +607,7 @@ local function entraPiazzamento(dati)
 	sottotitolo.Text = dati.assedio and "SIEGE! STORM THE FORTRESS" or "DEPLOY YOUR ARMY"
 	sottotitolo.TextColor3 = dati.assedio and Stile.Colori.Oro or AZZURRO
 	impostaScelte(dati.usate)
+	confermate = table.clone(dati.usate or {})
 	costruisciMazzo()
 	aggiornaCarte()
 	costruisciFormazioni()
@@ -735,13 +800,14 @@ local function posizioneAvatar()
 	return Truppe.casella(radice.Position)
 end
 
-local function avviaPuntamento(nuovo)
+-- daController = il comando arriva da un tasto del controller: si usa sempre il punto dell'avatar.
+local function avviaPuntamento(nuovo, daController)
 	if puntamento and puntamento.tipo == nuovo.tipo and (puntamento.id == nuovo.id and puntamento.indice == nuovo.indice) then
 		puntamento = nil -- di nuovo lo stesso pulsante: annulla
 	else
 		puntamento = nuovo
 	end
-	if puntamento and Stile.gamepad() then
+	if puntamento and (daController or Stile.gamepad()) then
 		-- Col controller niente puntatore: si usa il punto dove sta l'avatar.
 		local x, y = posizioneAvatar()
 		local scelto = puntamento
@@ -886,13 +952,7 @@ local function costruisciBarraBattaglia(reggimenti, dati)
 		riserva.etichetta = contatore
 	end
 	aggiornaRiserva()
-	if Stile.gamepad() then
-		suggerimento.Text = "L2 / R2: WING  ·  D-PAD / Y: ORDERS  ·  L1 / R1: TARGET"
-	elseif Stile.touch() then
-		suggerimento.Text = "PICK A WING, THEN AN ORDER  ·  TAP AN ENEMY TO ATTACK IT"
-	else
-		suggerimento.Text = "WING: Z X C V  ·  ORDERS: 1-5  ·  CLICK AN ENEMY TO ATTACK IT"
-	end
+	aggiornaSuggerimento("battaglia")
 end
 
 -- Cosa fa ogni ordine, per l'avviso sotto il tabellone.
@@ -1042,6 +1102,152 @@ scegliReparto = function(id, silenzioso)
 		Truppe.impulso(id, AZZURRO)
 	end
 	aggiornaMire()
+end
+
+-- ===================================================================== controller: un tasto per azione
+-- (6/11/2026, feedback di un giocatore PlayStation: "è lento muovere le truppe, aggiungete tasti tipo quadrato").
+-- Prima, per schierare una carta, scegliere un reggimento, l'abilità o la riserva bisognava spostare il cursore
+-- dell'interfaccia fino al pulsante. Ora ognuna è un solo tasto.
+
+-- Schieramento, QUADRATO / X: schiera la prima carta non ancora schierata.
+local function padSchiera()
+	if fase ~= "piazzamento" or not info then
+		return
+	end
+	for indice = 1, #info.mazzo do
+		if not usate[indice] then
+			giocaCarta(indice)
+			Stile.seleziona(carte[indice])
+			return
+		end
+	end
+	Suoni.ui("errore")
+end
+
+-- Schieramento, CERCHIO / B: ritira l'ultima carta schierata.
+local function padRitira()
+	if fase ~= "piazzamento" then
+		return
+	end
+	local ultima = scelte[#scelte]
+	if ultima then
+		giocaCarta(ultima)
+		Stile.seleziona(carte[ultima])
+	else
+		Suoni.ui("errore")
+	end
+end
+
+-- Schieramento, L1 / R1: formazione sbloccata precedente o successiva.
+local function padFormazione(passo)
+	if fase ~= "piazzamento" or not info then
+		return
+	end
+	local sbloccate = {}
+	for _, f in ipairs(info.formazioni or {}) do
+		if f.sbloccata then
+			table.insert(sbloccate, f)
+		end
+	end
+	if #sbloccate < 2 then
+		Suoni.ui("errore")
+		return
+	end
+	local attuale = 1
+	for i, f in ipairs(sbloccate) do
+		if f.id == info.formazione then
+			attuale = i
+		end
+	end
+	local f = sbloccate[(attuale - 1 + passo) % #sbloccate + 1]
+	Stile.premi(bottoniFormazione[f.id])
+	inviaScelte(scelte, f.id)
+end
+
+-- Battaglia, QUADRATO / X: seleziona il reggimento successivo (dopo l'ultimo, di nuovo tutta l'armata).
+local function padReparto()
+	if fase ~= "battaglia" then
+		return
+	end
+	local ordine = {}
+	for indice, carta in pairs(carte) do
+		if idPerIndice[indice] and not carta:GetAttribute("Caduto") then
+			table.insert(ordine, indice)
+		end
+	end
+	table.sort(ordine)
+	if #ordine == 0 then
+		Suoni.ui("errore")
+		return
+	end
+	local attuale = 0
+	for i, indice in ipairs(ordine) do
+		if idPerIndice[indice] == repartoScelto then
+			attuale = i
+		end
+	end
+	local prossimo = ordine[attuale + 1]
+	scegliReparto(prossimo and idPerIndice[prossimo] or nil)
+	if prossimo then
+		dondola(carte[prossimo], -6)
+		local def = Epoche.Truppe[info and info.mazzo and info.mazzo[prossimo] or ""]
+		avviso.Text = ("%s SELECTED: targets (L1/R1) and ability (%s) go to them."):format(
+			string.upper(def and def.nome or "REGIMENT"), nomeTasto(Enum.KeyCode.ButtonB))
+	else
+		avviso.Text = "WHOLE ARMY SELECTED"
+	end
+	avviso.TextColor3 = Stile.Colori.Oro
+end
+
+-- Battaglia, CERCHIO / B: abilità del reggimento selezionato (o della prima carta che ne ha una pronta),
+-- lanciata dove sta l'avatar.
+local function padAbilita()
+	if fase ~= "battaglia" then
+		return
+	end
+	local id = repartoScelto and bottoniAbilita[repartoScelto] and repartoScelto
+	if not id then
+		local indici = {}
+		for indice, idReparto in pairs(idPerIndice) do
+			if bottoniAbilita[idReparto] then
+				table.insert(indici, indice)
+			end
+		end
+		table.sort(indici)
+		id = indici[1] and idPerIndice[indici[1]]
+	end
+	if not id then
+		Suoni.ui("errore")
+		avviso.Text = "No ability ready."
+		avviso.TextColor3 = Stile.ACCENTI.rosso.t
+		return
+	end
+	Stile.premi(bottoniAbilita[id])
+	avviaPuntamento({ tipo = "abilita", id = id }, true)
+end
+
+-- Battaglia, CROCE / A: manda in campo la prossima carta della riserva, dove sta l'avatar.
+local function padRiserva()
+	if not riserva or riserva.messe >= riserva.quante then
+		Suoni.ui("errore")
+		avviso.Text = "No reserve left."
+		avviso.TextColor3 = Stile.ACCENTI.rosso.t
+		return
+	end
+	if os.clock() < riserva.pronta then
+		Suoni.ui("errore")
+		Notifiche.mostra(("Your reserve joins the battle in %d seconds."):format(math.ceil(riserva.pronta - os.clock())))
+		return
+	end
+	for _, indice in ipairs(riserva.mano) do
+		if carteRiserva[indice] then
+			Suoni.ui("premi")
+			dondola(carteRiserva[indice], -6)
+			avviaPuntamento({ tipo = "riserva", indice = indice }, true)
+			return
+		end
+	end
+	Suoni.ui("errore")
 end
 
 local function daiOrdine(nome)
@@ -1270,6 +1476,11 @@ local function entraBattaglia(dati)
 		info.entrataBattaglia = dati.entrata
 	end
 	costruisciBarraBattaglia(dati.reggimenti or {}, dati)
+	-- Col controller in battaglia il cursore dell'interfaccia non serve: la croce direzionale dà gli ordini e
+	-- CROCE / A manda la riserva (prima la croce spostava anche il cursore tra le carte).
+	if GuiService.SelectedObject and GuiService.SelectedObject:IsDescendantOf(barraMazzo.Parent) then
+		GuiService.SelectedObject = nil
+	end
 	barraMazzo.Visible = true
 	bottoneCombatti.Visible = false
 	bottoneLobby.Visible = false
@@ -2261,6 +2472,16 @@ function Partita.inizializza(gui, r, callbackLobby)
 	-- dorsali L1/R1 per cambiare il bersaglio di tutta l'armata.
 	local TASTI_PAD = { Enum.KeyCode.DPadUp, Enum.KeyCode.DPadDown, Enum.KeyCode.DPadLeft, Enum.KeyCode.DPadRight, Enum.KeyCode.ButtonY }
 	local miraPad = #BERSAGLI
+	-- CROCE / A in battaglia: la riserva al posto del salto. Se un pulsante è selezionato (tutorial), resta suo.
+	ContextActionService:BindActionAtPriority("RiservaController", function(_, stato)
+		if fase ~= "battaglia" or GuiService.SelectedObject then
+			return Enum.ContextActionResult.Pass
+		end
+		if stato == Enum.UserInputState.Begin then
+			padRiserva()
+		end
+		return Enum.ContextActionResult.Sink
+	end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.ButtonA)
 	UserInputService.InputBegan:Connect(function(input, usatoDaGui)
 		if fase == "piazzamento" and input.KeyCode == Enum.KeyCode.ButtonY and bottoneCombatti.Visible then
 			local ok, messaggio = remoti.Combatti:InvokeServer()
@@ -2269,7 +2490,26 @@ function Partita.inizializza(gui, r, callbackLobby)
 			end
 			return
 		end
+		if fase == "piazzamento" then
+			if input.KeyCode == Enum.KeyCode.ButtonX then
+				padSchiera()
+				return
+			elseif input.KeyCode == Enum.KeyCode.ButtonB then
+				padRitira()
+				return
+			elseif input.KeyCode == Enum.KeyCode.ButtonR1 or input.KeyCode == Enum.KeyCode.ButtonL1 then
+				padFormazione(input.KeyCode == Enum.KeyCode.ButtonR1 and 1 or -1)
+				return
+			end
+		end
 		if fase == "battaglia" then
+			if input.KeyCode == Enum.KeyCode.ButtonX then
+				padReparto()
+				return
+			elseif input.KeyCode == Enum.KeyCode.ButtonB then
+				padAbilita()
+				return
+			end
 			local pad = table.find(TASTI_PAD, input.KeyCode)
 			if pad and Battaglia.ORDINI[pad] then
 				Stile.premi(bottoniOrdine[Battaglia.ORDINI[pad]])
