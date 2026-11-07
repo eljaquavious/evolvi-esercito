@@ -116,6 +116,13 @@ Battaglia.NOMI_ORDINI = {
 }
 Battaglia.ATTESA_ORDINE = 3 -- secondi di battaglia tra un ordine e il successivo alla stessa ala
 Battaglia.DURATA_CARICA = 6
+-- Carica perfetta (7/11/2026, collaudo "un bambino lo fa vedere all'amico": a metà battaglia non c'era niente
+-- da mostrare). Se al momento della carica un soldato caricato ha un nemico vivo entro FINESTRA_CARICA caselle
+-- (le linee stanno per toccarsi o si toccano), la carica è perfetta: danno in più DANNO_CARICA_PERFETTA invece
+-- di DANNO_CARICA. Il client accende "NOW!" sul pulsante quando la finestra è aperta.
+Battaglia.FINESTRA_CARICA = 2.5
+Battaglia.DANNO_CARICA = 0.1
+Battaglia.DANNO_CARICA_PERFETTA = 0.35
 -- Ali dell'armata, viste da dietro la propria armata. Ogni reggimento ha la sua ala, decisa da dove si è
 -- schierato rispetto al resto dell'armata (o da dove entra, per la riserva).
 Battaglia.ALI = { "sinistra", "centro", "destra" }
@@ -505,6 +512,7 @@ function Battaglia:ordine(squadra, nome, automatico, ala)
 		toccate[nomeAla] = true
 	end
 	local caricati = nome == "carica" and {} or nil
+	local perfetta = false
 	local avanti = squadra == "giocatore" and 1 or -1
 	for _, s in ipairs(self.soldati) do
 		if s.vivo and s.squadra == squadra and toccate[s.reggimento.ala] then
@@ -518,11 +526,15 @@ function Battaglia:ordine(squadra, nome, automatico, ala)
 				if s.def.carica then
 					s.caricaUsata = false
 				end
+				if not perfetta and not automatico then
+					perfetta = self:_nemicoEntro(s, Battaglia.FINESTRA_CARICA)
+				end
 			end
 		end
 	end
 	if caricati then
-		table.insert(self.effetti, { squadra = squadra, fine = self.tempo + Battaglia.DURATA_CARICA, velocita = 0.3, danno = 0.1, soldati = caricati })
+		table.insert(self.effetti, { squadra = squadra, fine = self.tempo + Battaglia.DURATA_CARICA, velocita = 0.3,
+			danno = perfetta and Battaglia.DANNO_CARICA_PERFETTA or Battaglia.DANNO_CARICA, soldati = caricati })
 	end
 	local comune = ali[Battaglia.ALI[1]].ordine
 	for _, nomeAla in ipairs(Battaglia.ALI) do
@@ -531,8 +543,23 @@ function Battaglia:ordine(squadra, nome, automatico, ala)
 		end
 	end
 	self.ordini[squadra] = comune
-	table.insert(self.eventiInAttesa, { tipo = "ordine", squadra = squadra, ordine = nome, ali = scelte, ala = ala, automatico = automatico or nil })
-	return true
+	table.insert(self.eventiInAttesa, { tipo = "ordine", squadra = squadra, ordine = nome, ali = scelte, ala = ala, automatico = automatico or nil,
+		perfetta = perfetta or nil })
+	return true, nil, perfetta
+end
+
+-- C'è un nemico vivo entro "caselle" dal soldato s?
+function Battaglia:_nemicoEntro(s, caselle)
+	local quadro = caselle * caselle
+	for _, b in ipairs(self.soldati) do
+		if b.vivo and b.squadra ~= s.squadra then
+			local dx, dy = b.x - s.x, b.y - s.y
+			if dx * dx + dy * dy <= quadro then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 -- Bersagli (Mattia, 20/10/2026: "ordini più dettagliati, targetta questo, quest'altro"). filtro = una classe

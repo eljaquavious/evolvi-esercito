@@ -15,6 +15,7 @@ local Cielo = require(script.Parent.Parent.Cielo)
 local Meteo = require(script.Parent.Parent.Meteo)
 local Intermezzo = require(script.Parent.Parent.Intermezzo)
 local Truppe = require(script.Parent.Parent.Truppe)
+local Effetti = require(script.Parent.Parent.Effetti)
 local Stile = require(script.Parent.Stile)
 local Carta = require(script.Parent.Carta)
 local Icone = require(script.Parent.Icone)
@@ -1250,11 +1251,90 @@ local function padRiserva()
 	Suoni.ui("errore")
 end
 
+-- ===================================================================== momenti da mostrare
+-- (7/11/2026) Collaudo "un bambino fa vedere il gioco all'amico": a metà battaglia diceva "ora si menano e
+-- basta, aspetta". Due momenti nuovi da far vedere: la carica perfetta (toccarla quando le linee stanno per
+-- toccarsi, con "NOW!" acceso sul pulsante) e la rotta di ogni reggimento nemico distrutto ("ROUTED!").
+
+-- La carica si può ancora suonare (dall'ala scelta, o da almeno un'ala con reggimenti)?
+local function caricaDisponibile()
+	local conTruppe = {}
+	for _, ala in pairs(alaDi) do
+		conTruppe[ala] = true
+	end
+	for _, ala in ipairs(Battaglia.ALI) do
+		if (alaScelta == nil or ala == alaScelta) and conTruppe[ala] and not caricheAli[ala] then
+			return true
+		end
+	end
+	return false
+end
+
+-- Le linee stanno per toccarsi e la carica c'è: è il momento della carica perfetta.
+local function finestraCarica()
+	if fase ~= "battaglia" or not caricaDisponibile() then
+		return false
+	end
+	local distanza = Truppe.distanzaFronte()
+	return distanza ~= nil and distanza <= Battaglia.FINESTRA_CARICA
+end
+
+local scrittaGrande -- la scritta al centro dello schermo per i momenti forti (creata in inizializza)
+local function momento(testo, colore)
+	if not scrittaGrande then
+		return
+	end
+	scrittaGrande.Text = testo
+	scrittaGrande.TextColor3 = colore
+	-- Il contorno (UIStroke "Contorno" di Stile.scritta) sparisce insieme al testo: da solo resterebbe una
+	-- sagoma nera.
+	local contorno = scrittaGrande:FindFirstChild("Contorno")
+	scrittaGrande.TextTransparency = 0
+	if contorno then
+		contorno.Transparency = 0
+	end
+	scrittaGrande.Visible = true
+	pop(scrittaGrande, 0.3, 0.22)
+	local versione = (scrittaGrande:GetAttribute("Versione") or 0) + 1
+	scrittaGrande:SetAttribute("Versione", versione)
+	task.delay(1.1, function()
+		if scrittaGrande:GetAttribute("Versione") == versione then
+			TweenService:Create(scrittaGrande, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
+			if contorno then
+				TweenService:Create(contorno, TweenInfo.new(0.3), { Transparency = 1 }):Play()
+			end
+		end
+	end)
+end
+
+local function caricaPerfetta()
+	momento("PERFECT CHARGE!", ORO)
+	Suoni.ui("tamburo")
+	local centro = Truppe.centro("giocatore")
+	if centro then
+		Effetti.onda(centro, 22, ORO, 0.8)
+		Effetti.scritta(centro + Vector3.new(0, 8, 0), "PERFECT!", ORO, 2)
+	end
+end
+
+-- Un reggimento nemico è stato distrutto: id = l'ultimo soldato caduto.
+local function rotta(id)
+	local squadra, posizione = Truppe.soldatoInfo(id)
+	if squadra ~= "nemico" or not posizione then
+		return
+	end
+	momento("ROUTED!", ROSSO)
+	Suoni.ui("tamburo", 0.8)
+	colpoCamera()
+	Effetti.onda(posizione, 14, ROSSO, 0.7)
+	Effetti.scritta(posizione + Vector3.new(0, 7, 0), "ROUTED!", ROSSO, 2)
+end
+
 local function daiOrdine(nome)
 	if fase ~= "battaglia" then
 		return
 	end
-	local ok, messaggio = remoti.Ordine:InvokeServer(nome, alaScelta)
+	local ok, messaggio, perfetta = remoti.Ordine:InvokeServer(nome, alaScelta)
 	if ok then
 		-- Tromba per avanzare e caricare, colpo di tamburo per gli altri ordini; onda sotto chi lo riceve.
 		Suoni.ui(nome == "carica" and "carica" or nome == "avanza" and "tromba" or "tamburo")
@@ -1266,6 +1346,9 @@ local function daiOrdine(nome)
 		end
 		if nome == "carica" then
 			colpoCamera()
+		end
+		if perfetta then
+			caricaPerfetta()
 		end
 		pop(avviso, 0.75, 0.25)
 	else
@@ -1279,6 +1362,7 @@ end
 -- Eventi della battaglia che cambiano la barra: reggimenti caduti, ordini e abilità usate (anche dal nemico).
 local function eventoBattaglia(e)
 	if e.tipo == "morte" and e.reggimento then
+		rotta(e.id)
 		for indice, id in pairs(idPerIndice) do
 			if id == e.reggimento and carte[indice] then
 				carte[indice]:SetAttribute("Caduto", true)
@@ -1326,6 +1410,8 @@ local function eventoBattaglia(e)
 		if e.automatico then
 			avviso.Text = e.ordine == "tieni" and ("The retreat is over: %s holds the new line."):format(string.lower(chi))
 				or ("The charge is spent: %s keeps advancing."):format(string.lower(chi))
+		elseif e.perfetta then
+			avviso.Text = ("%s PERFECT CHARGE! Perfect timing: they hit much harder."):format(chi)
 		elseif nome then
 			avviso.Text = ("%s %s: %s"):format(chi, nome.grido, SPIEGAZIONE_ORDINI[e.ordine] or "")
 		end
@@ -2282,6 +2368,31 @@ function Partita.inizializza(gui, r, callbackLobby)
 			daiOrdine(nome)
 		end)
 		bottoniOrdine[nome] = bottone
+		if nome == "carica" then
+			-- "NOW!" a destra del pulsante quando è il momento della carica perfetta (finestraCarica).
+			local adesso = Stile.scritta({
+				Name = "Adesso",
+				AnchorPoint = Vector2.new(0, 0.5),
+				Position = UDim2.new(1, 14, 0.5, 0),
+				Size = UDim2.fromOffset(170, 70),
+				Text = "NOW!",
+				TextSize = 64,
+				TextColor3 = ORO,
+				Visible = false,
+				ZIndex = 8,
+				Parent = bottone,
+			})
+			local battitoAdesso = Stile.crea("UIScale", { Parent = adesso })
+			RunService.RenderStepped:Connect(function()
+				local acceso = fase == "battaglia" and pannelloOrdini.Visible and finestraCarica()
+				adesso.Visible = acceso
+				if acceso then
+					local battito = (math.sin(os.clock() * 12) + 1) / 2
+					adesso.Rotation = -6 + 4 * battito
+					battitoAdesso.Scale = 0.9 + 0.2 * battito
+				end
+			end)
+		end
 	end
 
 	-- Grande scritta di fine round.
@@ -2557,6 +2668,18 @@ function Partita.inizializza(gui, r, callbackLobby)
 		carica = function()
 			return bottoniOrdine.carica
 		end,
+		finestraCarica = finestraCarica,
+	})
+	scrittaGrande = Stile.scritta({
+		Name = "Momento",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.36, 0),
+		Size = UDim2.fromOffset(1100, 140),
+		Text = "",
+		TextSize = 120,
+		Visible = false,
+		ZIndex = 30,
+		Parent = tela,
 	})
 
 	local TASTI = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five }

@@ -185,11 +185,13 @@ function Effetti.scintille(posizione, colore)
 	end
 end
 
+-- grande: true per le scritte degli ordini, oppure un numero (quante volte più grande di quelle).
 function Effetti.scritta(posizione, testo, colore, grande)
+	local volte = type(grande) == "number" and grande or 1
 	local ancora = parte({ Size = Vector3.one * 0.2, Transparency = 1, Position = posizione })
 	ancora.Parent = cartella
 	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.fromOffset(grande and 160 or 60, grande and 40 or 22)
+	gui.Size = UDim2.fromOffset(grande and 160 * volte or 60, grande and 40 * volte or 22)
 	gui.AlwaysOnTop = true
 	gui.LightInfluence = 0
 	gui.MaxDistance = 250
@@ -209,9 +211,11 @@ function Effetti.scritta(posizione, testo, colore, grande)
 		gui.Size = UDim2.fromOffset(misura.X.Offset * 0.35, misura.Y.Offset * 0.35)
 		TweenService:Create(gui, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = misura }):Play()
 	end
-	TweenService:Create(ancora, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = posizione + Vector3.new(0, 4, 0) }):Play()
-	TweenService:Create(etichetta, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
-	Debris:AddItem(ancora, 1)
+	-- Le scritte più grandi restano un po' di più.
+	local durata = 0.9 * math.sqrt(volte)
+	TweenService:Create(ancora, TweenInfo.new(durata, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = posizione + Vector3.new(0, 4, 0) }):Play()
+	TweenService:Create(etichetta, TweenInfo.new(durata, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+	Debris:AddItem(ancora, durata + 0.1)
 end
 
 -- Nuvoletta di polvere bassa che si allarga a terra (un reggimento che atterra o se ne va dallo schieramento).

@@ -20,6 +20,8 @@ local connessione
 -- Passi: chiave dell'elemento da evidenziare, testo, e "aspetta" = l'evento che fa andare avanti (nil = NEXT).
 -- "fase" = in quale momento della partita si mostra (il passo aspetta che la partita ci arrivi).
 -- "richiamo" = scritta grande che salta sopra l'elemento (il gesto da fare, per chi non legge).
+-- "quando" = nome di un bersaglio-funzione che dice se è il momento del gesto; finché è falso, al posto del
+-- richiamo c'è "attesa" (per la carica perfetta: WAIT... e poi CLICK! quando le linee stanno per toccarsi).
 -- Nei testi si scrive "Click": sul telefono diventa "Tap" (testoPer).
 -- Collaudo "bambino di 9 anni sul telefono" (6/11/2026): il primo passo era un muro di testo (WELCOME) e
 -- intorno c'erano carte, formazioni e FIGHT tutti insieme. Ora si parte subito col gesto: tocca la prima carta.
@@ -62,9 +64,11 @@ local PASSI = {
 	{
 		fase = "battaglia",
 		titolo = "6 · SOUND THE CHARGE!",
-		testo = "Your army fights by itself, but YOU command it. Click GENERAL CHARGE: everyone attacks at full strength!",
+		testo = "Your army fights by itself, but YOU command it. When NOW! lights up, click GENERAL CHARGE: PERFECT CHARGE!",
 		mostra = "carica",
 		richiamo = "CLICK!",
+		quando = "finestraCarica",
+		attesa = "WAIT...",
 		aspetta = "ordine",
 	},
 	{
@@ -144,7 +148,8 @@ local function seguiBersaglio()
 	-- La freccia sta sopra l'elemento; per i pannelli alti sui lati, di fianco (verso il centro dello schermo).
 	local larghezza = tela.AbsoluteSize.X / scala
 	if passo.richiamo then
-		freccia.Text = testoPer(passo.richiamo) .. "\n▼"
+		local pronto = not passo.quando or (bersagli[passo.quando] and bersagli[passo.quando]())
+		freccia.Text = (pronto and testoPer(passo.richiamo) or passo.attesa or "") .. "\n▼"
 		freccia.TextSize = 84
 		freccia.Size = UDim2.fromOffset(320, 200)
 		freccia.AnchorPoint = Vector2.new(0.5, 1)

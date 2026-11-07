@@ -678,6 +678,40 @@ function Truppe.centro(squadra)
 	return centroSquadra(squadra)
 end
 
+-- Distanza in caselle tra il soldato vivo del giocatore e il nemico vivo più vicini (nil se manca una squadra).
+-- Serve al "NOW!" della carica perfetta (Battaglia.FINESTRA_CARICA, che il server misura allo stesso modo).
+function Truppe.distanzaFronte()
+	local nostri, nemici = {}, {}
+	for _, s in pairs(soldati) do
+		if s.vivo then
+			table.insert(s.squadra == "giocatore" and nostri or nemici, s.posizione)
+		end
+	end
+	local minimo = math.huge
+	for _, a in ipairs(nostri) do
+		for _, b in ipairs(nemici) do
+			local dx, dz = a.X - b.X, a.Z - b.Z
+			local d = dx * dx + dz * dz
+			if d < minimo then
+				minimo = d
+			end
+		end
+	end
+	if minimo == math.huge then
+		return nil
+	end
+	return math.sqrt(minimo) / CASELLA
+end
+
+-- Squadra e posizione di un soldato (anche appena caduto: resta qualche secondo), o nil.
+function Truppe.soldatoInfo(id)
+	local s = soldati[id]
+	if not s then
+		return nil
+	end
+	return s.squadra, s.posizione
+end
+
 -- Il soldato di un tipo (il boss) in campo: posizione, angolo e se è vivo; nil se non c'è (ancora) o è già
 -- stato tolto. Serve alla cinematica tra i round dei livelli con un comandante.
 function Truppe.soldato(tipo, squadra)

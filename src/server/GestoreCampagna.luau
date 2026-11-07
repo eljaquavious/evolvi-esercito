@@ -27,6 +27,8 @@ local VELOCITA_BATTAGLIA = 0.75
 local PAUSA_TRA_ROUND = 6.5
 -- Secondi di battaglia dopo cui i comandanti nemici usano la loro abilità.
 local ATTESA_ABILITA_NEMICA = 6
+-- Secondi di fermo-immagine quando il giocatore azzecca la carica perfetta (Battaglia.FINESTRA_CARICA).
+local FERMO_CARICA_PERFETTA = 0.35
 
 local sessioni = {}
 local remoti
@@ -433,8 +435,11 @@ local function combattiRound(player, sessione)
 			end
 			riservaNemica = {}
 		end
-		local eventi = battaglia:passo(TICK * VELOCITA_BATTAGLIA)
-		remoti.Truppe:FireClient(player, { tipo = "passo", posizioni = posizioni(battaglia), eventi = eventiPerClient(eventi) })
+		-- Fermo-immagine della carica perfetta: per un attimo la simulazione non va avanti.
+		if not (sessione.fermoFino and os.clock() < sessione.fermoFino) then
+			local eventi = battaglia:passo(TICK * VELOCITA_BATTAGLIA)
+			remoti.Truppe:FireClient(player, { tipo = "passo", posizioni = posizioni(battaglia), eventi = eventiPerClient(eventi) })
+		end
 		task.wait(TICK)
 	end
 	sessione.battaglia = nil
@@ -674,11 +679,15 @@ function GestoreCampagna.ordine(player, nome, ala)
 	if typeof(nome) ~= "string" or (ala ~= nil and not table.find(Battaglia.ALI, ala)) then
 		return false
 	end
-	local ok, messaggio = battaglia:ordine("giocatore", nome, false, ala)
+	local ok, messaggio, perfetta = battaglia:ordine("giocatore", nome, false, ala)
 	if ok then
 		Statistiche.comando(player, sessione, "Ordine", nome, ala or "Tutte")
 	end
-	return ok, messaggio
+	-- Carica perfetta: la battaglia si ferma un attimo (fermo-immagine), il client mostra PERFECT CHARGE!
+	if perfetta then
+		sessione.fermoFino = os.clock() + FERMO_CARICA_PERFETTA
+	end
+	return ok, messaggio, perfetta
 end
 
 -- Riserva: la carta "indice" del mazzo (tra quelle rimaste in mano) entra nel punto x, y del campo (in caselle).
