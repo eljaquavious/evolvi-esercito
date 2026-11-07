@@ -17,7 +17,10 @@ def main():
         if not chiave.endswith(".fbx"):
             continue
         nome = chiave[:-4]
-        misure = json.load(open(os.path.join(CARTELLA, nome, nome + ".json")))
+        file_misure = os.path.join(CARTELLA, nome, nome + ".json")
+        if not os.path.exists(file_misure):  # non è una truppa (casse, lobby, mappa: hanno la loro Config)
+            continue
+        misure = json.load(open(file_misure))
         c = misure["centro"]
         righe.append('\t%s = { id = %d, metri = %g, centro = Vector3.new(%.4f, %.4f, %.4f), basso = %.4f },'
                      % (nome, int(ids[chiave]), misure["metri"], c[0], c[1], c[2], misure["basso"]))

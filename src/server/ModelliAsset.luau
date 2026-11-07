@@ -21,8 +21,9 @@ local function prepara(tipo, modello)
 	parte.Parent = nil
 	modello:Destroy()
 	-- Le pose dell'importazione e l'AnimationController non servono: le ossa le muove Client/Animatore.
+	-- La SurfaceAppearance resta: le truppe R6 (tools/blocchi/r6) hanno le mappe PBR dei materiali veri.
 	for _, figlio in ipairs(parte:GetChildren()) do
-		if not figlio:IsA("Bone") then
+		if not figlio:IsA("Bone") and not figlio:IsA("SurfaceAppearance") then
 			figlio:Destroy()
 		end
 	end
