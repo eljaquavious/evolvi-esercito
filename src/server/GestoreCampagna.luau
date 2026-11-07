@@ -213,7 +213,10 @@ function GestoreCampagna.avvia(player, numero)
 		tutorial = tutorial,
 	}
 	sessioni[player] = sessione
-	local arena = Arena.crea(player, livello)
+	-- Modalità prestazioni (menu Settings, o accesa da sola sui dispositivi lenti): arena senza scenografia.
+	local dati = Dati.ottieni(player)
+	local leggera = dati ~= nil and dati.impostazioni ~= nil and dati.impostazioni.prestazioni == true
+	local arena = Arena.crea(player, livello, leggera)
 	if not sessione.attiva or sessioni[player] ~= sessione or not player.Parent then
 		Arena.distruggi(arena)
 		return false

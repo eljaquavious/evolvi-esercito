@@ -15,6 +15,7 @@ local Modelli = require(Shared.Modelli)
 local Animatore = require(script.Parent.Animatore)
 local Cielo = require(script.Parent.Cielo)
 local Stile = require(script.Parent.UI.Stile)
+local Impostazioni = require(script.Parent.UI.Impostazioni)
 
 local LobbyVita = {}
 
@@ -23,6 +24,13 @@ local VELOCITA_TAPPETO = 58
 local VELOCITA_CAMPO = VELOCITA_LOBBY -- in battaglia come in lobby (Mattia: più veloce del normale)
 local FOV = 70
 local FOV_CORSA = 80
+-- I soldati sui piedistalli respirano solo vicino alla telecamera (sono 82 piedistalli, 3200 ossa).
+local VICINO_ANIMATI = 120
+local VICINO_ANIMATI_PRESTAZIONI = 45
+-- Al ritorno in lobby, quello che la battaglia ha lasciato nelle sue cartelle si butta (di solito nulla:
+-- gli effetti si cancellano da soli; è una rete di sicurezza per le sessioni lunghe).
+local PULIZIA_DOPO = 5
+local CARTELLE_BATTAGLIA = { "EffettiBattaglia", "TruppeClient" }
 
 local player = Players.LocalPlayer
 local inLobby = true
@@ -68,8 +76,21 @@ local function impostaVelocita()
 	end
 end
 
+local function pulisciBattaglia()
+	if not inLobby then
+		return
+	end
+	for _, nome in ipairs(CARTELLE_BATTAGLIA) do
+		local cartella = workspace:FindFirstChild(nome)
+		if cartella then
+			cartella:ClearAllChildren()
+		end
+	end
+end
+
 local function entraInLobby(transizione)
 	inLobby = true
+	task.delay(PULIZIA_DOPO, pulisciBattaglia)
 	-- Dopo Mappa e Partita, che al ritorno ripristinano i valori del campo.
 	task.delay(0.15, function()
 		if inLobby then
@@ -125,6 +146,7 @@ local function popola(piano)
 				end
 				if not statua and (info.mesh or next(info.giunti)) then
 					local a = Animatore.nuovo(modello, info, tipo)
+					a.centro = modello:GetPivot().Position
 					table.insert(animati, a)
 				end
 			end
@@ -174,8 +196,26 @@ local function aggiorna(dt)
 		return
 	end
 	tempo += dt
-	for _, a in ipairs(animati) do
-		a:aggiorna(dt, 0)
+	local camera = workspace.CurrentCamera
+	local occhio = camera and camera.CFrame.Position or Vector3.zero
+	local vicino = Impostazioni.prestazioni() and VICINO_ANIMATI_PRESTAZIONI or VICINO_ANIMATI
+	-- All'indietro: i modelli che non ci sono più (streaming) escono dalle liste invece di accumularsi.
+	for i = #animati, 1, -1 do
+		local a = animati[i]
+		if not a.modello.Parent then
+			table.remove(animati, i)
+		elseif (a.centro - occhio).Magnitude < vicino then
+			-- dt accumulato: ripartendo dopo una pausa il respiro riprende da dove sarebbe.
+			a:aggiorna(dt + (a.fermo or 0), 0)
+			a.fermo = nil
+		else
+			a.fermo = math.min((a.fermo or 0) + dt, 1)
+		end
+	end
+	for i = #giranti, 1, -1 do
+		if not giranti[i].modello.Parent then
+			table.remove(giranti, i)
+		end
 	end
 	for _, g in ipairs(giranti) do
 		g.modello:PivotTo(g.base * CFrame.new(0, math.sin(tempo * 1.6 + g.gradi) * 0.35, 0) * CFrame.Angles(0, math.rad(tempo * g.gradi), 0))

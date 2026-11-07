@@ -17,6 +17,7 @@ local Epoche = require(Shared.Config.Epoche)
 local Animatore = require(script.Parent.Animatore)
 local Effetti = require(script.Parent.Effetti)
 local Suoni = require(script.Parent.Suoni)
+local Impostazioni = require(script.Parent.UI.Impostazioni)
 
 local Truppe = {}
 
@@ -27,6 +28,10 @@ local ALTEZZA_COLPO = { cavalleria = 3.6, carro = 3, fortezza = 6 }
 -- giocata deve avere un effetto che si vede e si sente sul campo. CADUTA in secondi, a gravità (accelera).
 local CADUTA = 0.2
 local ALTEZZA_CADUTA = 7
+-- Oltre questa distanza dalla telecamera le articolazioni si muovono un fotogramma sì e uno no (non si nota,
+-- e dimezza il lavoro più pesante della battaglia). Più vicino in modalità prestazioni.
+local LONTANO = 150
+local LONTANO_PRESTAZIONI = 80
 
 local cartella = Instance.new("Folder")
 cartella.Name = "TruppeClient"
@@ -634,7 +639,7 @@ local function angoloVerso(attuale, obiettivo, t)
 	return attuale + d * t
 end
 
-local function aggiorna(s, dt, t)
+local function aggiorna(s, dt, t, occhio, lontano)
 	local prima = s.posizione
 	if s.vivo then
 		s.posizione = prima:Lerp(s.obiettivo, t)
@@ -642,7 +647,12 @@ local function aggiorna(s, dt, t)
 	end
 	local orizzontale = Vector3.new(s.posizione.X - prima.X, 0, s.posizione.Z - prima.Z)
 	local velocita = dt > 0 and orizzontale.Magnitude / dt or 0
-	s.animatore:aggiorna(dt, velocita)
+	if occhio and not s.saltato and (s.posizione - occhio).Magnitude > lontano then
+		s.saltato = dt
+	else
+		s.animatore:aggiorna(dt + (s.saltato or 0), velocita)
+		s.saltato = nil
+	end
 	local alto = 0
 	if s.atterraggio then
 		local e = (os.clock() - s.atterraggio) / CADUTA
@@ -658,8 +668,11 @@ end
 
 RunService.RenderStepped:Connect(function(dt)
 	local t = 1 - math.exp(-SEGUI * dt)
+	local camera = workspace.CurrentCamera
+	local occhio = camera and camera.CFrame.Position
+	local lontano = Impostazioni.prestazioni() and LONTANO_PRESTAZIONI or LONTANO
 	for _, s in pairs(soldati) do
-		aggiorna(s, dt, t)
+		aggiorna(s, dt, t, occhio, lontano)
 	end
 	for _, gruppo in pairs(schierati) do
 		for _, s in ipairs(gruppo) do
@@ -668,7 +681,7 @@ RunService.RenderStepped:Connect(function(dt)
 				local o = s.obiettivo
 				s.obiettivo = Vector3.new(o.X, quota(o.X, o.Z), o.Z)
 			end
-			aggiorna(s, dt, t)
+			aggiorna(s, dt, t, occhio, lontano)
 		end
 	end
 end)

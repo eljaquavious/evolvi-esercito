@@ -2383,8 +2383,14 @@ function Partita.inizializza(gui, r, callbackLobby)
 				Parent = bottone,
 			})
 			local battitoAdesso = Stile.crea("UIScale", { Parent = adesso })
+			-- La distanza tra i fronti confronta ogni soldato con ogni nemico: 10 volte al secondo bastano.
+			local prossimoControllo, acceso = 0, false
 			RunService.RenderStepped:Connect(function()
-				local acceso = fase == "battaglia" and pannelloOrdini.Visible and finestraCarica()
+				if os.clock() >= prossimoControllo then
+					prossimoControllo = os.clock() + 0.1
+					acceso = fase == "battaglia" and pannelloOrdini.Visible and finestraCarica()
+				end
+				acceso = acceso and fase == "battaglia"
 				adesso.Visible = acceso
 				if acceso then
 					local battito = (math.sin(os.clock() * 12) + 1) / 2

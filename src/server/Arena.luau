@@ -505,7 +505,9 @@ local SOLIDI = {
 	[Enum.Material.Marble] = true, [Enum.Material.Granite] = true, [Enum.Material.Basalt] = true,
 }
 
-function Arena.crea(player, livello)
+-- senzaScenografia (modalità prestazioni del giocatore): solo terreno, caselle e ostacoli che contano per la
+-- battaglia; niente alberi, case, trincee decorate né cornice attorno al campo.
+function Arena.crea(player, livello, senzaScenografia)
 	local slot = 1
 	while slotOccupati[slot] do
 		slot += 1
@@ -620,25 +622,37 @@ function Arena.crea(player, livello)
 		end
 	end
 
-	local decorazioni = Instance.new("Folder")
-	decorazioni.Name = "Decorazioni"
-	decorazioni.Parent = modello
-	-- Ostacoli sulle caselle bloccate, dettagli tra le caselle, poi tutto lo scenario attorno al campo.
+	-- Ostacoli sulle caselle bloccate: fanno parte della battaglia (i soldati ci girano attorno), restano sempre.
+	local ostacoli = Instance.new("Folder")
+	ostacoli.Name = "Ostacoli"
+	ostacoli.Parent = modello
 	for _, t in ipairs(livello.terreno) do
 		if Campagna.SOLIDI[t.tipo] then
 			local x, z = centroCasella(t.col, t.riga)
-			piano:ostacolo(decorazioni, x, z, t.tipo)
+			piano:ostacolo(ostacoli, x, z, t.tipo)
 		end
 	end
-	piano:decoraTrincee(decorazioni)
-	piano:dettagliCampo(decorazioni, function(x, z)
-		local col = math.floor((x + META_CAMPO) / Arena.CASELLA) + 1
-		local riga = math.floor((z + META_CAMPO) / Arena.CASELLA) + 1
-		local tipo = arena.terreno[col .. "," .. riga]
-		return Campagna.SOLIDI[tipo] or tipo == "trincea"
-	end)
-	piano:decora(decorazioni)
-	for _, parte in ipairs(decorazioni:GetDescendants()) do
+	-- Scenografia: dettagli tra le caselle, trincee decorate, poi tutto lo scenario attorno al campo. È la parte
+	-- pesante (Lützen: 14.500 parti e 12.000 decal); in modalità prestazioni non si costruisce, e in ranked
+	-- (arena condivisa) la toglie il client di chi ha la modalità accesa (Impostazioni).
+	local decorazioni = Instance.new("Folder")
+	decorazioni.Name = "Decorazioni"
+	decorazioni.Parent = modello
+	if not senzaScenografia then
+		piano:decoraTrincee(decorazioni)
+		piano:dettagliCampo(decorazioni, function(x, z)
+			local col = math.floor((x + META_CAMPO) / Arena.CASELLA) + 1
+			local riga = math.floor((z + META_CAMPO) / Arena.CASELLA) + 1
+			local tipo = arena.terreno[col .. "," .. riga]
+			return Campagna.SOLIDI[tipo] or tipo == "trincea"
+		end)
+		piano:decora(decorazioni)
+	end
+	local pezzi = decorazioni:GetDescendants()
+	for _, parte in ipairs(ostacoli:GetDescendants()) do
+		table.insert(pezzi, parte)
+	end
+	for _, parte in ipairs(pezzi) do
 		if parte:IsA("BasePart") then
 			local lato = math.max(parte.Size.X, parte.Size.Y, parte.Size.Z)
 			if SOLIDI[parte.Material] and lato > 1.5 then

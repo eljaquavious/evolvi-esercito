@@ -14,6 +14,7 @@ local TIPI = {
 		lato = 70,
 		-- Roblox limita le gocce di un singolo emettitore: con uno solo la pioggia sembra rada.
 		emettitori = 4,
+		prestazioni = 0.25, -- in modalità prestazioni: un emettitore a un quarto (500 gocce al secondo)
 		proprieta = {
 			Rate = 2000,
 			Lifetime = NumberRange.new(0.7, 0.9),
@@ -31,6 +32,7 @@ local TIPI = {
 	neve = {
 		altezza = 22,
 		lato = 90,
+		prestazioni = 0.33,
 		proprieta = {
 			Rate = 450,
 			Lifetime = NumberRange.new(6, 8),
@@ -82,9 +84,9 @@ function Meteo.imposta(tipo)
 		emettitore[k] = v
 	end
 	emettitore.Parent = blocco
-	-- Modalità prestazioni: un solo emettitore, a metà.
+	-- Modalità prestazioni: un solo emettitore, a un quarto (pioggia) o a un terzo (neve).
 	if Impostazioni.prestazioni() then
-		emettitore.Rate = emettitore.Rate / 2
+		emettitore.Rate = emettitore.Rate * (conf.prestazioni or 0.5)
 	end
 	for _ = 2, Impostazioni.prestazioni() and 1 or conf.emettitori or 1 do
 		emettitore:Clone().Parent = blocco

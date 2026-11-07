@@ -2,15 +2,20 @@
 -- Le scelte si salvano con i progressi (remoto Impostazioni) e arrivano di nuovo con lo stato.
 -- Modalità prestazioni: niente ombre, niente bagliore/raggi di sole/sfocatura, meno particelle
 -- (meteo, esplosioni) e mantelli fermi. Gli altri moduli chiedono Impostazioni.prestazioni().
+-- In battaglia via tutta la scenografia (il server non la costruisce; in ranked la toglie questo client); in
+-- lobby luci senza ombre, fuochi e particelle spenti. Sui dispositivi lenti si accende da sola (accendiDaSola).
 
 local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 
 local Stile = require(script.Parent.Stile)
+local Notifiche = require(script.Parent.Notifiche)
 
 local Impostazioni = {}
 
-local valori = { musica = true, effetti = true, prestazioni = false }
+-- prestazioniToccata: il giocatore ha cambiato la modalità a mano, quindi non si accende più da sola.
+local valori = { musica = true, effetti = true, prestazioni = false, prestazioniToccata = false }
 local remoti, finestra
 local interruttori = {} -- chiave -> funzione che ridisegna il pulsante
 local cambiato = Instance.new("BindableEvent")
@@ -24,6 +29,11 @@ local VOCI = {
 
 local POST_EFFETTI = { "BloomEffect", "SunRaysEffect", "DepthOfFieldEffect" }
 local SPENTO = "SpentoDaPrestazioni" -- attributo sugli effetti spenti da qui, da riaccendere dopo
+local EFFETTI_LOBBY = { Fire = true, Smoke = true, ParticleEmitter = true, Sparkles = true }
+-- Accensione automatica: media dei fotogrammi in lobby, misurata una volta per sessione.
+local ATTESA_MISURA = 15 -- secondi dopo l'avvio: la lobby e lo stato salvato sono arrivati
+local DURATA_MISURA = 10
+local FPS_MINIMI = 30
 
 local function gruppo(nome)
 	local g = SoundService:FindFirstChild(nome)
@@ -49,6 +59,52 @@ local function applicaLuci()
 	end
 end
 
+-- Lobby: le luci smettono di fare ombra, fuochi e particelle si fermano. Si segna cosa si è spento per
+-- riaccenderlo quando la modalità si toglie.
+local function spegniInLobby(oggetto)
+	if oggetto:IsA("Light") and oggetto.Shadows then
+		oggetto.Shadows = false
+		oggetto:SetAttribute(SPENTO, true)
+	elseif EFFETTI_LOBBY[oggetto.ClassName] and oggetto.Enabled then
+		oggetto.Enabled = false
+		oggetto:SetAttribute(SPENTO, true)
+	end
+end
+
+local function applicaLobby()
+	local lobby = workspace:FindFirstChild("Lobby")
+	if not lobby then
+		return
+	end
+	for _, oggetto in ipairs(lobby:GetDescendants()) do
+		if valori.prestazioni then
+			spegniInLobby(oggetto)
+		elseif oggetto:GetAttribute(SPENTO) then
+			oggetto:SetAttribute(SPENTO, nil)
+			if oggetto:IsA("Light") then
+				oggetto.Shadows = true
+			else
+				oggetto.Enabled = true
+			end
+		end
+	end
+end
+
+-- Arene: in ranked l'arena è di tutti e due i giocatori e il server la costruisce intera, quindi chi ha la
+-- modalità accesa ne toglie la scenografia solo per sé (cartella Decorazioni; gli Ostacoli contano e restano).
+local function applicaArene()
+	local arene = valori.prestazioni and workspace:FindFirstChild("Arene")
+	if not arene then
+		return
+	end
+	for _, arena in ipairs(arene:GetChildren()) do
+		local scenografia = arena:FindFirstChild("Decorazioni")
+		if scenografia and #scenografia:GetChildren() > 0 then
+			scenografia:ClearAllChildren()
+		end
+	end
+end
+
 local function applica()
 	gruppo("Musica").Volume = valori.musica and 1 or 0
 	-- Effetti ben sotto la musica (richiesta di Mattia): 0.4 invece di 1.
@@ -64,6 +120,8 @@ local function applica()
 			end
 		end
 	end
+	applicaLobby()
+	applicaArene()
 	for _, ridisegna in pairs(interruttori) do
 		ridisegna()
 	end
@@ -82,12 +140,42 @@ function Impostazioni.prestazioni()
 	return valori.prestazioni
 end
 
-local function cambia(chiave)
-	valori[chiave] = not valori[chiave]
-	applica()
+local function salva(chiave)
 	task.spawn(function()
 		remoti.Impostazioni:InvokeServer(chiave, valori[chiave])
 	end)
+end
+
+local function cambia(chiave)
+	valori[chiave] = not valori[chiave]
+	applica()
+	salva(chiave)
+	if chiave == "prestazioni" and not valori.prestazioniToccata then
+		valori.prestazioniToccata = true
+		salva("prestazioniToccata")
+	end
+end
+
+-- Dispositivo lento: se in lobby la media resta sotto FPS_MINIMI, la modalità prestazioni si accende da sola
+-- (una volta; se il giocatore l'ha già cambiata a mano si rispetta la sua scelta). Non in Studio, dove gli fps
+-- li decide Studio.
+local function accendiDaSola()
+	if RunService:IsStudio() then
+		return
+	end
+	task.wait(ATTESA_MISURA)
+	local fotogrammi, inizio = 0, os.clock()
+	while os.clock() - inizio < DURATA_MISURA do
+		RunService.RenderStepped:Wait()
+		fotogrammi += 1
+	end
+	local fps = fotogrammi / (os.clock() - inizio)
+	if fps < FPS_MINIMI and not valori.prestazioni and not valori.prestazioniToccata then
+		valori.prestazioni = true
+		applica()
+		salva("prestazioni")
+		Notifiche.mostra("Performance Mode ON: your device was slow. Turn it off in Settings.")
+	end
 end
 
 -- Una riga del menu: nome, spiegazione e interruttore ON/OFF.
@@ -154,8 +242,22 @@ function Impostazioni.inizializza(gui, r)
 		while true do
 			task.wait(0.5)
 			applicaLuci()
+			applicaArene()
 		end
 	end)
+	-- La lobby arriva dal server a pezzi (streaming): ogni pezzo nuovo si spegne appena entra.
+	task.spawn(function()
+		local lobby = workspace:WaitForChild("Lobby", 60)
+		if lobby then
+			lobby.DescendantAdded:Connect(function(oggetto)
+				if valori.prestazioni then
+					spegniInLobby(oggetto)
+				end
+			end)
+			applicaLobby()
+		end
+	end)
+	task.spawn(accendiDaSola)
 end
 
 -- Valori salvati, dallo stato mandato dal server.

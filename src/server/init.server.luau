@@ -98,7 +98,7 @@ end
 
 -- Menu Settings: si salvano con i progressi, così valgono anche la volta dopo.
 -- tutorialLobby: il tutorial della lobby è già stato visto (UI/TutorialLobby).
-local IMPOSTAZIONI = { musica = true, effetti = true, prestazioni = true, tutorialLobby = true }
+local IMPOSTAZIONI = { musica = true, effetti = true, prestazioni = true, prestazioniToccata = true, tutorialLobby = true }
 remoti.Impostazioni.OnServerInvoke = function(player, chiave, valore)
 	if typeof(chiave) ~= "string" or not IMPOSTAZIONI[chiave] or typeof(valore) ~= "boolean" or not Dati.ottieni(player) then
 		return false
