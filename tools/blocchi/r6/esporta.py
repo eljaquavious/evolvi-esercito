@@ -42,6 +42,125 @@ def argomenti():
     return nomi, lato
 
 
+def _firma(v, nomi):
+    """I pesi del vertice come chiave: due pezzi con la stessa firma si muovono insieme in ogni posa."""
+    return tuple(sorted((nomi[g.group], round(g.weight, 3)) for g in v.groups if g.weight > 1e-4))
+
+
+def togli_nascoste(m):
+    """Leggerezza senza cambiare l'aspetto: via le facce sepolte dentro un altro pezzo chiuso che si muove con le
+    stesse ossa (il busto sotto la giubba, le braccia sotto le maniche, la testa dentro l'elmo chiuso).
+    Una faccia va via solo se ogni suo punto di prova, guardando in fuori lungo la sua normale, è dentro un solido
+    chiuso (il primo colpo trova il rovescio di una faccia), quindi non si vede da nessun lato e in nessuna posa."""
+    from mathutils.bvhtree import BVHTree
+    pezzi = [o for o in m.pezzi if o.type == "MESH" and o.name != "cavallo" and len(o.data.polygons)]
+    dati = []
+    for o in pezzi:
+        me = o.data
+        nomi = {g.index: g.name for g in o.vertex_groups}
+        firme = [_firma(v, nomi) for v in me.vertices]
+        bm = bmesh.new()
+        bm.from_mesh(me)
+        chiuso = len(bm.edges) > 0 and all(e.is_manifold for e in bm.edges)
+        bm.free()
+        facce = []
+        for p in me.polygons:
+            f = {firme[i] for i in p.vertices}
+            facce.append(f.pop() if len(f) == 1 else None)
+        co = [v.co.copy() for v in me.vertices]
+        minimo = Vector(np.min(np.array([c[:] for c in co]), 0))
+        massimo = Vector(np.max(np.array([c[:] for c in co]), 0))
+        dati.append(dict(o=o, chiuso=chiuso, facce=facce, co=co, min=minimo, max=massimo))
+    # Un albero per pezzo chiuso e per firma (solo le sue facce con quella firma).
+    alberi = []
+    for k, d in enumerate(dati):
+        if not d["chiuso"]:
+            continue
+        per_firma = {}
+        for p, f in zip(d["o"].data.polygons, d["facce"]):
+            if f is not None:
+                per_firma.setdefault(f, []).append(list(p.vertices))
+        for f, polys in per_firma.items():
+            alberi.append((k, f, BVHTree.FromPolygons(d["co"], polys), d["min"], d["max"]))
+    via_totale = 0
+    for k, d in enumerate(dati):
+        me = d["o"].data
+        via = []
+        for p, f in zip(me.polygons, d["facce"]):
+            if f is None:
+                continue
+            candidati = [a for a in alberi if a[0] != k and a[1] == f]
+            if not candidati:
+                continue
+            vs = [d["co"][i] for i in p.vertices]
+            lo = Vector(np.min(np.array([v[:] for v in vs]), 0)) - Vector((0.1,) * 3)
+            hi = Vector(np.max(np.array([v[:] for v in vs]), 0)) + Vector((0.1,) * 3)
+            candidati = [a for a in candidati if all(a[3][i] <= hi[i] and a[4][i] >= lo[i] for i in range(3))]
+            if not candidati:
+                continue
+            n = p.normal.copy()
+            sepolta = True
+            for i in range(1, len(vs) - 1):
+                a, b, c = vs[0], vs[i], vs[i + 1]
+                lato = max((b - a).length, (c - b).length, (a - c).length)
+                passi = int(min(10, max(2, math.ceil(lato / 0.03))))
+                for u in range(passi + 1):
+                    for w in range(passi + 1 - u):
+                        bu, bw = (u + 0.15) / (passi + 0.45), (w + 0.15) / (passi + 0.45)
+                        q = a + (b - a) * bu + (c - a) * bw + n * 1e-4
+                        dentro = False
+                        vicino = 1e9
+                        for _, _, albero, _, _ in candidati:
+                            colpo = albero.ray_cast(q, n, 0.12)
+                            if colpo[0] is not None and colpo[3] < vicino:
+                                vicino = colpo[3]
+                                dentro = colpo[1].dot(n) > 0
+                        if not dentro:
+                            sepolta = False
+                            break
+                    if not sepolta:
+                        break
+                if not sepolta:
+                    break
+            if sepolta:
+                via.append(p.index)
+        if via:
+            bm = bmesh.new()
+            bm.from_mesh(me)
+            bm.faces.ensure_lookup_table()
+            bmesh.ops.delete(bm, geom=[bm.faces[i] for i in via], context="FACES_ONLY")
+            bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+            bm.to_mesh(me)
+            bm.free()
+            via_totale += len(via)
+    print("NASCOSTE", m.nome, via_totale, "facce tolte")
+
+
+def pesa_canna(ogg, arm, raggio=0.09):
+    """Roblox butta via le ossa che non muovono nessun vertice: l'osso "canna" (bocca di fucili, pistole,
+    mitragliatrici e cannoni, da cui il gioco fa partire il colpo) prende i vertici dell'arma vicini alla bocca,
+    tolti al padre. È figlio del padre e il gioco non lo ruota: il movimento resta identico."""
+    b = arm.data.bones.get("canna")
+    if b is None or b.parent is None:
+        return
+    testa = arm.matrix_world @ b.head_local
+    gruppi = {g.name: g for g in ogg.vertex_groups}
+    padre = gruppi.get(b.parent.name)
+    if padre is None:
+        return
+    canna = gruppi.get("canna") or ogg.vertex_groups.new(name="canna")
+    pieni = []
+    for v in ogg.data.vertices:
+        pesi = {ogg.vertex_groups[g.group].name: g.weight for g in v.groups if g.weight > 1e-4}
+        if pesi.get(b.parent.name, 0) > 0.999 and len(pesi) == 1:
+            pieni.append(((ogg.matrix_world @ v.co - testa).length, v.index))
+    pieni.sort()
+    scelti = [i for d, i in pieni if d < raggio] or [i for _, i in pieni[:4]]
+    padre.remove(scelti)
+    canna.add(scelti, 1.0, "REPLACE")
+    print("CANNA", ogg.name, len(scelti), "vertici")
+
+
 def unisci(m):
     """Tutti i pezzi in una mesh sola (gruppi delle ossa e materiali restano)."""
     pezzi = [o for o in m.pezzi if o.type == "MESH"]
@@ -163,8 +282,10 @@ def esporta(nome, lato):
     os.makedirs(sorgenti, exist_ok=True)
     faccia = r6.faccia_png("fiero", os.path.join(sorgenti, "faccia.png"))
     m = truppe.TRUPPE[nome](faccia, sorgenti)
+    togli_nascoste(m)
     arm = m.armatura()
     ogg = unisci(m)
+    pesa_canna(ogg, arm)
     atlante(ogg)
 
     # Cottura: colore (con un'ombra morbida nelle fessure), metallo, ruvidezza, normali.
@@ -180,17 +301,17 @@ def esporta(nome, lato):
     c[..., :3] *= (0.62 + 0.38 * o[..., :1])
     colore.pixels[:] = c.ravel()
     salva(colore, os.path.join(cartella, nome + "_colore.png"))
-    metallo = immagine(nome + "_metallo", lato, colore=False)
+    metallo = immagine(nome + "_metallo", lato // 2, colore=False)
     salvati = con_colore_finto(ogg, lambda m_, bsdf: dict(metalli)[m_])
     cuoci(ogg, "DIFFUSE", metallo, {"COLOR"})
     ripristina(salvati)
     for m_, v_ in metalli:
         m_.node_tree.nodes["Principled BSDF"].inputs["Metallic"].default_value = v_
     salva(metallo, os.path.join(cartella, nome + "_metallo.png"))
-    ruvido = immagine(nome + "_ruvido", lato, colore=False)
+    ruvido = immagine(nome + "_ruvido", lato // 2, colore=False)
     cuoci(ogg, "ROUGHNESS", ruvido)
     salva(ruvido, os.path.join(cartella, nome + "_ruvido.png"))
-    normale = immagine(nome + "_normale", lato, colore=False)
+    normale = immagine(nome + "_normale", lato if nome in METRI else lato // 2, colore=False)
     cuoci(ogg, "NORMAL", normale, campioni=4)
     salva(normale, os.path.join(cartella, nome + "_normale.png"))
 

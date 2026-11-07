@@ -2,7 +2,7 @@
 import numpy as np
 
 from kit import (ACCIAIO, B, BAC, CUOIO, CUOIO_SCURO, FERRO, GIRO, H, LATI, LEGNO, NERO, ORO, R_ELMO, R_TESTA, T1, T2,
-                 M, arco, ascia, balestra, barba, calotta, camaglio, capelli, cavaliere, cintura, corazza, cotta,
+                 M, arco, ascia, balestra, barba, calotta, camaglio, capelli, caschetto, cavaliere, cintura, corazza, cotta,
                  elmo_chiuso, elmo_conico, fante, faretra, fodero, gonna, gualdrappa, lamelle, lancia, lancia_resta,
                  mantello, manica, polsino, guanto, scudo, sopravveste, spada, spallacci, stivale, strato, tesa,
                  turbante, vesti, fasce, colletto, dipinto, rot_y, ASSE_Z)
@@ -136,7 +136,7 @@ def Mamelucco(faccia, cartella):
 
     def tondo(pen):
         pen.ellisse(0.22, 0.22, 0.78, 0.78, "#7A2A2A")
-    scudo(m, "tondo", giallo, tondo, larga=0.52, alta=0.52, umbone="#C8CCD4", angolo=60, avanti=0.08)
+    scudo(m, "tondo", giallo, tondo, larga=0.52, alta=0.52, umbone="#C8CCD4", angolo=35)
     lancia_resta(m, 1.9, 0.8)
     return m
 
@@ -260,7 +260,7 @@ def CavaliereNormanno(faccia, cartella):
     def stemma(pen):
         for v in (0.2, 0.5, 0.8):
             pen.rett(0.0, v - 0.06, 1.0, v + 0.06, "#A0201E")
-    scudo(m, "mandorla", "#C8A040", stemma, larga=0.46, alta=0.86, angolo=55, avanti=0.06, giu=0.05)
+    scudo(m, "mandorla", "#C8A040", stemma, larga=0.46, alta=0.86, angolo=35, giu=0.05)
 
     def banderuola(pen):
         pen.riempi("#C8A040")
@@ -289,7 +289,7 @@ def Guglielmo(faccia, cartella):
     def stemma(pen):
         pen.rett(0.44, 0.0, 0.56, 1.0, oro)
         pen.rett(0.1, 0.24, 0.9, 0.34, oro)
-    scudo(m, "mandorla", rosso, stemma, larga=0.46, alta=0.86, angolo=55, avanti=0.06, giu=0.05, umbone="#B0B6BE")
+    scudo(m, "mandorla", rosso, stemma, larga=0.46, alta=0.86, angolo=35, giu=0.05, umbone="#B0B6BE")
 
     def vessillo(pen):  # il vessillo del papa: bianco con la croce rossa
         pen.riempi("#F0ECE0")
@@ -315,7 +315,7 @@ def CavaliereTeutonico(faccia, cartella):
     mantello(m, bianco, basso=GAMBE - 0.05, spilla=NERO)
     elmo_chiuso(m, ACCIAIO, grande_elmo())
     gualdrappa(m, bianco, croce(NERO, 0.1, 0.1, 0.9, 0.3))
-    scudo(m, "mandorla", bianco, croce(NERO, 0.14, 0.05, 0.85, 0.25), larga=0.46, alta=0.8, angolo=55, avanti=0.06,
+    scudo(m, "mandorla", bianco, croce(NERO, 0.14, 0.05, 0.85, 0.25), larga=0.46, alta=0.8, angolo=35,
           giu=0.05)
 
     def pennone(pen):
@@ -437,7 +437,7 @@ def Cavaliere(faccia, cartella):
     def stemma(pen):
         for u, v in ((0.3, 0.22), (0.7, 0.22), (0.5, 0.55)):
             giglio(pen, u, v, 0.1, oro)
-    scudo(m, "mandorla", blu, stemma, larga=0.5, alta=0.68, angolo=55, avanti=0.06, giu=0.0)
+    scudo(m, "mandorla", blu, stemma, larga=0.5, alta=0.68, angolo=35, giu=0.0)
 
     def banderuola(pen):
         pen.riempi(blu)
@@ -463,7 +463,7 @@ def Giovanna(faccia, cartella):
     for lato, _ in LATI:
         polsino(m, lato, (acciaio, "ferro"), a=0.5 * S, t=0.016, nome="avambracciale")
         stivale(m, lato, (acciaio, "ferro"), alto=0.9 * S, t=0.016, suola="#5A5E64", nome="schiniere")
-    capelli(m, capelli_c, frangia=True, basso=TESTA_Y - 0.25 * S)
+    caschetto(m, capelli_c)
 
     def gigli(pen):
         pen.rett(0, 0.72, 1, 0.84, oro)
@@ -501,7 +501,7 @@ def Spadaccino(faccia, cartella):
             pts = [(0.5, 0.5)] + [(0.5 + 0.55 * math.cos(a0 + t), 0.5 + 0.55 * math.sin(a0 + t))
                                   for t in np.linspace(0, math.pi / 4, 6)]
             pen.poligono(pts, "#A02822")
-    scudo(m, "tondo", "#C8A040", disegno, larga=0.78, alta=0.78, umbone="#7E848C", angolo=70, avanti=0.04,
+    scudo(m, "tondo", "#C8A040", disegno, larga=0.78, alta=0.78, umbone="#7E848C", angolo=30,
           bordo="#6A4A2A")
     ascia(m, lunga=1.3)
     return m

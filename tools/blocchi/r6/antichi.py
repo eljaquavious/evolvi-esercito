@@ -80,7 +80,7 @@ def Oplita(faccia, cartella):
 
     def lambda_(pen):
         pen.poligono([(0.5, 0.2), (0.8, 0.8), (0.66, 0.8), (0.5, 0.42), (0.34, 0.8), (0.2, 0.8)], rosso)
-    scudo(m, "tondo", BRONZO, lambda_, larga=0.86, alta=0.86, tipo="ottone", bordo="#8A5A28", angolo=20, avanti=0.14,
+    scudo(m, "tondo", BRONZO, lambda_, larga=0.86, alta=0.86, tipo="ottone", bordo="#8A5A28", angolo=20,
           bombato=0.05)
     return m
 
@@ -275,7 +275,7 @@ def CavalleriaNumidica(faccia, cartella):
     barba(m, "#1A1410", baffi=False)
     gualdrappa(m, "#C8A060", lambda pen: pen.rett(0, 0.8, 1, 0.88, "#7A3A2A"), lunga=0.9, tipo="pelliccia")
     scudo(m, "tondo", "#8A5A30", lambda pen: pen.ellisse(0.4, 0.4, 0.6, 0.6, "#C8A060"), larga=0.5, alta=0.5,
-          tipo="cuoio", angolo=60, avanti=0.08, bordo="#5A3A20")
+          tipo="cuoio", angolo=35, bordo="#5A3A20")
     lancia_resta(m, 1.2, 0.6)
     return m
 
@@ -350,7 +350,7 @@ def Annibale(faccia, cartella):
     m = cavaliere("Annibale", faccia, cartella, "Annibale", pelle)
     vesti(m, "#A02828", manica="#A02828", manica_fino=0.55 * S)
     corazza(m, bronzo, muscoli=True)
-    m.cilindro("tanit", (0, COLLO - 0.35 * S, -(BUSTO_P / 2 + T2 + 0.006)), 0.06, 0.012, M(oro, "ottone"), B, lati=12,
+    m.cilindro("tanit", (0, COLLO - 0.35 * S, -(BUSTO_P / 2 + T2 + 0.02)), 0.06, 0.012, M(oro, "ottone"), B, lati=12,
                assi=ASSE_Z)
     gonna(m, "#A02828", basso=GAMBE - 0.3 * S)
     pteruges(m, "#A02828", lungo=0.3 * S)
@@ -377,8 +377,8 @@ def Cesare(faccia, cartella):
     oro, rosso = "#C89A40", "#A02828"
     m = cavaliere("Cesare", faccia, cartella, "Guglielmo", pelle)
     vesti(m, rosso, manica=rosso, manica_fino=0.55 * S)
-    corazza(m, oro, muscoli=True)
-    strato(m, "fascia_comando", GAMBE + 0.5 * S, GAMBE + 0.4 * S, "#ECEAE2", T2 + 0.008)
+    corazza(m, (oro, "ottone"), muscoli=True)
+    strato(m, "fascia_comando", GAMBE + 0.5 * S, GAMBE + 0.4 * S, "#ECEAE2", T2 + 0.034)
     gonna(m, rosso, basso=GAMBE - 0.3 * S)
     pteruges(m, "#8A6A3C", lungo=0.3 * S)
     for lato, _ in LATI:

@@ -298,6 +298,36 @@ def mat_immagine(nome, percorso, sotto, tipo="stoffa"):
     return m
 
 
+def mat_rilievo(nome, altezza_png, colore, tipo, distanza=0.02, forza=1.0):
+    """Materiale di un colore e di un tipo con in più un rilievo da un'immagine di altezze (bianco = in fuori),
+    letta con la proiezione "UV" del pezzo: solchi netti e forme scolpite (muscoli della lorica) che la cottura
+    porta nella mappa delle normali. Il rilievo si somma alla grana del materiale."""
+    m = bpy.data.materials.new(nome)
+    m.use_nodes = True
+    n, l = m.node_tree.nodes, m.node_tree.links
+    base = n.new("ShaderNodeRGB")
+    base.outputs[0].default_value = (*lineare(colore), 1)
+    _grana(m, tipo, base.outputs[0])
+    bsdf = n["Principled BSDF"]
+    img = n.new("ShaderNodeTexImage")
+    img.image = bpy.data.images.load(altezza_png, check_existing=False)
+    img.image.colorspace_settings.name = "Non-Color"
+    img.extension = "EXTEND"
+    img.interpolation = "Cubic"
+    proiezione = n.new("ShaderNodeUVMap")
+    proiezione.uv_map = "UV"
+    l.new(proiezione.outputs["UV"], img.inputs["Vector"])
+    b = n.new("ShaderNodeBump")
+    b.inputs["Strength"].default_value = forza
+    b.inputs["Distance"].default_value = distanza
+    l.new(img.outputs["Color"], b.inputs["Height"])
+    if bsdf.inputs["Normal"].links:  # il rilievo della grana passa sotto quello dell'immagine
+        l.new(bsdf.inputs["Normal"].links[0].from_socket, b.inputs["Normal"])
+    l.new(b.outputs["Normal"], bsdf.inputs["Normal"])
+    m["colore"], m["tipo"], m["immagine"] = colore, tipo, altezza_png
+    return m
+
+
 def tornio(profilo, lati):
     """Solido di rotazione attorno a Y: profilo = [(raggio, y)] dal basso in alto; raggio 0 = polo."""
     bm = bmesh.new()
@@ -396,7 +426,8 @@ class Modello:
             for f in bm.faces:
                 if f.normal.z < -0.5:
                     f.material_index = 1
-        if smusso >= 0.005:  # gli smussi piu piccoli non si vedono nel gioco: niente triangoli in piu
+        # Gli smussi piccoli e quelli dei pezzetti (sotto 12 cm: bottoni, giberne, fibbie) non si vedono nel gioco.
+        if smusso >= 0.005 and max(misure) >= 0.12:
             bmesh.ops.bevel(bm, geom=list(bm.edges), offset=smusso, segments=segmenti, affect="EDGES",
                             profile=0.5, clamp_overlap=True)
         return self._oggetto(nome, bm, materiali, pesi, assi, centro, uv_piano=(misure[0], misure[1]) if uv else None)
@@ -595,7 +626,7 @@ def testa(m, pelle, faccia):
     """Testa classica di Roblox: cilindro con le basi arrotondate, faccia proiettata dal davanti."""
     pelle_m = mat(pelle, "pelle")
     faccia_m = mat_immagine("faccia_" + m.nome, faccia, pelle, "pelle")
-    return m.cilindro("testa", (0, TESTA_Y, 0), TESTA_D / 2, TESTA_H, pelle_m, [("testa", 1.0)], lati=20,
+    return m.cilindro("testa", (0, TESTA_Y, 0), TESTA_D / 2, TESTA_H, pelle_m, [("testa", 1.0)], lati=16,
                       smusso=0.3 * S, segmenti=3, fronte=faccia_m, uv=(TESTA_D, TESTA_H))
 
 

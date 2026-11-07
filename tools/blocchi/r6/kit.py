@@ -7,6 +7,7 @@ I colori si passano come "#RRGGBB" (stoffa), come (colore, tipo) o come material
 import json
 import math
 import os
+import sys
 
 import bmesh
 import bpy
@@ -451,14 +452,105 @@ def corazza(m, materiale, alto=COLLO, basso=GAMBE + 0.12 * S, t=T2, muscoli=Fals
     if spalle:
         m.scatola(f"{nome}_spalle", (0, COLLO + t / 2, 0), (BUSTO_L + 2 * t, t, BUSTO_P + 2 * t), mm, B, smusso=0.008)
     if muscoli:
-        z = -(BUSTO_P / 2 + t)
-        for x in (-1, 1):
-            m.sfera(f"pettorale{x}", (x * 0.42 * S, COLLO - 0.5 * S, z), 0.36 * S, mm, B, anelli=5, lati=10,
-                    schiaccia=(1.0, 0.62, 0.22))
-        for k in range(3):
-            for x in (-1, 1):
-                m.sfera(f"addome{k}{x}", (x * 0.2 * S, COLLO - 1.0 * S - k * 0.24 * S, z), 0.15 * S, mm, B, anelli=4,
-                        lati=8, schiaccia=(1.0, 0.75, 0.25))
+        lorica_muscoli(m, materiale, alto, basso, t, nome)
+
+
+def _liscio(a, b, x):
+    k = np.clip((x - a) / (b - a), 0.0, 1.0)
+    return k * k * (3 - 2 * k)
+
+
+def muscoli_davanti(u, v):
+    """Altezza (metri) dei muscoli della lorica sul davanti; u da sinistra a destra (0-1), v dall'alto (0-1).
+    Come le corazze vere: pettorali larghi e pieni col bordo di sotto netto, sterno incavato, sei addominali,
+    obliqui ai fianchi, le linee dell'anca a V verso il basso, ombelico e capezzoli."""
+    h = 0.012 * (1 - (2 * u - 1) ** 2)  # il torace a botte
+    for s in (-1, 1):
+        # Pettorale: ellisse inclinata (più alta verso l'ascella), morbida sopra e netta sotto.
+        cu, cv, a = 0.5 + s * 0.215, 0.27, s * 0.22
+        du, dv = u - cu, v - cv
+        ru, rv = du * math.cos(a) + dv * math.sin(a), -du * math.sin(a) + dv * math.cos(a)
+        ry = np.where(rv < 0, 0.24, 0.115)
+        d2 = (ru / 0.215) ** 2 + (rv / ry) ** 2
+        h = h + 0.042 * np.clip(1 - d2, 0, 1) ** 0.55
+        h = h + 0.004 * np.exp(-(((u - (0.5 + s * 0.235)) / 0.016) ** 2 + ((v - 0.3) / 0.016) ** 2))  # capezzolo
+        # Obliquo e dentato sul fianco.
+        h = h + 0.013 * np.clip(1 - ((u - (0.5 + s * 0.31)) / 0.13) ** 2 - ((v - 0.66) / 0.2) ** 2, 0, 1) ** 0.7
+        # Linea dell'anca: un solco a V che scende verso il centro.
+        p0, p1 = np.array([0.5 + s * 0.37, 0.7]), np.array([0.5 + s * 0.12, 1.02])
+        d = p1 - p0
+        k = np.clip(((u - p0[0]) * d[0] + (v - p0[1]) * d[1]) / d.dot(d), 0, 1)
+        dist = np.hypot(u - (p0[0] + k * d[0]), v - (p0[1] + k * d[1]))
+        h = h - 0.008 * np.exp(-(dist / 0.02) ** 2)
+    # Lo sterno incavato tra i pettorali.
+    h = h - 0.012 * np.exp(-((u - 0.5) / 0.03) ** 2) * _liscio(0.04, 0.12, v) * (1 - _liscio(0.38, 0.48, v))
+    # Addome: una base piena e sei "cuscinetti" separati dalla linea alba e da tre solchi.
+    base = _liscio(0.0, 0.08, 0.2 - np.abs(u - 0.5)) * _liscio(0.42, 0.5, v) * (1 - _liscio(0.92, 1.0, v))
+    h = h + 0.01 * base
+    for cv in (0.535, 0.665, 0.795):
+        for s in (-1, 1):
+            q = ((u - (0.5 + s * 0.077)) / 0.066) ** 4 + ((v - cv) / 0.058) ** 4
+            h = h + 0.016 * np.clip(1 - q, 0, 1) ** 0.5
+    h = h - 0.006 * np.exp(-(((u - 0.5) / 0.02) ** 2 + ((v - 0.885) / 0.02) ** 2))  # ombelico
+    return np.clip(h, 0, None)
+
+
+def muscoli_dietro(u, v):
+    """Dietro: scapole, il solco della spina e i lombari."""
+    h = 0.01 * (1 - (2 * u - 1) ** 2)
+    for s in (-1, 1):
+        h = h + 0.016 * np.clip(1 - ((u - (0.5 + s * 0.22)) / 0.17) ** 2 - ((v - 0.3) / 0.16) ** 2, 0, 1) ** 0.6
+        h = h + 0.01 * np.clip(1 - ((u - (0.5 + s * 0.1)) / 0.09) ** 2 - ((v - 0.78) / 0.2) ** 2, 0, 1) ** 0.6
+    h = h - 0.007 * np.exp(-((u - 0.5) / 0.025) ** 2) * _liscio(0.05, 0.15, v)
+    return np.clip(h, 0, None)
+
+
+def _lastra_scolpita(m, nome, funzione, z0, segno, alto, basso, largo, materiale, colonne, righe):
+    """Lastra a griglia davanti (segno -1) o dietro (segno 1) al busto, spinta in fuori da "funzione"; i bordi
+    rientrano appena nella corazza. Il rilievo fine (solchi) arriva dalla stessa funzione come immagine."""
+    alta = alto - basso
+    bm = bmesh.new()
+    vv = []
+    for j in range(righe + 1):
+        riga = []
+        for i in range(colonne + 1):
+            u, v = i / colonne, j / righe
+            bordo = _liscio(0.0, 0.07, u) * _liscio(0.0, 0.07, 1 - u) * _liscio(0.0, 0.06, v) * _liscio(0.0, 0.05, 1 - v)
+            # dal davanti la sinistra del soldato è a destra: u cresce verso -X davanti, verso +X dietro
+            x = (0.5 - u) * largo * (-segno)
+            h = float(funzione(np.array(u), np.array(v))) * bordo - 0.003 * (1 - bordo)
+            riga.append(bm.verts.new((x, alta / 2 - v * alta, segno * (z0 + h))))
+        vv.append(riga)
+    for j in range(righe):
+        for i in range(colonne):
+            f = bm.faces.new((vv[j][i], vv[j][i + 1], vv[j + 1][i + 1], vv[j + 1][i]))
+            f.smooth = True
+    bm.normal_update()
+    bm.faces.ensure_lookup_table()
+    if (bm.faces[0].normal.z > 0) != (segno > 0):
+        for f in bm.faces:
+            f.normal_flip()
+    # Le altezze come immagine (stessa proiezione "UV": u = 0.5 - x / largo, v dal basso).
+    sys.path.append(os.path.join(os.environ.get("LOCALAPPDATA", ""), "evolvi-pylib"))
+    from PIL import Image
+    n = 512
+    uu, vv_ = np.meshgrid(np.linspace(0, 1, n), np.linspace(0, 1, n))
+    if segno > 0:
+        uu = 1 - uu
+    alt = funzione(uu, vv_)
+    png = os.path.join(m.cartella, f"{m.nome}_{nome}_altezze.png")
+    Image.fromarray((np.clip(alt / 0.06, 0, 1) * 255).astype(np.uint8)).save(png)
+    mt = r6.mat_rilievo(f"{m.nome}_{nome}", png, *materiale, distanza=0.05, forza=0.5)
+    return m._oggetto(nome, bm, [mt], B, None, (0, (alto + basso) / 2, 0), uv_piano=(largo, alta))
+
+
+def lorica_muscoli(m, materiale, alto, basso, t, nome="corazza"):
+    """Lorica muscolata scolpita davanti e dietro, sopra la corazza a scatola."""
+    col, tipo = (materiale, "ferro") if isinstance(materiale, str) else materiale
+    largo = BUSTO_L + 2 * t
+    z0 = BUSTO_P / 2 + t
+    _lastra_scolpita(m, nome + "_muscoli", muscoli_davanti, z0, -1, alto, basso, largo, (col, tipo), 20, 22)
+    _lastra_scolpita(m, nome + "_dorso", muscoli_dietro, z0, 1, alto, basso, largo, (col, tipo), 10, 12)
 
 
 def cotta(m, materiale="#8A9098", basso=GAMBE - 0.85 * S, maniche="intere", t=T1, cappuccio=False):
@@ -541,7 +633,11 @@ def capelli(m, colore, lunghi=0.0, frangia=False, sopra=True, basso=None):
     c = M(colore, "crine")
     r = R_TESTA + 0.012
     if sopra:
-        m.cupola("capelli", (0, TESTA_Y + 0.3 * S, 0), r, 0.36 * S, c, H, anelli=4, lati=18)
+        fondo = (TESTA_Y - 0.4 * S if basso is None else basso) - lunghi
+        # Corti e aderenti (un velo sopra la testa), le basette giù fino a metà guancia; lunghi: anche i lati.
+        return calotta_capelli(m, c, fronte=GIRO + 0.03 * S if frangia else TESTA_Y + 0.42 * S,
+                               lati_y=fondo + 0.12 * S if lunghi > 0 else TESTA_Y - 0.12 * S, dietro=fondo,
+                               gonfio=0.014, gonfio_basso=0.01 if lunghi <= 0 else 0.02, ciocche=0.004, punte=0.01)
     fondo = (TESTA_Y - 0.4 * S if basso is None else basso) - lunghi
     m.cilindro("capelli_dietro", (0, (TESTA_Y + 0.32 * S + fondo) / 2, 0), r, TESTA_Y + 0.32 * S - fondo, c, H,
                lati=18, parte="retro")
@@ -550,6 +646,61 @@ def capelli(m, colore, lunghi=0.0, frangia=False, sopra=True, basso=None):
                   H)
     if frangia:
         m.cilindro("frangia", (0, TESTA_Y + 0.33 * S, 0), r + 0.004, 0.1 * S, c, H, lati=18, parte="fronte")
+
+
+def calotta_capelli(m, materiale, fronte, lati_y, dietro, gonfio=0.02, gonfio_basso=0.02, ciocche=0.006,
+                    lati=18, nome="capelli", righe=3, punte=0.012, solchi=7):
+    """Capelli come un guscio che segue la testa R6 (cilindro coi bordi tondi) a una distanza "gonfio" in cima
+    e "gonfio_basso" sotto, fino a un bordo che cambia attorno alla testa: "fronte" sulla fronte (frangia),
+    "lati_y" sui fianchi, "dietro" sulla nuca. Il bordo ha le punte (ciocche) e gira appena in dentro,
+    così i capelli hanno spessore e non sembrano un elmo. Niente pelle che spunta: il guscio copre la cima."""
+    h, rb = TESTA_H / 2, 0.3 * S
+    bm = bmesh.new()
+    cima = bm.verts.new((0, TESTA_Y + h + gonfio, 0))
+    anelli = []
+    for k in range(lati):
+        a = 2 * math.pi * k / lati  # 0 = davanti
+        dx, dz = math.sin(a), -math.cos(a)
+        davanti = max(0.0, math.cos(a))  # 1 davanti, 0 sui fianchi e dietro
+        fianco = abs(math.sin(a))
+        y_bordo = (fronte * davanti ** 1.5 + lati_y * (1 - davanti ** 1.5)) if math.cos(a) >= 0 else \
+            (lati_y * fianco ** 2 + dietro * (1 - fianco ** 2))
+        # Punte: il bordo scende e sale a ciocche (una sì e una no più lunga).
+        y_bordo -= punte * (0.5 + 0.5 * math.cos(a * lati / 2)) * (1 if math.cos(a) < 0.9 else 0.7)
+        solco = ciocche * abs(math.sin(a * solchi))  # ciocche in rilievo che scendono dalla cima
+        colonna = []
+        # Cima piatta e poi l'arrotondamento della testa (quarto di cerchio di raggio rb + gonfio).
+        for t in (0.45, 0.8):
+            colonna.append((t * (R_TESTA - rb), TESTA_Y + h + gonfio + solco * t * 0.5))
+        for ang in (0.35, 0.8, 1.2):
+            colonna.append((R_TESTA - rb + (rb + gonfio + solco * 0.6) * math.sin(ang),
+                            TESTA_Y + h - rb + (rb + gonfio + solco * 0.6) * math.cos(ang)))
+        y_lato = TESTA_Y + h - rb
+        for i in range(1, righe + 1):
+            y = y_lato + (y_bordo - y_lato) * i / righe
+            g = gonfio + (gonfio_basso - gonfio) * i / righe
+            colonna.append((R_TESTA + g + solco, y))
+        colonna.append((R_TESTA + 0.006, y_bordo + 0.012))  # le punte girano appena in dentro
+        anelli.append([bm.verts.new((dx * r, y, dz * r)) for r, y in colonna])
+    n = len(anelli[0])
+    for k in range(lati):
+        a, b = anelli[k], anelli[(k + 1) % lati]
+        bm.faces.new((cima, b[0], a[0]))
+        for i in range(n - 1):
+            bm.faces.new((a[i], b[i], b[i + 1], a[i + 1]))
+    bm.normal_update()
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    for f in bm.faces:
+        f.smooth = True
+    return m._oggetto(nome, bm, [materiale], H, None, (0, 0, 0))
+
+
+def caschetto(m, colore):
+    """Capelli corti a caschetto (Giovanna d'Arco): frangia dritta sulla fronte, lati fino alla mascella,
+    pieni e tondi, la nuca coperta."""
+    return calotta_capelli(m, M(colore, "crine"), fronte=GIRO + 0.03 * S, lati_y=TESTA_Y - 0.3 * S,
+                           dietro=TESTA_Y - 0.38 * S, gonfio=0.034, gonfio_basso=0.02, ciocche=0.012, lati=36,
+                           righe=5, punte=0.03, solchi=13)
 
 
 def barba(m, colore, baffi=True, piena=True, lunga=0.0, pizzo=False):
@@ -882,24 +1033,61 @@ def picca(m, legno=LEGNO, direzione=None):
     punta_lancia(m, "punta", pr + d * 2.6, d, 0.22, 0.05, FERRO, [("mano.R", 1.0)])
 
 
-def spada(m, lunga=0.75, lama=ACCIAIO, elsa=ORO, impugnatura=CUOIO_SCURO, curva=False, guardia=0.18):
-    """Spada sguainata nella destra, lungo l'avambraccio."""
-    p, d = pugno(m, "R")
-    L = [("mano.R", 1.0)]
-    ml = M(lama, "ferro")
+def lama(m, nome, punti, larga, spessa, materiale, pesi, piatto):
+    """Lama con la sezione a rombo (filo sottile ai lati, costola in mezzo) lungo i "punti" (dall'elsa in su),
+    che si stringe verso la punta. piatto: la direzione verso cui guarda il piatto della lama."""
+    pt = [np.asarray(q, float) for q in punti]
+    bm = bmesh.new()
+    sezioni = []
+    n = len(pt)
+    for i, q in enumerate(pt[:-1]):
+        avanti = norm(pt[i + 1] - q)
+        fianco = norm(np.cross(avanti, piatto))
+        fuori = norm(np.cross(fianco, avanti))
+        w = larga * (1 - 0.18 * i / max(1, n - 2)) / 2
+        sezioni.append([bm.verts.new(tuple(q + fianco * w)), bm.verts.new(tuple(q + fuori * spessa / 2)),
+                        bm.verts.new(tuple(q - fianco * w)), bm.verts.new(tuple(q - fuori * spessa / 2))])
+    punta = bm.verts.new(tuple(pt[-1]))
+    for a, b in zip(sezioni, sezioni[1:]):
+        for k in range(4):
+            bm.faces.new((a[k], a[(k + 1) % 4], b[(k + 1) % 4], b[k]))
+    for k in range(4):
+        bm.faces.new((sezioni[-1][k], sezioni[-1][(k + 1) % 4], punta))
+    bm.faces.new(sezioni[0][::-1])
+    bm.normal_update()
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    # Vertici in coordinate Roblox prima della posa: _oggetto li porta in sella o in ginocchio.
+    return m._oggetto(nome, bm, [materiale], pesi, None, (0, 0, 0))
+
+
+def spada(m, lunga=0.75, lama_c=ACCIAIO, elsa=ORO, impugnatura=CUOIO_SCURO, curva=False, guardia=0.2, lato="R",
+          direzione=(0.1, 1.0, -0.4)):
+    """Spada sguainata nel pugno, tenuta come si tiene davvero: l'impugnatura passa dentro il pugno e la lama sale
+    quasi parallela al braccio (in su e un po' in avanti), la guardia sopra il pugno e il pomo sotto.
+    curva: sciabola, la lama si piega all'indietro verso la punta."""
+    p, d = pugno(m, lato)
+    s = 1 if lato == "R" else -1
+    L = [("mano." + lato, 1.0)]
+    su = norm(np.array([s * direzione[0], direzione[1], direzione[2]]))
+    fuori = norm(np.cross(su, d)) if abs(np.dot(su, d)) < 0.95 else np.array([s * 1.0, 0, 0])
+    meta = ARTO * 0.5  # mezzo pugno: il pugno R6 è un cubo di uno stud
+    base = p + su * (meta + 0.02)
     if curva:
-        su = np.array([0, 1.0, 0])
-        a = p + d * 0.1
-        b = p + d * (0.1 + lunga * 0.55) + su * 0.04
-        e = b + norm(d + su * 0.4) * lunga * 0.45
-        m.segmento("lama1", a, b, 0.055, 0.012, ml, L, alto=su)
-        m.segmento("lama2", b, e, 0.05, 0.012, ml, L, alto=norm(np.cross(np.cross(e - b, su), e - b)), oltre=(0.01, 0))
+        indietro = norm(np.cross(fuori, su))
+        indietro = indietro if indietro[2] > 0 else -indietro
+        punti = [base + su * lunga * k + indietro * 0.12 * lunga * k ** 2 for k in np.linspace(0, 1, 5)]
+        punti[-1] = punti[-1] + su * 0.06
     else:
-        m.segmento("lama", p + d * 0.1, p + d * lunga, 0.055, 0.012, ml, L, alto=(0, 1, 0))
-        m.segmento("lama_punta", p + d * lunga, p + d * (lunga + 0.07), 0.055, 0.012, ml, L, alto=(0, 1, 0))
-    m.segmento("guardia", p + d * 0.06, p + d * 0.1, guardia, 0.035, M(elsa, "ottone"), L, alto=(0, 1, 0), smusso=0.006)
-    m.sfera("pomo", p - d * 0.09, 0.03, M(elsa, "ottone"), L, anelli=4, lati=8)
-    tubo(m, "impugnatura", p - d * 0.08, p + d * 0.06, 0.018, M(impugnatura, "cuoio"), L, lati=8)
+        punti = [base, base + su * lunga * 0.5, base + su * lunga * 0.86, base + su * (lunga + 0.1)]
+    # Il piatto della lama guarda di tre quarti (avanti e in fuori): si vede bene dal davanti e di lato.
+    piatto = norm(np.array([s * 0.6, 0, -1.0]) - su * np.dot(np.array([s * 0.6, 0, -1.0]), su))
+    lama(m, "lama", punti, 0.085, 0.022, M(lama_c, "ferro"), L, piatto)
+    oro = M(elsa, "ottone")
+    traverso = norm(np.cross(su, piatto))
+    m.segmento("guardia", base - su * 0.02 - traverso * guardia / 2, base - su * 0.02 + traverso * guardia / 2, 0.045,
+               0.045, oro, L, alto=su, smusso=0.008)
+    tubo(m, "impugnatura", p - su * (meta + 0.01), base - su * 0.03, 0.03, M(impugnatura, "cuoio"), L, lati=8)
+    m.sfera("pomo", p - su * (meta + 0.05), 0.045, oro, L, anelli=4, lati=8)
 
 
 def fodero(m, lato="L", lungo=0.6, materiale=CUOIO_SCURO, puntale=OTTONE, elsa=OTTONE, osso=None):
@@ -1042,15 +1230,29 @@ def balestra(m):
     m.osso("canna", "mano.R", testa_b)
 
 
-def pistola(m, lato="R"):
+def pistola(m, lato="R", calcio="#5A3A24", metallo="#34363A"):
+    """Pistola d'ordinanza grande quanto basta per leggerla accanto al pugno R6 (un cubo di uno stud): la canna
+    esce dal pugno lungo l'avambraccio (quando il generale alza il braccio per sparare punta avanti), il calcio
+    sporge dal pugno dalla parte opposta al mirino, col ponticello del grilletto in mezzo: la sagoma a L."""
     p, d = pugno(m, lato)
     W = [("mano." + lato, 1.0)]
-    bocca = p + d * 0.2
-    m.segmento("pistola", p - d * 0.02 + np.array([0, 0.02, 0]), bocca + np.array([0, 0.02, 0]), 0.035, 0.05,
-               M("#2A2C30", "ferro"), W, alto=(1, 0, 0), smusso=0.005)
-    m.segmento("calcio_pistola", p + np.array([0, 0.03, 0]), p - np.array([0, 0.05, 0]) - d * 0.03, 0.03, 0.05,
-               M("#3A2A20", "legno"), W, alto=(1, 0, 0), smusso=0.006)
-    m.osso("canna", "mano." + lato, bocca)
+    # Il calcio va dove a braccio alzato c'è il basso: a braccio giù è il dietro.
+    g = np.array([0, 0, 1.0]) - d * d[2]
+    g = norm(g) if np.linalg.norm(g) > 1e-3 else np.array([0, -1.0, 0])
+    fianco = norm(np.cross(d, g))
+    faccia = MANO / 2 + 0.004  # dal centro del pugno alla faccia da cui esce la canna
+    fondo = p + d * (faccia + 0.27)
+    ferro = M(metallo, "ferro")
+    m.segmento("carrello", p - g * 0.02, fondo - g * 0.02, 0.075, 0.1, ferro, W, alto=fianco, smusso=0.008)
+    tubo(m, "bocca", fondo - g * 0.025, fondo - g * 0.025 + d * 0.02, 0.022, M("#151617", "ferro"), W, lati=8)
+    m.scatola("mirino", fondo - g * 0.075 - d * 0.03, (0.02, 0.025, 0.03), ferro, W,
+              assi=np.column_stack([fianco, -g, d]))
+    presa = norm(g - d * 0.25)  # il calcio inclinato all'indietro, come quello vero
+    m.segmento("calcio_pistola", p, p + presa * (ARTO / 2 + 0.13), 0.07, 0.1, M(calcio, "legno"), W, alto=fianco,
+               smusso=0.01)
+    anello_tondo(m, "ponticello", p + d * (faccia + 0.045) + g * 0.06, 0.04, 0.014, 0.014, ferro, W,
+                 assi=np.column_stack([d, fianco, g]), lati=10)
+    m.osso("canna", "mano." + lato, fondo - g * 0.025)
 
 
 def fondina(m, lato="R"):
@@ -1059,10 +1261,19 @@ def fondina(m, lato="R"):
               BAC, smusso=0.01)
 
 
-def binocolo(m):
+def binocolo(m, x0=-0.35 * S, y0=COLLO - 0.75 * S):
+    """Binocolo appeso al collo sul petto: due canne con gli obiettivi larghi in basso e gli oculari in alto,
+    il ponte in mezzo e la cinghia che sale al colletto."""
+    z = -(BUSTO_P / 2 + T1 + 0.055)
+    nero, ferro = M("#1E1E20", "cuoio"), M("#2E3034", "ferro")
     for x in (-1, 1):
-        tubo(m, f"binocolo{x}", (-0.35 * S + x * 0.035, COLLO - 0.7 * S, -(BUSTO_P / 2 + 0.05)),
-             (-0.35 * S + x * 0.035, COLLO - 0.45 * S, -(BUSTO_P / 2 + 0.05)), 0.03, M("#1E1E20", "cuoio"), B, lati=8)
+        cx = x0 + x * 0.05
+        tubo(m, f"binocolo{x}", (cx, y0, z), (cx, y0 + 0.17, z), 0.045, nero, B, lati=10, raggio_fine=0.04)
+        tubo(m, f"oculare{x}", (cx, y0 + 0.17, z), (cx, y0 + 0.21, z), 0.028, ferro, B, lati=8)
+        m.segmento(f"cinghia_binocolo{x}", (cx + x * 0.03, y0 + 0.19, z + 0.01),
+                   (x0 + x * 0.32 * S, COLLO + 0.005, -(BUSTO_P / 2 + T1 + 0.006)), 0.025, 0.008, M(CUOIO_SCURO, "cuoio"),
+                   B, alto=(0, 0, 1))
+    m.scatola("ponte_binocolo", (x0, y0 + 0.13, z), (0.06, 0.06, 0.05), ferro, B)
 
 
 def giberne(m, materiale=CUOIO_SCURO, xs=(-0.75, -0.4, 0.4, 0.75), y=GAMBE + 0.06 * S, t=T2 + 0.006):
@@ -1104,10 +1315,136 @@ def assi_scudo(angolo):
     return rot_y(math.radians(angolo))
 
 
+def _sporgenza(m, lato, n):
+    """Quanto sporgono avambraccio e pugno (blocchi R6) dal centro del pugno lungo la direzione n."""
+    p, d = pugno(m, lato)
+    gomito, polso = m.P("avambraccio." + lato), m.P("mano." + lato)
+    x = np.array([1.0, 0, 0]) - d * d[0]
+    x = norm(x) if np.linalg.norm(x) > 1e-5 else np.array([0, 0, 1.0])
+    z = np.cross(x, d)
+    fuori = 0.0
+    for c, lungo in (((gomito - d * (ARTO / 2) + polso) / 2, np.linalg.norm(polso - gomito) + ARTO / 2),
+                     (polso + d * MANO / 2, MANO)):
+        e = np.dot(n, c - p) + ARTO / 2 * (abs(np.dot(n, x)) + abs(np.dot(n, z))) + lungo / 2 * abs(np.dot(n, d))
+        fuori = max(fuori, e)
+    return fuori
+
+
+def _contorno(punti, x):
+    """Dove la retta verticale in x taglia il contorno convesso: (basso, alto)."""
+    ys = []
+    n = len(punti)
+    for i in range(n):
+        (x0, y0), (x1, y1) = punti[i], punti[(i + 1) % n]
+        if (x0 - x) * (x1 - x) <= 0 and abs(x1 - x0) > 1e-9:
+            ys.append(y0 + (y1 - y0) * (x - x0) / (x1 - x0))
+    return min(ys), max(ys)
+
+
+def lastra_sagomata(m, nome, centro, punti, spessore, curva, davanti, retro, pesi, assi, colonne=8, righe=5,
+                    bordo=None, bordo_largo=0.035):
+    """Scudo sagomato (mandorla, pavese): lastra col contorno convesso "punti" [(x, y)] piegata attorno alla
+    verticale (raggio "curva", la pancia in fuori verso -Z), spessa, col davanti dipinto (proiezione dal davanti)
+    e il dietro di legno grezzo. bordo: materiale del bordo rialzato (cuoio crudo o ferro) che fascia il filo."""
+    p = np.asarray(punti, float)
+    w = p[:, 0].max() - p[:, 0].min()
+    lh = p[:, 1].max() - p[:, 1].min()
+    cx, cy = (p[:, 0].min() + p[:, 0].max()) / 2, (p[:, 1].min() + p[:, 1].max()) / 2
+    xs = np.linspace(p[:, 0].min() * 0.995, p[:, 0].max() * 0.995, colonne + 1)
+
+    def piega(x):  # 0 in mezzo, i fianchi indietro verso il braccio
+        return curva - math.sqrt(max(curva ** 2 - x ** 2, 0.0))
+
+    def punto(i, j):
+        y0, y1 = _contorno(p, xs[i])
+        return xs[i], y0 + (y1 - y0) * j / righe
+
+    bm = bmesh.new()
+    griglia = {}
+    for i in range(colonne + 1):
+        for j in range(righe + 1):
+            x, y = punto(i, j)
+            z = piega(x)
+            griglia[i, j, 0] = bm.verts.new((x - cx, y - cy, z - spessore / 2))
+            griglia[i, j, 1] = bm.verts.new((x - cx, y - cy, z + spessore / 2))
+    for i in range(colonne):
+        for j in range(righe):
+            f = bm.faces.new((griglia[i, j, 0], griglia[i + 1, j, 0], griglia[i + 1, j + 1, 0], griglia[i, j + 1, 0]))
+            f.material_index = 1
+            bm.faces.new((griglia[i, j + 1, 1], griglia[i + 1, j + 1, 1], griglia[i + 1, j, 1], griglia[i, j, 1]))
+    giro = ([(i, 0) for i in range(colonne)] + [(colonne, j) for j in range(righe)] +
+            [(i, righe) for i in range(colonne, 0, -1)] + [(0, j) for j in range(righe, 0, -1)])
+    for a, b in zip(giro, giro[1:] + giro[:1]):
+        bm.faces.new((griglia[a + (0,)], griglia[a + (1,)], griglia[b + (1,)], griglia[b + (0,)]))
+    bm.normal_update()
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    for f in bm.faces:  # il davanti dipinto è solo quello che guarda in fuori
+        f.material_index = 1 if f.normal.z < -0.5 else 0
+    assi = np.asarray(assi, float)
+    c = np.asarray(centro, float) + assi @ np.array([cx, cy, 0.0])
+    ob = m._oggetto(nome, bm, [retro, davanti], pesi, assi, c, uv_piano=(w, lh))
+    if bordo is not None:
+        # Bordo: davanti una striscia larga "bordo_largo", il fianco che copre il filo, un poco anche dietro.
+        g = np.array([punto(i, j) for i, j in giro]) - np.array([cx, cy])
+        bm2 = bmesh.new()
+        n = len(g)
+        anelli, fuori_di = [], []
+        for k in range(n):
+            t = g[(k + 1) % n] - g[k - 1]
+            fuori = norm(np.array([t[1], -t[0], 0.0]))
+            if np.dot(fuori[:2], g[k]) < 0:
+                fuori = -fuori
+            fuori_di.append(fuori)
+            z = piega(g[k][0] + cx)
+            q = np.array([g[k][0], g[k][1], z])
+            anelli.append([bm2.verts.new(tuple(q - fuori * bordo_largo + np.array([0, 0, -spessore / 2 - 0.005]))),
+                           bm2.verts.new(tuple(q + fuori * 0.007 + np.array([0, 0, -spessore / 2 - 0.008]))),
+                           bm2.verts.new(tuple(q + fuori * 0.007 + np.array([0, 0, spessore / 2 + 0.004]))),
+                           bm2.verts.new(tuple(q - fuori * 0.02 + np.array([0, 0, spessore / 2 + 0.004])))])
+        for k in range(n):
+            a, b = anelli[k], anelli[(k + 1) % n]
+            fk = np.array([fuori_di[k][0], fuori_di[k][1], 0.0])
+            for s, atteso in ((0, np.array([0, 0, -1.0])), (1, fk), (2, np.array([0, 0, 1.0]))):
+                f = bm2.faces.new((a[s], b[s], b[s + 1], a[s + 1]))
+                f.normal_update()
+                if np.dot(np.array(f.normal), atteso) < 0:
+                    f.normal_flip()
+                f.smooth = s == 1
+        m._oggetto(nome + "_bordo", bm2, [bordo], pesi, assi, c)
+    return ob
+
+
+def usura_legno(pen, assi=5, seme=0, scuro=(30, 20, 12), chiaro=(235, 225, 205)):
+    """Sopra il disegno dello scudo: le giunture delle assi (righe scure leggere) e graffi e scrostature, così
+    la vernice sembra stesa sul legno e usata in battaglia."""
+    from PIL import Image, ImageDraw
+    rng = np.random.default_rng(seme)
+    L = pen.L
+    velo = Image.new("RGBA", (L, L), (0, 0, 0, 0))
+    d = ImageDraw.Draw(velo)
+    for i in range(1, assi):
+        u = i / assi + rng.uniform(-0.02, 0.02)
+        d.line([(u * L, 0), (u * L + rng.uniform(-6, 6), L)], fill=scuro + (80,), width=max(2, L // 240))
+    for _ in range(60):
+        x, y = rng.uniform(0.05, 0.95) * L, rng.uniform(0.05, 0.95) * L
+        a, r = rng.uniform(0, math.pi), rng.uniform(0.01, 0.05) * L
+        colore = chiaro + (int(rng.uniform(40, 90)),) if rng.random() < 0.6 else scuro + (int(rng.uniform(30, 70)),)
+        d.line([(x, y), (x + math.cos(a) * r, y + math.sin(a) * r)], fill=colore, width=max(1, L // 500))
+    for _ in range(14):  # scrostature: il legno chiaro sotto la vernice
+        x, y = rng.uniform(0.05, 0.95) * L, rng.uniform(0.05, 0.95) * L
+        r = rng.uniform(0.006, 0.018) * L
+        d.ellipse([x - r, y - r * 0.6, x + r, y + r * 0.6], fill=(150, 112, 70, 110))
+    pen.img.alpha_composite(velo)
+
+
 def scudo(m, forma, colore, pittore=None, larga=0.6, alta=0.6, tipo="legno_dipinto", bordo=None, umbone=None,
-          retro=CUOIO, angolo=25, spessore=0.035, avanti=0.12, bombato=0.03, giu=0.04, schiena=False):
-    """Scudo sul braccio sinistro (davanti, girato in fuori) o sulla schiena. forma: tondo, ovale,
-    rettangolo, mandorla, pavese."""
+          retro=CUOIO, angolo=25, spessore=0.045, avanti=0.0, bombato=0.035, giu=0.04, schiena=False,
+          legno="#8A6A46"):
+    """Scudo sul braccio sinistro (davanti al pugno, girato in fuori di "angolo") o sulla schiena.
+    forma: tondo, ovale, rettangolo, mandorla, pavese. Ha sempre lo spessore, il bordo rialzato (cuoio se non
+    detto), il dietro di legno grezzo con le cinghie; se è di legno dipinto la vernice ha assi e graffi.
+    Lo scudo parte da dove finiscono avambraccio e pugno lungo la sua normale: il pugno R6, grande uno stud,
+    prima lo bucava. avanti: spazio in più davanti al pugno."""
     if schiena:
         A = rot_y(math.pi)
         c = np.array([0, COLLO - 0.95 * S, BUSTO_P / 2 + 0.08])
@@ -1115,42 +1452,61 @@ def scudo(m, forma, colore, pittore=None, larga=0.6, alta=0.6, tipo="legno_dipin
     else:
         p, _ = pugno(m, "L")
         A = assi_scudo(angolo)
-        c = p + A @ np.array([-0.04, -giu, -avanti])
+        n = A @ np.array([0, 0, -1.0])
+        # Centrato sul polso (copre avambraccio e pugno anche quando è girato molto in fuori, a cavallo).
+        c = m.P("mano.L") + A @ np.array([-0.04, -giu, 0.0])
+        c = c + n * (_sporgenza(m, "L", n) - np.dot(n, c - p) + 0.014 + avanti + spessore / 2)
         W = [("mano.L", 1.0)]
-    fronte = dipinto(m, "scudo", pittore, colore, tipo) if pittore else None
-    mm = M(colore, tipo)
+    dipinto_legno = tipo in ("legno_dipinto", "cuoio_dipinto")
+    if pittore or dipinto_legno:
+        def pittura(pen, pittore=pittore):
+            if pittore:
+                pittore(pen)
+            if dipinto_legno:
+                usura_legno(pen, assi=5 if forma != "tondo" else 6, seme=len(m.nome))
+        fronte = dipinto(m, "scudo", pittura, colore, tipo)
+    else:
+        fronte = M(colore, tipo)
+    dietro = M(legno, "legno") if tipo in ("legno_dipinto", "cuoio_dipinto", "vimini") else M(colore, tipo)
+    orlo = M(bordo, "ottone" if tipo == "ottone" else "cuoio") if bordo else M("#4E3622", "cuoio")
     if forma in ("tondo", "ovale"):
         r = larga / 2
         scala = (1.0, alta / larga)
-        m.disco("scudo", c, r, spessore, mm, W, fronte=fronte, assi=A, scala=scala, bombato=bombato)
-        if bordo:
-            anello_tondo(m, "bordo_scudo", c + A @ np.array([0, 0, -0.004]), r, spessore + 0.012, 0.03, M(bordo, "ottone"),
-                         W, assi=A @ np.column_stack([[1.0, 0, 0], [0, 0, -1.0], [0, scala[1], 0]]))
-    elif forma == "mandorla":
+        m.disco("scudo", c, r, spessore, dietro, W, fronte=fronte, assi=A, scala=scala, bombato=bombato, lati=20)
+        anello_tondo(m, "bordo_scudo", c + A @ np.array([0, 0, -0.004]), r, spessore + 0.016, 0.034, orlo, W,
+                     assi=A @ np.column_stack([[1.0, 0, 0], [0, 0, -1.0], [0, scala[1], 0]]), lati=20)
+    elif forma in ("mandorla", "pavese"):
         w, h = larga, alta
-        punti = [(-w / 2, h * 0.3), (-w * 0.46, h * 0.42), (-w * 0.3, h / 2), (w * 0.3, h / 2), (w * 0.46, h * 0.42),
-                 (w / 2, h * 0.3), (w * 0.4, -h * 0.05), (w * 0.22, -h * 0.32), (0, -h / 2), (-w * 0.22, -h * 0.32),
-                 (-w * 0.4, -h * 0.05)]
-        sagoma(m, "scudo", c, punti, spessore, mm, W, fronte=fronte, assi=A)
-        if bordo:
-            sagoma(m, "bordo_scudo", c + A @ np.array([0, 0, 0.003]), [(x * 1.06, y * 1.04) for x, y in punti],
-                   spessore * 0.8, M(bordo, "ottone"), W, assi=A)
-    elif forma == "pavese":
-        w, h = larga, alta
-        punti = [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h * 0.38), (w * 0.3, h / 2), (-w * 0.3, h / 2), (-w / 2, h * 0.38)]
-        sagoma(m, "scudo", c, punti, spessore, mm, W, fronte=fronte, assi=A)
+        if forma == "mandorla":
+            punti = [(-w / 2, h * 0.3), (-w * 0.46, h * 0.42), (-w * 0.3, h / 2), (w * 0.3, h / 2),
+                     (w * 0.46, h * 0.42), (w / 2, h * 0.3), (w * 0.4, -h * 0.05), (w * 0.22, -h * 0.32), (0, -h / 2),
+                     (-w * 0.22, -h * 0.32), (-w * 0.4, -h * 0.05)]
+        else:
+            punti = [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h * 0.38), (w * 0.3, h / 2), (-w * 0.3, h / 2),
+                     (-w / 2, h * 0.38)]
+        lastra_sagomata(m, "scudo", c, punti, spessore, max(w * 1.1, 0.45), fronte, dietro, W, A, bordo=orlo,
+                        righe=6 if forma == "mandorla" else 4)
+        if forma == "pavese":  # la costola in mezzo, come i pavesi veri
+            m.scatola("costola_scudo", c + A @ np.array([0, 0, -spessore / 2 - 0.008]), (0.08, h * 0.88, 0.02), fronte,
+                      W, assi=A, smusso=0.006)
     else:  # rettangolo (curvo)
-        m.lastra_curva("scudo", c, larga, alta, spessore, 0.9, mm, W, fronte=fronte, assi=A)
-        if bordo:
-            for v in (-1, 1):
-                m.lastra_curva(f"bordo_scudo{v}", c + A @ np.array([0, v * (alta / 2 - 0.012), -0.004]), larga + 0.01,
-                               0.03, spessore + 0.015, 0.9, M(bordo, "ottone"), W, fette=6, assi=A)
+        m.lastra_curva("scudo", c, larga, alta, spessore, 0.9, dietro, W, fronte=fronte, assi=A)
+        for v in (-1, 1):
+            m.lastra_curva(f"bordo_scudo{v}", c + A @ np.array([0, v * (alta / 2 - 0.012), -0.004]), larga + 0.01,
+                           0.03, spessore + 0.015, 0.9, orlo, W, fette=6, assi=A)
     if umbone:
-        m.sfera("umbone", c + A @ np.array([0, 0, -spessore / 2 - bombato]), 0.075, M(umbone, "ferro"), W, anelli=4,
-                lati=10, schiaccia=(1, 1, 0.8), meta=True)
-        # la sfera "meta" guarda -Z locale del mondo: va bene per scudi quasi frontali
+        davanti = c + A @ np.array([0, 0, -spessore / 2 - (bombato if forma in ("tondo", "ovale") else 0.0)])
+        m.disco("umbone_piatto", davanti + A @ np.array([0, 0, -0.004]), 0.11, 0.01, M(umbone, "ferro"), W, lati=14,
+                assi=A)
+        bm3 = r6.tornio([(0.0, 0.0), (0.08, 0.0), (0.08, 0.012), (0.068, 0.042), (0.042, 0.066), (0.0, 0.076)], 12)
+        for f in bm3.faces:
+            f.smooth = True
+        m._oggetto("umbone", bm3, [M(umbone, "ferro")], W, A @ ASSE_Z, davanti + A @ np.array([0, 0, -0.006]))
     if retro and not schiena:
-        m.scatola("imbracatura", c + A @ np.array([0.0, 0, spessore / 2 + 0.012]), (0.04, 0.2, 0.02), M(retro, "cuoio"), W)
+        dietro_c = c + A @ np.array([0.0, 0, spessore / 2 + 0.012])
+        for k, y in enumerate((0.09, -0.09)):  # le due cinghie dell'avambraccio
+            m.scatola(f"imbracatura{k}", dietro_c + A @ np.array([0, y, 0]), (0.2, 0.04, 0.02), M(retro, "cuoio"), W,
+                      assi=A)
 
 
 # -- Mitragliatrici ------------------------------------------------------------------------------------------
@@ -1221,6 +1577,7 @@ def mitragliatrice(m, tipo="maxim", scudo_ferro=False, sacchi=False, ruote=False
 SELLA = 0.93  # altezza del bacino del cavaliere (come nei vecchi modelli)
 SEDUTA = np.array([0, SELLA, 0.02])
 SCALA_CAVALIERE = 0.8  # il cavaliere R6 è un po' più piccolo del soldato a piedi, per stare in sella
+CAVALLO_LEGGERO = 0.5  # quanti triangoli del cavallo restano (ottimizzazione per i telefoni)
 DIREZIONE_LANCIA = norm(np.array([0, -0.2, -1.0]))  # come POSE.cavalleriaMesh
 
 
@@ -1279,6 +1636,16 @@ def importa_cavallo(m, origine, liscio=True):
     for g in list(ob.vertex_groups):  # via i gruppi del cavaliere di prima
         if not g.name.startswith(("cavallo", "zampa")):
             ob.vertex_groups.remove(g)
+    if CAVALLO_LEGGERO < 1.0:
+        # Metà dei triangoli: dopo la levigatura le normali lisce tengono la stessa forma (pesi e uv seguono).
+        dec = ob.modifiers.new("leggero", "DECIMATE")
+        dec.ratio = CAVALLO_LEGGERO
+        dec.use_symmetry = True
+        dec.symmetry_axis = "X"
+        bpy.context.view_layer.objects.active = ob
+        bpy.ops.object.modifier_apply(modifier=dec.name)
+        for p in ob.data.polygons:
+            p.use_smooth = True
     # Materiale: la texture di prima con la grana del pelo, opaca.
     img = None
     for mt in ob.data.materials:
