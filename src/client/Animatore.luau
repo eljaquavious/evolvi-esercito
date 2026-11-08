@@ -4,6 +4,8 @@
 -- a riposo sono allineate al soldato, quindi Angles(a, 0, 0) con a > 0 alza in avanti braccia e gambe,
 -- Angles(0, b, 0) con b > 0 gira il busto portando avanti la spalla destra.
 
+local Andature = require(script.Parent.Andature)
+
 local Animatore = {}
 Animatore.__index = Animatore
 
@@ -118,6 +120,7 @@ function Animatore.nuovo(modello, info, tipo)
 	self.fase = math.random() * 2
 	self.tempo = math.random() * 10
 	self.marcia = 0 -- 0 = fermo, 1 = cammina a pieno ritmo
+	self.corsa = 0 -- 0 = cammina, 1 = marcia forzata (carica)
 	self.attacco = nil -- { colpo, inizio, gesto }
 	self.ferita = -10
 	self.morte = nil
@@ -432,6 +435,9 @@ end
 
 function POSE.fortezza() end
 
+-- Quanto oscillano le braccia dei fanti rispetto a quelle dei giocatori.
+local BRACCIA_TRUPPE = 0.35
+
 -- Passo di marcia: gambe e braccia che oscillano, il corpo che sale e scende.
 local function marcia(self, p, intensita)
 	if intensita <= 0.01 then
@@ -477,17 +483,16 @@ local function marcia(self, p, intensita)
 		p.bacino = CFrame.new(0, math.abs(s) * 0.05 * intensita, 0)
 		return
 	end
-	p["coscia.R"] = ruota(0.55 * s * intensita, 0, 0)
-	p["coscia.L"] = ruota(-0.55 * s * intensita, 0, 0)
-	p["stinco.R"] = ruota(-0.8 * math.max(0, -c) * intensita, 0, 0)
-	p["stinco.L"] = ruota(-0.8 * math.max(0, c) * intensita, 0, 0)
-	p["piede.R"] = ruota(0.25 * math.max(0, -c) * intensita, 0, 0)
-	p["piede.L"] = ruota(0.25 * math.max(0, c) * intensita, 0, 0)
-	p.bacino = CFrame.new(0, (math.abs(c) - 0.6) * 0.12 * intensita, 0) * ruota(0, 0.08 * s * intensita, 0)
-	p.torace = ruota(0.06 * intensita, -0.1 * s * intensita, 0)
-	-- Le braccia libere oscillano poco: tengono armi e scudi.
-	p["braccio.R"] = ruota(-0.18 * s * intensita, 0, 0)
-	p["braccio.L"] = ruota(0.18 * s * intensita, 0, 0)
+	-- Fanti: la camminata unica di Andature (la stessa dei giocatori), che con la carica diventa marcia
+	-- forzata. Le braccia oscillano meno di quelle dei giocatori: tengono armi e scudi.
+	local opz = { braccia = BRACCIA_TRUPPE }
+	local posa = Andature.cammina(self.fase, opz)
+	if self.corsa > 0.01 then
+		posa = Andature.miscela(posa, Andature.corsaTruppa(self.fase, opz), self.corsa)
+	end
+	for nome, cf in pairs(Andature.dosa(posa, intensita)) do
+		p[nome] = cf
+	end
 end
 
 -- Chi viene colpito arretra il busto per un istante.
@@ -598,13 +603,16 @@ function Animatore:_freccia()
 	self.freccia.Transparency = 0
 end
 
--- dt in secondi, velocita in studs al secondo (quanto si sta spostando il soldato).
-function Animatore:aggiorna(dt, velocita)
+-- dt in secondi, velocita in studs al secondo (quanto si sta spostando il soldato); normale = la velocità del
+-- suo passo normale (studs al secondo): chi va sensibilmente più veloce (la carica, +30%) corre.
+function Animatore:aggiorna(dt, velocita, normale)
 	self.tempo += dt
 	local passo = PASSI[self.stile] or 3.4
 	self.fase = (self.fase + velocita * dt / passo) % 1
 	local obiettivo = math.clamp(velocita / 4, 0, 1)
 	self.marcia += (obiettivo - self.marcia) * math.min(1, dt * 8)
+	local corsa = (normale and normale > 0) and math.clamp((velocita / normale - 1.1) / 0.12, 0, 1) or 0
+	self.corsa += (corsa - self.corsa) * math.min(1, dt * 4)
 	local p = {}
 	self.incoccata = 0
 	if self.morte then

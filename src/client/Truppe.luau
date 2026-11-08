@@ -650,7 +650,8 @@ local function aggiorna(s, dt, t, occhio, lontano)
 	if occhio and not s.saltato and (s.posizione - occhio).Magnitude > lontano then
 		s.saltato = dt
 	else
-		s.animatore:aggiorna(dt + (s.saltato or 0), velocita)
+		-- Passo normale in studs al secondo (caselle al secondo della simulazione, che gira a velocitaBattaglia).
+		s.animatore:aggiorna(dt + (s.saltato or 0), velocita, (s.def.velocita or 0) * CASELLA * velocitaBattaglia)
 		s.saltato = nil
 	end
 	local alto = 0
