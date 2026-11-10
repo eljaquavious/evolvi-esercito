@@ -124,6 +124,8 @@ function Dati.carica(player)
 	-- I livelli della campagna sono stati ridotti: chi era più avanti riparte dall'ultimo che esiste.
 	dati.livello = math.clamp(dati.livello, 1, Campagna.TOTALE)
 	local god = Dati.godmode(player)
+	-- Il client lo legge per mostrare sempre le cinematiche dei livelli (Client/Cinematica, Mattia 11/11/2026).
+	player:SetAttribute("Godmode", god or nil)
 	if god then
 		-- Godmode: tutti i livelli aperti e tutte le carte, per collaudare o girare video.
 		dati.livello = Campagna.TOTALE

@@ -38,12 +38,13 @@ function Cinematica.aggiorna(stato)
 end
 
 -- Parte da sola solo la prima volta: per un livello non ancora vinto e non ancora vista in questa
--- sessione (se si perde e si riprova non la si rivede). In Studio sempre, per provarla.
+-- sessione (se si perde e si riprova non la si rivede). In Studio sempre, per provarla; sempre anche per chi
+-- è in godmode (Mattia, 11/11/2026: con tutti i livelli sbloccati non la vedeva mai, gli serve per i video).
 function Cinematica.daMostrare(nome, numero)
 	if not Dati[nome] then
 		return false
 	end
-	if RunService:IsStudio() then
+	if RunService:IsStudio() or player:GetAttribute("Godmode") then
 		return true
 	end
 	return numero >= livelloRaggiunto and not viste[nome]
