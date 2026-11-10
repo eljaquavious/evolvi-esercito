@@ -1983,9 +1983,11 @@ function Partita.inizializza(gui, r, callbackLobby)
 		ZIndex = 1,
 		Parent = tabellone,
 	}, Stile.PAL.rosso)
+	-- La parte sinistra della targa sta sotto il riquadro centrale (33 px): il nome parte dopo, sennò i nomi
+	-- lunghi perdono le prime lettere ("UGOMASTER" invece di "HUGOMASTER").
 	nomeNemico = Stile.scritta({
-		Position = UDim2.fromOffset(8, 6),
-		Size = UDim2.new(1, -16, 0, 44),
+		Position = UDim2.fromOffset(42, 6),
+		Size = UDim2.new(1, -52, 0, 44),
 		Text = "ENEMY",
 		TextSize = 40,
 		Parent = nemico,

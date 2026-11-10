@@ -216,7 +216,8 @@ local MUSICA = {
 	-- "Soleil Levant", "Slow Movement") a Mattia non piacevano (31/10/2026).
 	-- "The Rise of Kings" (DistroKid), "Salute To Freedom", "Adventure Story", "Fanfare to a Big Country",
 	-- "Confident Of Victory A" (APM).
-	lobby = { volume = 0.24, ids = { 128045338895178, 1845463084, 1845453439, 1842288980, 1848195601 } },
+	-- Più bassa (Mattia, 10/11/2026: "abbassare la musica in lobby"): era 0.24.
+	lobby = { volume = 0.12, ids = { 128045338895178, 1845463084, 1845453439, 1842288980, 1848195601 } },
 	-- Round vinto, cinematica tra i round: musica "vittoriosa a metà" (Mattia, 20/10/2026).
 	-- "Conquering Heroes Link", "Glorious Morning Link" (APM), circa 13 s. Ripartono sempre da capo.
 	roundVinto = { volume = 0.34, ids = { 83315768373322, 100735630401429 }, daCapo = true },

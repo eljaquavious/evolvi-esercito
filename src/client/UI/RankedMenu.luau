@@ -124,7 +124,7 @@ local function aggiornaCerca()
 	testoCerca.Text = inCoda and "CANCEL SEARCH" or "FIND MATCH"
 	local sotto = bottoneCerca:FindFirstChild("Sotto", true)
 	if sotto then
-		sotto.Text = inCoda and "Searching... a bot joins if nobody is found" or "1v1  ·  Best of 3  ·  Random map"
+		sotto.Text = inCoda and "Searching for an opponent..." or "1v1  ·  Best of 3  ·  Random map"
 	end
 end
 
@@ -270,7 +270,7 @@ local function paginaGioca(pagina)
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 400),
 		Size = UDim2.new(1, -60, 0, 80),
-		Text = ("Beat another commander in a 1v1, best of 3, on a random battlefield.\nWin: a Small Crate and +%d RP. Nobody around? You face a bot (+%d RP)."):format(Gradi.PUNTI_VITTORIA, Gradi.PUNTI_VITTORIA_BOT),
+		Text = ("Beat another commander in a 1v1, best of 3, on a random battlefield.\nWin: a Small Crate and +%d RP."):format(Gradi.PUNTI_VITTORIA),
 		TextSize = 30,
 		Contorno = 4,
 		Parent = destra,

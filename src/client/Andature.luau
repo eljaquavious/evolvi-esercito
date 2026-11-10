@@ -17,9 +17,11 @@ local ruota = CFrame.Angles
 -- "avanti" (opz.avanti) è il segno della rotazione in X che piega in avanti bacino, busto e testa: -1 sia sugli
 -- avatar Roblox sia sulle ossa dei soldati (provato in Studio: con +0,4 sul torace la testa va indietro).
 -- opz = { braccia = 0-1 (oscillazione delle braccia: i soldati tengono armi e scudi), scala = rimbalzo, avanti }
+-- apertura = quanto le braccia stanno staccate dal corpo (1 = come le truppe; i giocatori meno: Mattia, 10/11/2026,
+-- "le braccia sono troppo aperte quando il player cammina e quando è idle").
 local function opzioni(opz)
 	opz = opz or {}
-	return opz.braccia or 1, opz.scala or 1, opz.avanti or -1
+	return opz.braccia or 1, opz.scala or 1, opz.avanti or -1, opz.apertura or 1
 end
 
 local function onde(fase)
@@ -31,7 +33,7 @@ end
 -- rimbalza a ogni appoggio e dondola un poco. braccia (0-1) dosa l'oscillazione delle braccia: i soldati
 -- tengono armi e scudi.
 function Andature.cammina(fase, opz)
-	local braccia, scala, avanti = opzioni(opz)
+	local braccia, scala, avanti, apertura = opzioni(opz)
 	local s, c = onde(fase)
 	local p = {}
 	for _, lato in ipairs({ "R", "L" }) do
@@ -43,7 +45,7 @@ function Andature.cammina(fase, opz)
 		p["stinco." .. lato] = ruota(-0.95 * math.max(0, cl), 0, 0)
 		p["piede." .. lato] = ruota(0.3 * math.max(0, cl) - 0.12 * math.max(0, -sl), 0, 0)
 		-- Braccia opposte alle gambe, aperte in fuori, il gomito un po' piegato.
-		p["braccio." .. lato] = ruota(-0.6 * sl * braccia, 0, (0.3 + 0.08 * math.abs(s)) * v * braccia)
+		p["braccio." .. lato] = ruota(-0.6 * sl * braccia, 0, (0.3 + 0.08 * math.abs(s)) * v * braccia * apertura)
 		p["avambraccio." .. lato] = ruota((0.1 + 0.3 * math.max(0, -sl)) * braccia, 0, 0)
 	end
 	-- Il corpo è più in alto quando le gambe si incrociano (|c| = 1), più in basso all'appoggio.
@@ -100,15 +102,15 @@ function Andature.corsaTruppa(fase, opz)
 	return p
 end
 
--- Posa da fermo del giocatore (immagine di Mattia): braccia staccate dal corpo, gambe un po' aperte,
+-- Posa da fermo del giocatore (immagine di Mattia): braccia staccate dal corpo (meno per i giocatori), gambe un po' aperte,
 -- il respiro che muove appena busto e braccia.
 function Andature.fermo(tempo, opz)
-	local _, _, avanti = opzioni(opz)
+	local _, _, avanti, apertura = opzioni(opz)
 	local r = math.sin(tempo * 1.6)
 	local p = {}
 	for _, lato in ipairs({ "R", "L" }) do
 		local v = lato == "R" and 1 or -1
-		p["braccio." .. lato] = ruota(0.02 * r, 0, (0.24 + 0.02 * r) * v)
+		p["braccio." .. lato] = ruota(0.02 * r, 0, (0.24 * apertura + 0.02 * r) * v)
 		p["avambraccio." .. lato] = ruota(0.12, 0, 0)
 		p["coscia." .. lato] = ruota(0, 0, 0.1 * v)
 		p["piede." .. lato] = ruota(0, 0, -0.1 * v)

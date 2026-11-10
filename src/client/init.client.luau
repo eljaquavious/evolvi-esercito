@@ -89,9 +89,25 @@ local function notificaSeFallisce(ok, messaggio)
 	end
 end
 
+-- Fine del tutorial della lobby: si parte subito per la prima battaglia, senza passare dalla mappa.
+local function primaBattaglia()
+	chiudiFinestre()
+	local ok, messaggio = remoti.AvviaCampagna:InvokeServer()
+	if not ok then
+		-- Non è partita (dati non ancora pronti...): almeno la mappa.
+		notificaSeFallisce(ok, messaggio)
+		notificaSeFallisce(remoti.ApriMappa:InvokeServer())
+	end
+end
+
 Hud.inizializza(gui, {
 	play = function()
+		local dalTutorial = TutorialLobby.attivo()
 		TutorialLobby.ferma()
+		if dalTutorial then
+			primaBattaglia()
+			return
+		end
 		chiudiFinestre()
 		notificaSeFallisce(remoti.ApriMappa:InvokeServer())
 	end,
@@ -111,7 +127,7 @@ Hud.inizializza(gui, {
 	end,
 })
 Armadio.collegaNovita(Hud.mostraNovita)
-TutorialLobby.inizializza(gui, Hud.bersaglio, remoti)
+TutorialLobby.inizializza(gui, Hud.bersaglio, remoti, primaBattaglia)
 -- Un cosmetico delle casse nel Locker porta allo shop.
 Armadio.apriShop = function()
 	chiudiFinestre(Shop)

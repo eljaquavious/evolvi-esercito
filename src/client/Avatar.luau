@@ -40,6 +40,8 @@ local GIUNTI_R6 = {
 
 local VELOCITA_CORSA = 44 -- sopra questa velocità (studs/s) si corre: il tappeto va a 58, la lobby a 30
 local DISTANZA = 260 -- oltre, gli avatar restano fermi (non si vedono)
+-- Braccia dei giocatori più vicine al corpo che nelle truppe (Mattia, 10/11/2026): un terzo dell'apertura.
+local OPZIONI = { apertura = 0.33 }
 
 local personaggi = {} -- character -> stato
 
@@ -170,9 +172,9 @@ local function anima(character, stato, dt)
 	if u.Sit then
 		posa = Andature.seduto()
 	else
-		posa = Andature.fermo(stato.tempo)
+		posa = Andature.fermo(stato.tempo, OPZIONI)
 		if stato.cammina > 0.01 then
-			local passo = Andature.cammina(stato.fase)
+			local passo = Andature.cammina(stato.fase, OPZIONI)
 			if stato.corsa > 0.01 then
 				passo = Andature.miscela(passo, Andature.corsaGiocatore(stato.fase), stato.corsa)
 			end

@@ -10,7 +10,7 @@
 --
 -- Bot (Mattia, 10/11/2026): chi resta da solo in coda per ATTESA_BOT secondi gioca contro un avversario finto,
 -- così le ranked si possono provare anche a server vuoto. Il bot ha un esercito pari a quello del giocatore
--- (stesse epoche, stessi comandanti), si chiama "Bot ..." e vale meno punti (Config/Gradi).
+-- (stesse epoche, stessi comandanti), ha un nome da giocatore vero (nomeBot, nessun testo dice che è un bot) e vale meno punti (Config/Gradi).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -37,7 +37,28 @@ local PAUSA_TRA_ROUND = 3.5
 local TICK = 0.1
 local VELOCITA_BATTAGLIA = 0.75
 local ATTESA_BOT = Prova and 6 or 12 -- secondi da soli in coda prima del bot
-local NOMI_BOT = { "Bot Brutus", "Bot Leonidas", "Bot Attila", "Bot Ragnar", "Bot Spartacus", "Bot Hannibal", "Bot Roland", "Bot Murat", "Bot Patton", "Bot Boudica" }
+-- Nomi dei bot: sembrano giocatori veri (Mattia, 10/11/2026: "non si devono chiamare bot"), messi insieme a caso
+-- come i nomi utente di Roblox: un nome o una parola, a volte un'altra attaccata, a volte delle cifre.
+local NOMI = { "Luca", "Max", "Leo", "Ethan", "Noah", "Liam", "Mason", "Jake", "Ryan", "Tyler", "Alex", "Sam", "Ben",
+	"Lily", "Emma", "Mia", "Zoe", "Ava", "Nico", "Marco", "Diego", "Hugo", "Felix", "Oscar", "Kai", "Finn", "Theo" }
+local PAROLE = { "Shadow", "Blaze", "Frost", "Storm", "Wolf", "Knight", "Ninja", "Dragon", "Viper", "Ghost", "Iron",
+	"Pixel", "Turbo", "Epic", "Super", "Mega", "Dark", "Lucky", "Crazy", "Royal", "Golden", "Silent", "Rapid", "Noob" }
+local CODE = { "King", "Pro", "Gamer", "YT", "Master", "Warrior", "Legend", "Boss", "Hero", "Rex", "X", "Gaming" }
+local function nomeBot()
+	local r = math.random
+	local base = r() < 0.5 and NOMI[r(#NOMI)] or PAROLE[r(#PAROLE)]
+	local nome = base
+	if r() < 0.6 then
+		nome ..= (r() < 0.3 and "_" or "") .. CODE[r(#CODE)]
+	end
+	if r() < 0.55 then
+		nome ..= tostring(r() < 0.5 and r(1, 99) or r(2005, 2016))
+	end
+	if r() < 0.25 then
+		nome = string.lower(nome)
+	end
+	return nome
+end
 local DISTANZA_CARICA_BOT = 2.6 -- caselle dal nemico più vicino a cui il bot ordina la carica
 local CASSA_VITTORIA = "CassaPiccola"
 local DURATA_FINALE = 4 -- secondi di animazione del vincitore
@@ -615,7 +636,7 @@ local function latoBot(squadra, avversario)
 	end
 	return {
 		bot = true,
-		nome = NOMI_BOT[math.random(#NOMI_BOT)],
+		nome = nomeBot(),
 		squadra = squadra,
 		mazzo = mazzo,
 		scelte = scelte,
@@ -742,7 +763,6 @@ function Ranked.richiesta(player, soloEntra)
 			if not player.Parent or partite[player] or (occupato and occupato(player)) or not Dati.ottieni(player) then
 				return
 			end
-			notifica(player, "No players in queue right now: you will face a bot.")
 			task.spawn(crea, player, nil)
 		end
 	end)
