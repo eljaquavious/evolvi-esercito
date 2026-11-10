@@ -218,6 +218,14 @@ function Avatar.inizializza()
 		seguiGiocatore(p)
 	end
 	Players.PlayerAdded:Connect(seguiGiocatore)
+	-- Avatar del bot delle ranked (Server/Ranked): si anima come un giocatore.
+	local CollectionService = game:GetService("CollectionService")
+	for _, corpo in ipairs(CollectionService:GetTagged("AvatarBot")) do
+		task.spawn(aggiungi, corpo)
+	end
+	CollectionService:GetInstanceAddedSignal("AvatarBot"):Connect(function(corpo)
+		task.spawn(aggiungi, corpo)
+	end)
 	-- Dopo le animazioni di Roblox e prima della fisica: il Transform scritto qui è quello che si vede.
 	RunService.PreSimulation:Connect(passo)
 end

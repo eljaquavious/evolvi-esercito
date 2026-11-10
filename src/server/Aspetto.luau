@@ -72,7 +72,9 @@ local function scritta(genitore, testo, posizione, altezza, colore, font)
 end
 
 -- Targhetta sopra la testa: livello e nome in bianco, titolo sotto nel colore della sua rarità.
-local function targhetta(player, personaggio, idTitolo, livello)
+-- player può mancare (avatar del bot delle ranked): allora il nome è nomeFinto e non si scrivono attributi.
+local function targhetta(player, personaggio, idTitolo, livello, nomeFinto)
+	local mostrato = player and player.DisplayName or nomeFinto or ""
 	local testa = personaggio:FindFirstChild("Head")
 	if not testa then
 		return
@@ -90,20 +92,22 @@ local function targhetta(player, personaggio, idTitolo, livello)
 		gui.MaxDistance = 80
 		gui.LightInfluence = 0
 		gui.ResetOnSpawn = false
-		scritta(gui, player.DisplayName, UDim2.fromScale(0, 0), 0.56, Color3.new(1, 1, 1), Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)).Name = "Nome"
+		scritta(gui, mostrato, UDim2.fromScale(0, 0), 0.56, Color3.new(1, 1, 1), Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)).Name = "Nome"
 		scritta(gui, "", UDim2.fromScale(0, 0.58), 0.42, Color3.new(1, 1, 1), Font.new("rbxasset://fonts/families/Nunito.json", Enum.FontWeight.Heavy)).Name = "Titolo"
 		gui.Parent = testa
 	end
 	-- Livello del giocatore in oro prima del nome.
 	local nome = gui:FindFirstChild("Nome")
 	nome.RichText = true
-	nome.Text = ('<font color="#FFD23F">Lv.%d</font>  %s'):format(livello or 1, player.DisplayName)
+	nome.Text = ('<font color="#FFD23F">Lv.%d</font>  %s'):format(livello or 1, mostrato)
 	local titolo = Config.titolo(idTitolo) or Config.titolo(Config.TITOLO_INIZIALE)
 	-- Il titolo compare anche accanto al nome nella chat (Client/Chat legge questi attributi).
-	player:SetAttribute("Titolo", titolo.nome)
-	player:SetAttribute("TitoloId", titolo.id)
-	player:SetAttribute("TitoloColore", Config.Rarita[titolo.rarita].colore)
-	player:SetAttribute("Livello", livello or 1)
+	if player then
+		player:SetAttribute("Titolo", titolo.nome)
+		player:SetAttribute("TitoloId", titolo.id)
+		player:SetAttribute("TitoloColore", Config.Rarita[titolo.rarita].colore)
+		player:SetAttribute("Livello", livello or 1)
+	end
 	local etichetta = gui:FindFirstChild("Titolo")
 	etichetta.Text = "« " .. string.upper(titolo.nome) .. " »"
 	etichetta.TextColor3 = Color3.fromHex(Config.Rarita[titolo.rarita].colore)
@@ -154,6 +158,11 @@ function Aspetto.aggiorna(player, dati, forza)
 	cartella.Parent = personaggio
 	nascondiAccessori(personaggio, occupati)
 	targhetta(player, personaggio, dati.titolo, livello)
+end
+
+-- Targhetta per un personaggio senza giocatore (il bot delle ranked): uguale a quella dei giocatori veri.
+function Aspetto.targhettaFinta(personaggio, nome, idTitolo, livello)
+	targhetta(nil, personaggio, idTitolo, livello, nome)
 end
 
 -- ottieniDati: funzione player -> dati (Dati.ottieni), così questo modulo non dipende da Dati.

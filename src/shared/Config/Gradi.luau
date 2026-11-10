@@ -6,9 +6,8 @@ local Gradi = {}
 
 Gradi.PUNTI_VITTORIA = 30
 Gradi.PUNTI_SCONFITTA = 20
--- Contro un bot (da soli in coda, Server/Ranked) si vince e si perde la metà.
-Gradi.PUNTI_VITTORIA_BOT = 15
-Gradi.PUNTI_SCONFITTA_BOT = 10
+-- Contro un bot (da soli in coda, Server/Ranked) valgono gli stessi punti: non deve capirsi che è un bot
+-- (Mattia, 10/11/2026).
 
 -- Le fasce: nome, colore (per testi e barre), icona (assets/gui/rank_<...>.png), divisioni.
 Gradi.Fasce = {

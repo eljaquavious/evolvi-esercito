@@ -10,8 +10,10 @@
 --
 -- Bot (Mattia, 10/11/2026): chi resta da solo in coda per ATTESA_BOT secondi gioca contro un avversario finto,
 -- così le ranked si possono provare anche a server vuoto. Il bot ha un esercito pari a quello del giocatore
--- (stesse epoche, stessi comandanti), ha un nome da giocatore vero (nomeBot, nessun testo dice che è un bot) e vale meno punti (Config/Gradi).
+-- (stesse epoche, stessi comandanti), ha un nome da giocatore vero (nomeBot, nessun testo dice che è un bot), un avatar
+-- vero preso a caso sul suo lato del campo (creaCorpoBot) e vale gli stessi punti di un giocatore.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -22,11 +24,13 @@ local Epoche = require(Shared.Config.Epoche)
 local Formazioni = require(Shared.Config.Formazioni)
 local Prova = require(Shared.Prova)
 local Arena = require(script.Parent.Arena)
+local Aspetto = require(script.Parent.Aspetto)
 local Dati = require(script.Parent.Dati)
 local Lobby = require(script.Parent.Lobby)
 local Shop = require(script.Parent.Shop)
 local Classifica = require(script.Parent.Classifica)
 local Gradi = require(Shared.Config.Gradi)
+local Progressi = require(Shared.Config.Progressi)
 
 local Ranked = {}
 
@@ -59,6 +63,59 @@ local function nomeBot()
 	end
 	return nome
 end
+-- Corpo del bot (Mattia, 10/11/2026: "voglio un avatar random"): l'avatar di un utente Roblox preso a caso, in
+-- piedi sul suo lato del campo come un avversario vero, con targhetta, livello e un titolo comune.
+local TITOLI_BOT = { "Recluta", "Soldato", "Soldato", "Veterano", "Mercenario", "Comandante", "Sergente" }
+local function descrizioneBot()
+	for _ = 1, 8 do
+		local ok, descrizione = pcall(function()
+			-- math.random accetta solo interi a 32 bit: l'id (fino a 4 miliardi) si fa in due pezzi.
+			return Players:GetHumanoidDescriptionFromUserId(math.random(20, 4000) * 1000000 + math.random(0, 999999))
+		end)
+		-- Scarta gli account vuoti (avatar di base senza vestiti né capelli).
+		if ok and descrizione and (descrizione.Shirt ~= 0 or descrizione.Pants ~= 0 or descrizione.GraphicTShirt ~= 0)
+			and (descrizione.HairAccessory ~= "" or descrizione.HatAccessory ~= "") then
+			return descrizione
+		end
+	end
+	-- Nessun utente buono trovato: un avatar di base con la pelle a caso.
+	local descrizione = Instance.new("HumanoidDescription")
+	local pelle = Color3.fromHSV(0.07, math.random(25, 60) / 100, math.random(35, 95) / 100)
+	descrizione.HeadColor, descrizione.TorsoColor = pelle, pelle
+	descrizione.LeftArmColor, descrizione.RightArmColor = pelle, pelle
+	descrizione.LeftLegColor, descrizione.RightLegColor = pelle, pelle
+	return descrizione
+end
+
+local function creaCorpoBot(lato, destinazione, livelloAvversario)
+	local ok, corpo = pcall(function()
+		return Players:CreateHumanoidModelFromDescription(descrizioneBot(), Enum.HumanoidRigType.R15)
+	end)
+	if not ok or not corpo then
+		return nil
+	end
+	corpo.Name = lato.nome
+	local animate = corpo:FindFirstChild("Animate")
+	if animate then
+		animate:Destroy()
+	end
+	local radice = corpo:FindFirstChild("HumanoidRootPart")
+	if radice then
+		radice.Anchored = true
+	end
+	local umanoide = corpo:FindFirstChildOfClass("Humanoid")
+	if umanoide then
+		umanoide.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	end
+	corpo:PivotTo(destinazione)
+	local livello = math.max(1, (livelloAvversario or 1) + math.random(-2, 3))
+	Aspetto.targhettaFinta(corpo, lato.nome, TITOLI_BOT[math.random(#TITOLI_BOT)], livello)
+	-- Lo anima ogni client come gli avatar dei giocatori (Client/Avatar).
+	CollectionService:AddTag(corpo, "AvatarBot")
+	corpo.Parent = workspace
+	return corpo
+end
+
 local DISTANZA_CARICA_BOT = 2.6 -- caselle dal nemico più vicino a cui il bot ordina la carica
 local CASSA_VITTORIA = "CassaPiccola"
 local DURATA_FINALE = 4 -- secondi di animazione del vincitore
@@ -439,8 +496,7 @@ local function fine(partita, vincitore, ritirato)
 	partita.attiva = false
 	local perdente = avversarioDi(partita, vincitore)
 	-- Punti ranked (Config/Gradi): +30 a chi vince, -20 a chi perde (mai sotto 0), anche settimanali.
-	-- Contro un bot valgono meno (PUNTI_VITTORIA_BOT, PUNTI_SCONFITTA_BOT).
-	local controBot = vincitore.bot or perdente.bot
+	-- Contro un bot valgono uguali (Mattia, 10/11/2026: non deve capirsi che è un bot).
 	local settimana = Gradi.settimana()
 	local function punti(l, vinto)
 		if l.bot or not Dati.ottieni(l.player) then
@@ -453,8 +509,7 @@ local function fine(partita, vincitore, ritirato)
 				r.settimana = settimana
 				r.puntiSettimana = 0
 			end
-			local cambio = vinto and (controBot and Gradi.PUNTI_VITTORIA_BOT or Gradi.PUNTI_VITTORIA)
-				or -(controBot and Gradi.PUNTI_SCONFITTA_BOT or Gradi.PUNTI_SCONFITTA)
+			local cambio = vinto and Gradi.PUNTI_VITTORIA or -Gradi.PUNTI_SCONFITTA
 			r.punti = math.max(0, r.punti + cambio)
 			r.puntiSettimana = math.max(0, r.puntiSettimana + cambio)
 			if vinto then
@@ -481,6 +536,7 @@ local function fine(partita, vincitore, ritirato)
 				vittoria = lato == vincitore,
 				vincitore = vincitore.nome,
 				vincitoreId = (not vincitore.bot) and vincitore.player.UserId or nil,
+				vincitoreCorpo = vincitore.corpo, -- il bot: il client copia questo modello
 				perdente = perdente.nome,
 				vinti = lato.punti,
 				persi = altro.punti,
@@ -672,8 +728,12 @@ local function crea(a, b)
 	end
 	partita.arena = arena
 	for _, l in ipairs(partita.lati) do
-		if not l.bot and l.player.Parent then
-			teletrasporta(l.player, l.squadra == "giocatore" and arena.arrivo or arena.arrivoOpposto)
+		local destinazione = l.squadra == "giocatore" and arena.arrivo or arena.arrivoOpposto
+		if l.bot then
+			local dati = Dati.ottieni(partita.lati[1].player)
+			l.corpo = creaCorpoBot(l, destinazione, dati and Progressi.livello(dati.esperienza or 0))
+		elseif l.player.Parent then
+			teletrasporta(l.player, destinazione)
 		end
 	end
 	inizioRound(partita)
@@ -689,6 +749,10 @@ function Ranked.chiudi(partita)
 		Arena.distruggi(partita.arena)
 	end
 	for _, l in ipairs(partita.lati) do
+		if l.corpo then
+			l.corpo:Destroy()
+			l.corpo = nil
+		end
 		if not l.bot and partite[l.player] == partita then
 			partite[l.player] = nil
 			if l.player.Parent then

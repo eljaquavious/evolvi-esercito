@@ -670,12 +670,13 @@ local function vaiA(nome)
 	if not riga then
 		return
 	end
+	-- AbsolutePosition e CanvasPosition sono entrambi in pixel dello schermo (provato in Studio con la tela in
+	-- scala 0,62): niente conversione. Prima si divideva per la scala e TITLES finiva oltre il fondo, sui COINS
+	-- (bug segnalato da Mattia, 10/11/2026).
 	local y = riga.AbsolutePosition.Y - pagina.AbsolutePosition.Y + pagina.CanvasPosition.Y
-	-- AbsolutePosition è in pixel dello schermo: si riporta ai pixel di progetto della tela.
-	local scala = Stile.scala()
-	y = y / (scala > 0 and scala or 1)
+	local massimo = math.max(0, pagina.AbsoluteCanvasSize.Y - pagina.AbsoluteWindowSize.Y)
 	TweenService:Create(pagina, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		CanvasPosition = Vector2.new(0, math.max(0, y - 6)),
+		CanvasPosition = Vector2.new(0, math.clamp(y - 6, 0, massimo)),
 	}):Play()
 end
 

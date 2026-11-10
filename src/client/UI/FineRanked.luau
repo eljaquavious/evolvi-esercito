@@ -29,9 +29,10 @@ function FineRanked.chiudi()
 end
 
 -- Copia del personaggio del vincitore, ferma, senza script né suoni (nil se non c'è).
-local function copiaPersonaggio(userId)
+-- corpo: il modello dell'avatar del bot, quando vince lui.
+local function copiaPersonaggio(userId, corpo)
 	local vincitore = userId and Players:GetPlayerByUserId(userId)
-	local personaggio = vincitore and vincitore.Character
+	local personaggio = (vincitore and vincitore.Character) or (typeof(corpo) == "Instance" and corpo.Parent and corpo) or nil
 	if not personaggio then
 		return nil
 	end
@@ -42,6 +43,7 @@ local function copiaPersonaggio(userId)
 	if not copia then
 		return nil
 	end
+	game:GetService("CollectionService"):RemoveTag(copia, "AvatarBot")
 	for _, d in ipairs(copia:GetDescendants()) do
 		if d:IsA("Script") or d:IsA("LocalScript") or d:IsA("Sound") or d:IsA("BillboardGui") then
 			d:Destroy()
@@ -118,12 +120,12 @@ function FineRanked.mostra(dati)
 	local mondo = Stile.crea("WorldModel", { Parent = vp })
 	local camera = Stile.crea("Camera", { FieldOfView = 30, Parent = vp })
 	vp.CurrentCamera = camera
-	local avatar = copiaPersonaggio(dati.vincitoreId)
+	local avatar = copiaPersonaggio(dati.vincitoreId, dati.vincitoreCorpo)
 	if avatar then
 		avatar.Parent = mondo
 		camera.CFrame = CFrame.lookAt(Vector3.new(0, 0.5, -15), Vector3.new(0, 0, 0))
 	else
-		-- Il vincitore non c'è più (o è il bot di prova): un trofeo al suo posto.
+		-- Il vincitore non c'è più: un trofeo al suo posto.
 		vp.Visible = false
 		Stile.icona("ranked", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
