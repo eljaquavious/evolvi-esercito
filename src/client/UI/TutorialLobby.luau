@@ -5,7 +5,8 @@
 -- Rifatto il 10/11/2026 (Mattia: "dev'essere necessario"): riquadro grande, il resto dello schermo oscurato
 -- tranne il riquadro e l'elemento indicato (che non si può cliccare: si va avanti con NEXT), un passo sulle
 -- RANKED, sempre 7 passi. SKIP salta le spiegazioni ma porta all'ultimo passo: alla fine si deve per forza
--- avviare la prima battaglia (PLAY NOW, o il PLAY vero, l'unico cliccabile).
+-- avviare la prima battaglia premendo il PLAY vero, l'unica cosa cliccabile (11/11: niente più PLAY NOW nel
+-- riquadro, che sta sempre al centro).
 -- Si vede una volta sola: quando parte la battaglia si salva "tutorialLobby" nelle impostazioni del giocatore.
 
 local RunService = game:GetService("RunService")
@@ -60,9 +61,9 @@ local PASSI = {
 	},
 	{
 		titolo = "TO BATTLE!",
-		testo = "Your first battle awaits: Thermopylae. Press PLAY to march, the battle will teach you the rest.",
+		testo = "Your first battle awaits: Thermopylae. Press the PLAY button to march, the battle will teach you the rest.",
 		mostra = "Play",
-		fine = "PLAY NOW",
+		fine = true, -- niente pulsante nel riquadro: si preme il PLAY vero (Mattia, 11/11/2026)
 	},
 }
 
@@ -174,19 +175,28 @@ local function mostraPasso()
 	titolo.Text = passo.titolo
 	testo.Text = passo.testo
 	numeroPasso.Text = ("%d / %d"):format(indice, #PASSI)
-	testoAvanti.Text = passo.fine or "NEXT"
-	-- All'ultimo passo non si salta più: si parte.
+	testoAvanti.Text = "NEXT"
+	-- All'ultimo passo non si salta più e il riquadro non ha pulsanti: la battaglia parte solo dal PLAY vero,
+	-- l'unica cosa cliccabile (Mattia, 11/11/2026).
 	salta.Visible = not passo.fine
-	-- Senza elemento da indicare il riquadro sta al centro; con un elemento, in alto al centro (gli elementi sono
-	-- ai lati e in basso).
-	riquadro.AnchorPoint = Vector2.new(0.5, passo.mostra and 0 or 0.5)
-	riquadro.Position = passo.mostra and UDim2.new(0.5, 0, 0, 190) or UDim2.fromScale(0.5, 0.45)
+	bottoneAvanti.Visible = not passo.fine
+	riquadro.Size = UDim2.fromOffset(1040, passo.fine and 300 or 400) -- senza pulsante il riquadro è più basso
+	-- Riquadro sempre al centro dello schermo (Mattia, 11/11/2026); gli elementi indicati sono ai lati e in basso.
+	riquadro.AnchorPoint = Vector2.new(0.5, 0.5)
+	riquadro.Position = UDim2.fromScale(0.5, 0.45)
 	riquadro.Visible = true
 	seguiBersaglio()
 	local scala = riquadro:FindFirstChildOfClass("UIScale")
 	scala.Scale = 0.85
 	TweenService:Create(scala, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Scale = 1 }):Play()
-	Stile.seleziona(bottoneAvanti)
+	if passo.fine then
+		local play = bersaglio("Play")
+		if play and play:IsA("GuiButton") then
+			Stile.seleziona(play) -- col controller il cursore va sul PLAY
+		end
+	else
+		Stile.seleziona(bottoneAvanti)
+	end
 end
 
 -- gui: la ScreenGui della lobby; funzioneBersaglio: Hud.bersaglio; r: i remoti;
@@ -308,7 +318,6 @@ function TutorialLobby.inizializza(gui, funzioneBersaglio, r, funzioneAvvia)
 	testoAvanti = bottoneAvanti:FindFirstChild("Testo", true)
 	bottoneAvanti.Activated:Connect(function()
 		if PASSI[indice] and PASSI[indice].fine then
-			parti()
 			return
 		end
 		indice += 1

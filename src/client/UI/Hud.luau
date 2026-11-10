@@ -335,11 +335,13 @@ function Hud.inizializza(gui, a)
 	pannelloCampagna(tela)
 
 	-- Mazzo in basso al centro: grande come prima della riduzione dell'interfaccia (Mattia, 29/10/2026).
+	-- Proprio al centro (Mattia, 11/11/2026): prima era spostato di 60 px a sinistra. La posizione vera la mette
+	-- sistemaMazzo più sotto.
 	local k = Stile.ingrandimento()
 	local mazzo = nascondibile(Stile.pannelloVetro({
 		Name = "Mazzo",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, -60 * k, 1, -66 * k),
+		Position = UDim2.new(0.5, 0, 1, -66 * k),
 		Size = UDim2.fromOffset(728, 236),
 		Parent = tela,
 	}, 28))
@@ -412,7 +414,7 @@ function Hud.inizializza(gui, a)
 		end
 		local larghezza = tela.AbsoluteSize.X / scala
 		local metaMazzo = 728 * k / 2
-		local centro = larghezza / 2 - 60 * k
+		local centro = larghezza / 2 -- al centro dello schermo (Mattia, 11/11/2026; prima 60 px a sinistra)
 		local sinistraPlay = (play.AbsolutePosition.X - tela.AbsolutePosition.X) / scala
 		if play.AbsoluteSize.X > 0 and centro + metaMazzo > sinistraPlay - 20 then
 			centro = math.max(sinistraPlay - 20 - metaMazzo, 36 + 324 + 20 + metaMazzo)
