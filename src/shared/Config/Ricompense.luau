@@ -10,7 +10,7 @@
 --   stelle     = n stelle in totale
 --   sconfitti  = sconfiggi n reggimenti nemici
 --   comandanti = possiedi tutti i comandanti
---   ranked     = vinci n partite ranked (le ranked non ci sono ancora: restano bloccati, "coming soon")
+--   ranked     = vinci n partite ranked
 --   preferito  = metti il gioco nei Preferiti di Roblox
 
 local Epoche = require(script.Parent.Epoche)
@@ -35,6 +35,9 @@ Ricompense.Slot = {
 	{ id = "Aura", nome = "AURA" }, -- particelle attorno al corpo (Shared.Cosmetici3D)
 }
 
+-- effetto (facoltativo): il titolo è multicolore e/o animato. tipo = "sfumato" (colori fermi), "scorre" (colori che
+-- scorrono), "arcobaleno", "pulsa" (da un colore all'altro), "lampo" (un colore con un riflesso che passa);
+-- colori = esadecimali; periodo = secondi di un giro. Lo disegna Client/UI/TitoloVivo.
 Ricompense.Titoli = {
 	{ id = "Recluta", nome = "Recruit", rarita = "comune", iniziale = true },
 	{ id = "Soldato", nome = "Soldier", rarita = "comune", condizione = { "vittorie", 1 } },
@@ -43,23 +46,23 @@ Ricompense.Titoli = {
 	{ id = "Imperatore", nome = "Emperor", rarita = "epico", condizione = { "battaglia", 6 }, epoca = 1 },
 	{ id = "GranRe", nome = "High King", rarita = "epico", condizione = { "battaglia", 12 }, epoca = 2 },
 	{ id = "GranMaresciallo", nome = "Marshal of the Empire", rarita = "epico", condizione = { "battaglia", 18 }, epoca = 3 },
-	{ id = "Maresciallo", nome = "Field Marshal", rarita = "leggendario", condizione = { "battaglia", 24 }, epoca = 4 },
-	{ id = "ComandanteSupremo", nome = "Supreme Commander", rarita = "leggendario", condizione = { "battaglia", Campagna.TOTALE }, epoca = 5 },
+	{ id = "Maresciallo", nome = "Field Marshal", rarita = "leggendario", condizione = { "battaglia", 24 }, epoca = 4, effetto = { tipo = "sfumato", colori = { "#FFD23F", "#FF7A6A" } } },
+	{ id = "ComandanteSupremo", nome = "Supreme Commander", rarita = "leggendario", condizione = { "battaglia", Campagna.TOTALE }, epoca = 5, effetto = { tipo = "sfumato", colori = { "#FFE27A", "#FF9A2E" } } },
 	{ id = "Flagello", nome = "Scourge of Armies", rarita = "epico", condizione = { "sconfitti", 500 } },
 	{ id = "Leggende", nome = "Keeper of Legends", rarita = "epico", condizione = { "comandanti" } },
-	{ id = "Stratega", nome = "Master Tactician", rarita = "leggendario", condizione = { "stelle", Campagna.TOTALE * Campagna.STELLE_MASSIME } },
+	{ id = "Stratega", nome = "Master Tactician", rarita = "leggendario", condizione = { "stelle", Campagna.TOTALE * Campagna.STELLE_MASSIME }, effetto = { tipo = "sfumato", colori = { "#5CE1FF", "#C77DFF" } } },
 	{ id = "Comandante", nome = "Commander", rarita = "raro", condizione = { "ranked", 10 } },
-	{ id = "Generalissimo", nome = "Generalissimo", rarita = "leggendario", condizione = { "ranked", 100 } },
+	{ id = "Generalissimo", nome = "Generalissimo", rarita = "leggendario", condizione = { "ranked", 100 }, effetto = { tipo = "scorre", colori = { "#C77DFF", "#FFD23F", "#FF8A1F" }, periodo = 3 } },
 	{ id = "Mercenario", nome = "Mercenary", rarita = "raro", monete = 4000 },
-	{ id = "Fedele", nome = "Loyal Ally", rarita = "raro", condizione = { "preferito" } },
-	{ id = "Magnifico", nome = "The Magnificent", rarita = "leggendario", robux = { prezzo = 99, prodotto = 3728215770 } },
-	{ id = "Fondatore", nome = "Founder", rarita = "esclusivo", soloCodice = true },
+	{ id = "Fedele", nome = "Loyal Ally", rarita = "raro", condizione = { "preferito" }, effetto = { tipo = "pulsa", colori = { "#FF8AD8", "#FF4A6A" }, periodo = 2 } },
+	{ id = "Magnifico", nome = "The Magnificent", rarita = "leggendario", robux = { prezzo = 99, prodotto = 3728215770 }, effetto = { tipo = "lampo", colori = { "#FFD23F", "#FFFFFF" }, periodo = 2.6 } },
+	{ id = "Fondatore", nome = "Founder", rarita = "esclusivo", soloCodice = true, effetto = { tipo = "arcobaleno", periodo = 4 } },
 	-- In vendita nello shop (sezione Titles).
 	{ id = "Sergente", nome = "Drill Sergeant", rarita = "raro", monete = 2500 },
-	{ id = "Profittatore", nome = "War Profiteer", rarita = "epico", monete = 7500 },
-	{ id = "Guerrafondaio", nome = "Warmonger", rarita = "epico", robux = { prezzo = 89, prodotto = 3728215774 } },
-	{ id = "Indistruttibile", nome = "The Unbreakable", rarita = "leggendario", robux = { prezzo = 149, prodotto = 3728215778 } },
-	{ id = "SignoreGuerra", nome = "Lord of War", rarita = "leggendario", robux = { prezzo = 249, prodotto = 3728215781 } },
+	{ id = "Profittatore", nome = "War Profiteer", rarita = "epico", monete = 7500, effetto = { tipo = "sfumato", colori = { "#7CFF8A", "#FFD23F" } } },
+	{ id = "Guerrafondaio", nome = "Warmonger", rarita = "epico", robux = { prezzo = 89, prodotto = 3728215774 }, effetto = { tipo = "pulsa", colori = { "#FF3B3B", "#FF9A2E" }, periodo = 1.6 } },
+	{ id = "Indistruttibile", nome = "The Unbreakable", rarita = "leggendario", robux = { prezzo = 149, prodotto = 3728215778 }, effetto = { tipo = "scorre", colori = { "#C9D4E8", "#5CE1FF", "#FFFFFF" }, periodo = 3 } },
+	{ id = "SignoreGuerra", nome = "Lord of War", rarita = "leggendario", robux = { prezzo = 249, prodotto = 3728215781 }, effetto = { tipo = "scorre", colori = { "#FF3B3B", "#FF9A2E", "#FFE27A" }, periodo = 2.2 } },
 }
 
 -- I modelli 3D sono in Shared.Cosmetici3D (stesso id).
@@ -114,6 +117,11 @@ Ricompense.Cosmetici = {
 	{ id = "AuraSangue", nome = "Crimson Aura", slot = "Aura", rarita = "epico", condizione = { "sconfitti", 250 } },
 	{ id = "AuraTempesta", nome = "Storm Aura", slot = "Aura", rarita = "epico", condizione = { "vittorie", 50 } },
 	{ id = "AuraReale", nome = "Royal Aura", slot = "Aura", rarita = "leggendario", robux = { prezzo = 149, prodotto = 3728215794 } },
+	-- Le più appariscenti (Mattia, 10/11/2026): fiamme, vuoto e nebbia di stelle dalle casse; l'arcobaleno dalla ranked.
+	{ id = "AuraInferno", nome = "Inferno Aura", slot = "Aura", rarita = "leggendario", cassa = true },
+	{ id = "AuraVuoto", nome = "Void Aura", slot = "Aura", rarita = "leggendario", cassa = true },
+	{ id = "AuraCeleste", nome = "Celestial Aura", slot = "Aura", rarita = "leggendario", cassa = true },
+	{ id = "AuraPrisma", nome = "Prism Aura", slot = "Aura", rarita = "leggendario", condizione = { "ranked", 50 } },
 }
 
 local indiceTitoli, indiceCosmetici = {}, {}
@@ -243,7 +251,7 @@ function Ricompense.comeSbloccare(oggetto)
 	elseif tipo == "comandanti" then
 		return "Collect every commander card."
 	elseif tipo == "ranked" then
-		return ("Win %d ranked matches (coming soon)."):format(n)
+		return ("Win %d ranked matches."):format(n)
 	elseif tipo == "preferito" then
 		return "Add the game to your Favorites."
 	end

@@ -4,6 +4,9 @@
 local Players = game:GetService("Players")
 local TextChatService = game:GetService("TextChatService")
 
+local Config = require(game:GetService("ReplicatedStorage").Shared.Config.Ricompense)
+local TitoloVivo = require(script.Parent.UI.TitoloVivo)
+
 local Chat = {}
 
 local function sicuro(testo)
@@ -23,7 +26,10 @@ function Chat.inizializza()
 		end
 		local colore = player:GetAttribute("TitoloColore") or "#FFFFFF"
 		local proprieta = Instance.new("TextChatMessageProperties")
-		proprieta.PrefixText = ('<font color="%s">[%s]</font> %s'):format(colore, sicuro(titolo), messaggio.PrefixText)
+		-- I titoli multicolori lo sono anche in chat (una lettera per colore).
+		local scritto = TitoloVivo.testoChat(Config.titolo(player:GetAttribute("TitoloId")), "[" .. titolo .. "]")
+			or ('<font color="%s">[%s]</font>'):format(colore, sicuro(titolo))
+		proprieta.PrefixText = scritto .. " " .. messaggio.PrefixText
 		return proprieta
 	end
 end

@@ -2,6 +2,7 @@
 -- Funziona su qualsiasi avatar (R15 o R6) e in qualsiasi lobby: si aggancia al personaggio, non al mondo.
 
 local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config.Ricompense)
@@ -100,11 +101,15 @@ local function targhetta(player, personaggio, idTitolo, livello)
 	local titolo = Config.titolo(idTitolo) or Config.titolo(Config.TITOLO_INIZIALE)
 	-- Il titolo compare anche accanto al nome nella chat (Client/Chat legge questi attributi).
 	player:SetAttribute("Titolo", titolo.nome)
+	player:SetAttribute("TitoloId", titolo.id)
 	player:SetAttribute("TitoloColore", Config.Rarita[titolo.rarita].colore)
 	player:SetAttribute("Livello", livello or 1)
 	local etichetta = gui:FindFirstChild("Titolo")
 	etichetta.Text = "« " .. string.upper(titolo.nome) .. " »"
 	etichetta.TextColor3 = Color3.fromHex(Config.Rarita[titolo.rarita].colore)
+	-- Titoli animati o multicolori: li colora ogni client (Client/UI/TitoloVivo) da questo attributo.
+	etichetta:SetAttribute("TitoloId", titolo.id)
+	CollectionService:AddTag(etichetta, "TitoloVivo")
 end
 
 local ultimo = {} -- player -> { personaggio, firma }: per non rivestire il personaggio a ogni moneta guadagnata

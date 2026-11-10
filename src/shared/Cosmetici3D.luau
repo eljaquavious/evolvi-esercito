@@ -460,9 +460,19 @@ end
 local SCINTILLE = "rbxasset://textures/particles/sparkles_main.dds"
 local FUMO = "rbxasset://textures/particles/smoke_main.dds"
 local FUOCO = "rbxasset://textures/particles/fire_main.dds"
+local FAVILLE = "rbxasset://textures/particles/fire_sparks_main.dds"
+local BAGLIORE = "rbxasset://textures/particles/forcefield_glow_main.dds"
+local VORTICE = "rbxasset://textures/particles/forcefield_vortex_main.dds"
 
 -- Ogni emettitore: texture, colori (inizio, fine), quanti al secondo, misura, durata, velocità verso l'alto,
 -- piedi = escono da terra attorno ai piedi invece che da tutto il corpo.
+-- Aure appariscenti (Mattia, 10/11/2026, dalle foto di riferimento: fiamme che avvolgono il corpo, sfere viola con
+-- fumo nero, nebbia con stelle, vortice dietro la schiena). In più per ogni emettitore: fisso = le particelle
+-- seguono il personaggio che corre; cuore = escono dal petto (aloni e vortici, uno sopra l'altro); giro = gradi al
+-- secondo; cresce = si allargano invece di rimpicciolire; z = davanti (+) o dietro (-) al corpo; scuro = non
+-- cambia colore con "vivo". Per l'aura: contorno = colore del profilo luminoso attorno al personaggio;
+-- luminosita = forza della luce; vivo = i colori cambiano nel tempo (Client/CosmeticiVivi).
+-- sfere = { n, raggio, misura, colore }: palle al neon ferme attorno al corpo, ognuna con la sua luce.
 local AURE = {
 	AuraFedele = {
 		globo = { hex("#FFE07A"), hex("#FFF6D0") },
@@ -504,6 +514,7 @@ local AURE = {
 		},
 	},
 	AuraTempesta = {
+		vivo = { tipo = "pulsa", colori = { "#E6F4FF", "#3A7CFF" }, periodo = 1.2 }, -- lampeggia come i fulmini (Client/CosmeticiVivi)
 		globo = { hex("#4A8CFF"), hex("#E0F0FF") },
 		luce = hex("#6AA8FF"),
 		emettitori = {
@@ -512,11 +523,73 @@ local AURE = {
 		},
 	},
 	AuraReale = {
+		contorno = hex("#C890FF"),
+		luminosita = 0.7,
+		sfere = { n = 4, raggio = 2.2, misura = 0.5, colore = hex("#FFD23F") },
+		vivo = { tipo = "ciclo", colori = { "#C890FF", "#FFD23F", "#FF4A6A" }, periodo = 5 }, -- viola, oro e cremisi a giro
 		globo = { hex("#8A3CE0"), hex("#FFD23F") },
 		luce = hex("#B070FF"),
 		emettitori = {
 			{ texture = SCINTILLE, colori = { hex("#C890FF"), hex("#6A20C0") }, rate = 16, misura = 0.45, durata = 1.8, su = 2 },
 			{ texture = SCINTILLE, colori = { hex("#FFE27A"), hex("#FFB020") }, rate = 10, misura = 0.3, durata = 2, su = 1.4, piedi = true },
+			{ texture = FUOCO, colori = { hex("#C890FF"), hex("#6A20C0") }, rate = 36, misura = 2.2, durata = 0.85, su = 7, fisso = true, luminosa = 1, velocita = { 1, 3 }, apertura = 25, trasparenza = 0.2, z = 0.5 },
+			{ texture = VORTICE, colori = { hex("#FFD23F"), hex("#C890FF") }, rate = 3, misura = 6.5, durata = 2.4, su = 0, cuore = true, fisso = true, cresce = true, luminosa = 1, velocita = { 0, 0 }, giro = { 60, 90 }, z = -2.5, trasparenza = 0.1 },
+		},
+	},
+	-- Leggendarie delle casse dell'armeria e della ranked: le più appariscenti. Tante particelle grandi, luminose
+	-- e attaccate al corpo (fisso), più le sfere al neon: con poche e piccole l'aura quasi non si vedeva.
+	AuraInferno = {
+		globo = { hex("#FF5A10"), hex("#FFD23F") },
+		luce = hex("#FF6A1A"),
+		luminosita = 0.8,
+		contorno = hex("#FF8A1F"),
+		emettitori = {
+			{ texture = FUOCO, colori = { hex("#FFD060"), hex("#FF2A08") }, rate = 60, misura = 2.6, durata = 0.8, su = 9, fisso = true, luminosa = 1, velocita = { 1, 3 }, apertura = 25, trasparenza = 0.1, z = 0.5 },
+			{ texture = FUOCO, colori = { hex("#FFB040"), hex("#B21E0A") }, rate = 34, misura = 3, durata = 0.9, su = 6, piedi = true, fisso = true, luminosa = 1, velocita = { 2, 4 }, apertura = 20, trasparenza = 0.15 },
+			{ texture = FAVILLE, colori = { hex("#FFE08A"), hex("#FF5A10") }, rate = 30, misura = 0.9, durata = 1.3, su = 7, luminosa = 1, velocita = { 3, 6 }, apertura = 40 },
+			{ texture = FUMO, colori = { hex("#2A1408"), hex("#0A0604") }, rate = 14, misura = 2.4, durata = 1.6, su = 5, luminosa = 0, luce = 0, velocita = { 1, 2 }, apertura = 30, trasparenza = 0.35, z = -1, scuro = true },
+		},
+	},
+	AuraVuoto = {
+		globo = { hex("#B020FF"), hex("#FF4FE0") },
+		luce = hex("#D040FF"),
+		luminosita = 0.8,
+		contorno = hex("#E060FF"),
+		vivo = { tipo = "ciclo", colori = { "#FF4FE0", "#9A3CFF", "#FF3F8A" }, periodo = 4 },
+		sfere = { n = 5, raggio = 2.3, misura = 0.75, colore = hex("#FF4FE0") },
+		emettitori = {
+			{ texture = FUOCO, colori = { hex("#FF7AF0"), hex("#B020FF") }, rate = 50, misura = 2.4, durata = 0.85, su = 8, fisso = true, luminosa = 1, velocita = { 1, 3 }, apertura = 25, trasparenza = 0.1, z = 0.5 },
+			{ texture = FUMO, colori = { hex("#000000"), hex("#000000") }, rate = 45, misura = 2.8, durata = 1.4, su = 1.5, fisso = true, luminosa = 0, luce = 0, velocita = { 0.3, 1.2 }, trasparenza = 0, z = -1, scuro = true },
+			{ texture = VORTICE, colori = { hex("#C040FF"), hex("#5A10C0") }, rate = 3, misura = 7, durata = 2.4, su = 0, cuore = true, fisso = true, cresce = true, luminosa = 1, velocita = { 0, 0 }, giro = { 90, 130 }, z = -2.5, trasparenza = 0 },
+			{ texture = SCINTILLE, colori = { hex("#FFB0FF"), hex("#C040FF") }, rate = 14, misura = 0.5, durata = 1.4, su = 2.5 },
+		},
+	},
+	AuraCeleste = {
+		globo = { hex("#5CC8FF"), hex("#FF8AD8") },
+		luce = hex("#B0A0FF"),
+		luminosita = 0.6,
+		contorno = hex("#C8B8FF"),
+		vivo = { tipo = "ciclo", colori = { "#5CC8FF", "#C77DFF", "#FF8AD8" }, periodo = 3.5 },
+		sfere = { n = 4, raggio = 2.1, misura = 0.4, colore = hex("#C8B8FF") },
+		emettitori = {
+			{ texture = FUMO, colori = { hex("#FFFFFF"), hex("#DCD0FF") }, rate = 22, misura = 2.6, durata = 1.6, su = 1.2, fisso = true, luminosa = 0.3, luce = 0, velocita = { 0.4, 1.2 }, trasparenza = 0.72, scuro = true },
+			{ texture = FUOCO, colori = { hex("#B8C8FF"), hex("#8A70FF") }, rate = 26, misura = 2, durata = 0.9, su = 6, fisso = true, luminosa = 1, velocita = { 1, 2 }, apertura = 25, trasparenza = 0.35 },
+			{ texture = SCINTILLE, colori = { hex("#FFFFFF"), hex("#B8A8FF") }, rate = 9, misura = 1.3, durata = 1.1, su = 0.5, fisso = true, velocita = { 0.1, 0.5 }, z = 1.5 },
+			{ texture = VORTICE, colori = { hex("#C8B8FF"), hex("#8A70FF") }, rate = 3, misura = 6.5, durata = 2.4, su = 0, cuore = true, fisso = true, cresce = true, luminosa = 1, velocita = { 0, 0 }, giro = { 40, 70 }, z = -2.5, trasparenza = 0.1 },
+		},
+	},
+	AuraPrisma = {
+		globo = { hex("#FF4A6A"), hex("#5CE1FF") },
+		luce = hex("#FFFFFF"),
+		luminosita = 0.7,
+		contorno = hex("#FFFFFF"),
+		vivo = { tipo = "ciclo", colori = { "#FF4A4A", "#FFB020", "#FFE83F", "#4AE86A", "#3FA8FF", "#B45CFF" }, periodo = 3 },
+		sfere = { n = 6, raggio = 2.3, misura = 0.6, colore = hex("#FFFFFF") },
+		emettitori = {
+			{ texture = FUOCO, colori = { hex("#FFFFFF"), hex("#FFFFFF") }, rate = 45, misura = 2.3, durata = 0.85, su = 8, fisso = true, luminosa = 1, velocita = { 1, 3 }, apertura = 25, trasparenza = 0.15, z = 0.5 },
+			{ texture = SCINTILLE, colori = { hex("#FFFFFF"), hex("#FFFFFF") }, rate = 20, misura = 0.7, durata = 1.5, su = 2.5 },
+			{ texture = VORTICE, colori = { hex("#FFFFFF"), hex("#FFFFFF") }, rate = 3, misura = 7, durata = 2.4, su = 0, cuore = true, fisso = true, cresce = true, luminosa = 1, velocita = { 0, 0 }, giro = { 70, 110 }, z = -2.5, trasparenza = 0 },
+			{ texture = SCINTILLE, colori = { hex("#FFFFFF"), hex("#FFFFFF") }, rate = 10, misura = 0.4, durata = 2, su = 1.2, piedi = true },
 		},
 	},
 }
@@ -556,6 +629,8 @@ local function emettitoriAura(aura, altezza)
 	local blocco = invisibile("Aura", Vector3.new(2.6, altezza, 2.2))
 	local piedi = invisibile("AuraPiedi", Vector3.new(3, 0.2, 3))
 	piedi.Parent = blocco
+	local cuore = invisibile("AuraCuore", Vector3.new(0.3, 0.3, 0.3))
+	cuore.Parent = blocco
 	for _, e in ipairs(aura.emettitori) do
 		local emettitore = Instance.new("ParticleEmitter")
 		emettitore.Texture = e.texture
@@ -565,11 +640,12 @@ local function emettitoriAura(aura, altezza)
 		local misura = scintille and e.misura * 1.6 or e.misura
 		emettitore.Rate = scintille and e.rate * 2.2 or e.rate
 		emettitore.Lifetime = NumberRange.new(e.durata * 0.7, e.durata)
-		emettitore.Size = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, misura * 0.6),
-			NumberSequenceKeypoint.new(0.3, misura),
-			NumberSequenceKeypoint.new(1, 0),
-		})
+		emettitore.Size = e.cresce and NumberSequence.new(misura * 0.5, misura)
+			or NumberSequence.new({
+				NumberSequenceKeypoint.new(0, misura * 0.6),
+				NumberSequenceKeypoint.new(0.3, misura),
+				NumberSequenceKeypoint.new(1, 0),
+			})
 		local t = e.trasparenza or 0.1
 		emettitore.Transparency = NumberSequence.new({
 			NumberSequenceKeypoint.new(0, 1),
@@ -580,7 +656,12 @@ local function emettitoriAura(aura, altezza)
 		emettitore.LightEmission = e.luminosa or (e.texture == FUMO and 0 or 1)
 		emettitore.LightInfluence = e.luce or (e.texture == FUMO and 1 or 0)
 		emettitore.Rotation = NumberRange.new(0, 360)
-		emettitore.RotSpeed = NumberRange.new(-60, 60)
+		emettitore.RotSpeed = e.giro and NumberRange.new(e.giro[1], e.giro[2]) or NumberRange.new(-60, 60)
+		emettitore.LockedToPart = e.fisso == true
+		emettitore.ZOffset = e.z or 0
+		if e.scuro then
+			emettitore:SetAttribute("VivoNo", true)
+		end
 		emettitore.Acceleration = Vector3.new(0, e.su, 0)
 		local v = e.velocita or (e.veloce and { 2, 4 }) or { 0.2, 0.8 }
 		emettitore.Speed = NumberRange.new(v[1], v[2])
@@ -589,13 +670,13 @@ local function emettitoriAura(aura, altezza)
 		-- Dai piedi escono dal blocco piatto a terra; le altre da tutto il corpo.
 		emettitore.Shape = Enum.ParticleEmitterShape.Box
 		emettitore.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-		emettitore.Parent = e.piedi and piedi or blocco
+		emettitore.Parent = (e.cuore and cuore) or (e.piedi and piedi) or blocco
 	end
 	if aura.luce then
 		local luce = Instance.new("PointLight")
 		luce.Color = aura.luce
-		luce.Brightness = 0.6
-		luce.Range = 7
+		luce.Brightness = aura.luminosita or 0.6
+		luce.Range = aura.luminosita and 12 or 7
 		luce.Shadows = false
 		luce.Parent = blocco
 	end
@@ -651,6 +732,41 @@ local EFFETTI_MESH = {
 	AliFenice = { colore = "FiammaNeon", luce = hex("#FF8A2A"), particelle = { "rbxasset://textures/particles/fire_main.dds", hex("#FFD040"), hex("#FF2A6A"), 22, 0.9, 0.8, 2 } },
 }
 
+-- Cosmetici animati e multicolori (Mattia, 10/11/2026): le parti di quel colore cambiano tinta nel tempo.
+-- tipo "ciclo" = passano da un colore all'altro in giro (multicolore), "pulsa" = vanno e vengono tra due colori;
+-- periodo = secondi di un giro; sfasa = ogni parte è un po' più avanti della precedente nel giro, così nello
+-- stesso momento le parti hanno colori diversi. Le anima ogni client (Client/CosmeticiVivi) dal tag e dagli
+-- attributi messi qui: vale addosso ai giocatori e nelle anteprime delle finestre.
+local TAG_VIVO = "CosmeticoVivo"
+local VIVI = {
+	VisorePlasma = { NeonCiano = { tipo = "ciclo", colori = { "#36E8FF", "#7A5CFF", "#FF3FD0" }, periodo = 4 } },
+	EsoArmatura = {
+		NeonCiano = { tipo = "pulsa", colori = { "#36E8FF", "#0E5C8A" }, periodo = 2.2, sfasa = 0.15 },
+		NeonMagenta = { tipo = "pulsa", colori = { "#FF3FD0", "#7A1470" }, periodo = 2.2, sfasa = 0.15 },
+	},
+	AliFenice = {
+		FiammaNeon = { tipo = "ciclo", colori = { "#FF7A1A", "#FFC23F", "#FF2A6A" }, periodo = 3, sfasa = 0.12 },
+		FiammaGialla = { tipo = "ciclo", colori = { "#FFC23F", "#FF2A6A", "#FF7A1A" }, periodo = 3, sfasa = 0.12 },
+	},
+	SpadaFiamme = {
+		FiammaNeon = { tipo = "pulsa", colori = { "#FF7A1A", "#FFD23F" }, periodo = 0.9, sfasa = 0.2 },
+		FiammaGialla = { tipo = "pulsa", colori = { "#FFC23F", "#FF5A10" }, periodo = 0.9, sfasa = 0.2 },
+	},
+	CorazzaBrace = { BraceNeon = { tipo = "pulsa", colori = { "#FF6A1A", "#8A1E08" }, periodo = 2.6, sfasa = 0.1 } },
+	Corona = {
+		Rubino = { tipo = "ciclo", colori = { "#B3182E", "#C77DFF", "#1F5FB8", "#2FB86A" }, periodo = 6 },
+		Zaffiro = { tipo = "ciclo", colori = { "#1F5FB8", "#2FB86A", "#B3182E", "#C77DFF" }, periodo = 6 },
+	},
+}
+
+local function rendiVivo(oggetto, vivo, indice)
+	oggetto:SetAttribute("VivoTipo", vivo.tipo)
+	oggetto:SetAttribute("VivoColori", table.concat(vivo.colori, ","))
+	oggetto:SetAttribute("VivoPeriodo", vivo.periodo or 3)
+	oggetto:SetAttribute("VivoFase", (vivo.sfasa or 0) * (indice or 0))
+	game:GetService("CollectionService"):AddTag(oggetto, TAG_VIVO)
+end
+
 -- Texture che hanno già il loro colore (la parte resta SmoothPlastic sotto): ciocche del crine e pelo d'ermellino.
 local TEXTURE_MESH = {
 	Crine = "rbxassetid://76896273696498",
@@ -694,9 +810,14 @@ local function daBlender(id)
 	end
 	local superfici = cartella:FindFirstChild("_Superfici")
 	local modello = stampo:Clone()
+	local vivi, contaVivi = VIVI[id], 0
 	for _, p in ipairs(modello:GetDescendants()) do
 		if p:IsA("MeshPart") then
 			local colore, fascia = string.match(p.Name, "^[^_]+_([^_]+)_?F?(%d*)$")
+			if vivi and vivi[colore or ""] then
+				rendiVivo(p, vivi[colore], contaVivi)
+				contaVivi += 1
+			end
 			local aspetto = COLORI_MESH[colore or ""]
 			if aspetto then
 				p.Color = aspetto[1]
@@ -864,16 +985,57 @@ function Cosmetici3D.indossa(personaggio, id, slot)
 		local modello = Instance.new("Model")
 		modello.Name = id
 		local blocco = emettitoriAura(aura, altezza)
+		if aura.vivo then
+			rendiVivo(blocco, aura.vivo)
+		end
 		-- Il centro del blocco sta a metà tra i piedi e la cima della testa.
 		local piediY = -(radice.Size.Y / 2 + anca)
 		blocco.CFrame = radice.CFrame * CFrame.new(0, piediY + altezza / 2, 0)
 		local piedi = blocco.AuraPiedi
 		piedi.CFrame = radice.CFrame * CFrame.new(0, piediY + 0.15, 0)
-		for _, p in ipairs({ blocco, piedi }) do
+		local cuore = blocco.AuraCuore
+		cuore.CFrame = radice.CFrame
+		if aura.contorno then
+			-- Profilo luminoso attorno a tutto il personaggio.
+			local profilo = Instance.new("Highlight")
+			profilo.Name = "Profilo"
+			profilo.FillTransparency = 1
+			profilo.OutlineColor = aura.contorno
+			profilo.OutlineTransparency = 0.15
+			profilo.DepthMode = Enum.HighlightDepthMode.Occluded
+			profilo.Adornee = personaggio
+			profilo.Parent = blocco
+		end
+		for _, p in ipairs({ blocco, piedi, cuore }) do
 			local saldatura = Instance.new("WeldConstraint")
 			saldatura.Part0 = radice
 			saldatura.Part1 = p
 			saldatura.Parent = p
+		end
+		if aura.sfere then
+			local s = aura.sfere
+			for i = 1, s.n do
+				local a = i / s.n * math.pi * 2 + 0.4
+				-- Altezze sparse: una su, una giù, a zig-zag lungo il corpo.
+				local y = ((i * 0.618) % 1 - 0.5) * altezza * 0.6
+				local sfera = invisibile("Sfera", Vector3.one * s.misura)
+				sfera.Shape = Enum.PartType.Ball
+				sfera.Transparency = 0
+				sfera.Material = Enum.Material.Neon
+				sfera.Color = s.colore
+				sfera.CFrame = blocco.CFrame * CFrame.new(math.cos(a) * s.raggio, y, math.sin(a) * s.raggio)
+				local luce = Instance.new("PointLight")
+				luce.Color = s.colore
+				luce.Range = 6
+				luce.Brightness = 1.5
+				luce.Shadows = false
+				luce.Parent = sfera
+				local saldatura = Instance.new("WeldConstraint")
+				saldatura.Part0 = radice
+				saldatura.Part1 = sfera
+				saldatura.Parent = sfera
+				sfera.Parent = blocco
+			end
 		end
 		blocco.Parent = modello
 		modello.Parent = personaggio

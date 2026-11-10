@@ -15,6 +15,7 @@ local Carte = require(ReplicatedStorage.Shared.Config.Carte)
 local Epoche = require(ReplicatedStorage.Shared.Config.Epoche)
 local Config = require(ReplicatedStorage.Shared.Config.Ricompense)
 local Stile = require(script.Parent.Stile)
+local TitoloVivo = require(script.Parent.TitoloVivo)
 local Icone = require(script.Parent.Icone)
 local Notifiche = require(script.Parent.Notifiche)
 local Armadio = require(script.Parent.Armadio)
@@ -511,6 +512,7 @@ local function titoli(ordine)
 		})
 		nome.TextScaled = true
 		Stile.crea("UITextSizeConstraint", { MaxTextSize = 46, Parent = nome })
+		TitoloVivo.applica(nome, t)
 		Stile.chip({
 			Position = UDim2.fromOffset(122, 80),
 			Size = UDim2.fromOffset(170, 36),

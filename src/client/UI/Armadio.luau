@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 local Config = require(ReplicatedStorage.Shared.Config.Ricompense)
 local Cosmetici3D = require(ReplicatedStorage.Shared.Cosmetici3D)
 local Stile = require(script.Parent.Stile)
+local TitoloVivo = require(script.Parent.TitoloVivo)
 local Notifiche = require(script.Parent.Notifiche)
 local Preferiti = require(script.Parent.Preferiti)
 
@@ -555,6 +556,8 @@ local function rigaTitolo(oggetto, ordine)
 	})
 	titolo.TextScaled = true
 	Stile.crea("UITextSizeConstraint", { MaxTextSize = 40, Parent = titolo })
+	-- I titoli animati o multicolori si vedono così anche da bloccati: fanno venire voglia di averli.
+	TitoloVivo.applica(titolo, oggetto)
 	Stile.chip({
 		Position = UDim2.fromOffset(36, 70),
 		Size = UDim2.fromOffset(130, 30),
@@ -599,6 +602,7 @@ local function disegnaTitoli()
 	local scelto = Config.titolo(stato and stato.titolo or Config.TITOLO_INIZIALE) or Config.titolo(Config.TITOLO_INIZIALE)
 	targhettaTitolo.Text = "« " .. string.upper(scelto.nome) .. " »"
 	targhettaTitolo.TextColor3 = Color3.fromHex(Config.Rarita[scelto.rarita].colore)
+	TitoloVivo.applica(targhettaTitolo, scelto)
 	testoTitoloScelto.Text = "Everyone in the lobby sees your title above your head."
 end
 
@@ -1335,6 +1339,7 @@ function Armadio.festeggia()
 		})
 		scritta.TextScaled = true
 		Stile.crea("UITextSizeConstraint", { MaxTextSize = 60, Parent = scritta })
+		TitoloVivo.applica(scritta, oggetto)
 	end
 	if voce.tipo == "cosmetico" then
 		local nome = Stile.scritta({

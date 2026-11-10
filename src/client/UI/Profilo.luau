@@ -9,6 +9,7 @@ local Campagna = require(ReplicatedStorage.Shared.Config.Campagna)
 local Progressi = require(ReplicatedStorage.Shared.Config.Progressi)
 local Ricompense = require(ReplicatedStorage.Shared.Config.Ricompense)
 local Stile = require(script.Parent.Stile)
+local TitoloVivo = require(script.Parent.TitoloVivo)
 
 local Profilo = {}
 
@@ -206,6 +207,7 @@ local function disegna()
 	local titolo = Ricompense.titolo(stato.titolo or Ricompense.TITOLO_INIZIALE) or Ricompense.titolo(Ricompense.TITOLO_INIZIALE)
 	testoTitolo.Text = "« " .. string.upper(titolo.nome) .. " »"
 	testoTitolo.TextColor3 = Color3.fromHex(Ricompense.Rarita[titolo.rarita].colore)
+	TitoloVivo.applica(testoTitolo, titolo)
 	local totale = stato.totale or Campagna.TOTALE
 	local fatta = campagnaFatta(stato, stato.statistiche)
 	testoCampagna.Text = ("%d / %d"):format(fatta, totale)

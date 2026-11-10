@@ -8,8 +8,9 @@
 -- alto). Al secondo il server manda tutto con le squadre scambiate: il suo client lo disegna come "giocatore"
 -- (colori, carte, clic sui soldati) e gira solo la telecamera (girato = true). Le coordinate restano quelle vere.
 --
--- In Studio (modalità prova), da soli in coda per qualche secondo, si gioca contro un avversario finto (bot)
--- per collaudare.
+-- Bot (Mattia, 10/11/2026): chi resta da solo in coda per ATTESA_BOT secondi gioca contro un avversario finto,
+-- così le ranked si possono provare anche a server vuoto. Il bot ha un esercito pari a quello del giocatore
+-- (stesse epoche, stessi comandanti), si chiama "Bot ..." e vale meno punti (Config/Gradi).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -35,7 +36,9 @@ local TEMPO_SCHIERAMENTO_DOPO = 25 -- ai round successivi
 local PAUSA_TRA_ROUND = 3.5
 local TICK = 0.1
 local VELOCITA_BATTAGLIA = 0.75
-local ATTESA_BOT = 6 -- secondi da soli in coda prima del bot (solo in Studio)
+local ATTESA_BOT = Prova and 6 or 12 -- secondi da soli in coda prima del bot
+local NOMI_BOT = { "Bot Brutus", "Bot Leonidas", "Bot Attila", "Bot Ragnar", "Bot Spartacus", "Bot Hannibal", "Bot Roland", "Bot Murat", "Bot Patton", "Bot Boudica" }
+local DISTANZA_CARICA_BOT = 2.6 -- caselle dal nemico più vicino a cui il bot ordina la carica
 local CASSA_VITTORIA = "CassaPiccola"
 local DURATA_FINALE = 4 -- secondi di animazione del vincitore
 
@@ -286,6 +289,25 @@ local function suoReggimento(lato, id)
 	return typeof(id) == "number" and id > base and id < base + 100
 end
 
+-- true se un soldato della squadra ha un nemico entro "caselle".
+local function nemicoVicino(battaglia, squadra, caselle)
+	local miei, loro = {}, {}
+	for _, s in ipairs(battaglia.soldati) do
+		if s.vivo then
+			table.insert(s.squadra == squadra and miei or loro, s)
+		end
+	end
+	local limite = caselle * caselle
+	for _, a in ipairs(miei) do
+		for _, b in ipairs(loro) do
+			if (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2 <= limite then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 local function combattiRound(partita)
 	local reggimenti = {}
 	local perLato = {}
@@ -347,7 +369,7 @@ local function combattiRound(partita)
 		return nil
 	end
 	partita.battaglia = battaglia
-	local abilitaBot = false
+	local abilitaBot, caricaBot = false, false
 	while partita.attiva and not battaglia.finita and not partita.vinciSubito do
 		-- Il bot usa le abilità dei suoi comandanti quando gli eserciti si avvicinano.
 		if not abilitaBot and battaglia.tempo >= 6 then
@@ -357,6 +379,15 @@ local function combattiRound(partita)
 					for _, r in ipairs(perLato[lato]) do
 						battaglia:attivaAbilita(r.id)
 					end
+				end
+			end
+		end
+		-- E ordina la carica a tutte le ali quando i due eserciti stanno per toccarsi.
+		if not caricaBot and battaglia.tempo >= 2 then
+			for _, lato in ipairs(partita.lati) do
+				if lato.bot and nemicoVicino(battaglia, lato.squadra, DISTANZA_CARICA_BOT) then
+					caricaBot = true
+					battaglia:ordine(lato.squadra, "carica", true)
 				end
 			end
 		end
@@ -387,6 +418,8 @@ local function fine(partita, vincitore, ritirato)
 	partita.attiva = false
 	local perdente = avversarioDi(partita, vincitore)
 	-- Punti ranked (Config/Gradi): +30 a chi vince, -20 a chi perde (mai sotto 0), anche settimanali.
+	-- Contro un bot valgono meno (PUNTI_VITTORIA_BOT, PUNTI_SCONFITTA_BOT).
+	local controBot = vincitore.bot or perdente.bot
 	local settimana = Gradi.settimana()
 	local function punti(l, vinto)
 		if l.bot or not Dati.ottieni(l.player) then
@@ -399,7 +432,8 @@ local function fine(partita, vincitore, ritirato)
 				r.settimana = settimana
 				r.puntiSettimana = 0
 			end
-			local cambio = vinto and Gradi.PUNTI_VITTORIA or -Gradi.PUNTI_SCONFITTA
+			local cambio = vinto and (controBot and Gradi.PUNTI_VITTORIA_BOT or Gradi.PUNTI_VITTORIA)
+				or -(controBot and Gradi.PUNTI_SCONFITTA_BOT or Gradi.PUNTI_SCONFITTA)
 			r.punti = math.max(0, r.punti + cambio)
 			r.puntiSettimana = math.max(0, r.puntiSettimana + cambio)
 			if vinto then
@@ -536,17 +570,44 @@ local function lato(player, squadra)
 	}
 end
 
--- Avversario finto per collaudare in Studio: carte a caso fra tutte, niente comandanti.
-local function latoBot(squadra)
-	local tutte = {}
+-- Avversario finto: un esercito pari a quello del giocatore. Per ogni carta del suo mazzo il bot ne prende una
+-- a caso della stessa epoca e dello stesso genere (reggimento o comandante, mai due volte lo stesso comandante).
+local function latoBot(squadra, avversario)
+	local perGenere = {} -- "epoca|comandante" -> { tipo }
 	for _, tipo in ipairs(Epoche.carte()) do
-		if not Epoche.Truppe[tipo].comandante then
-			table.insert(tutte, tipo)
+		local def = Epoche.Truppe[tipo]
+		local chiave = tostring(def.epoca) .. "|" .. tostring(def.comandante == true)
+		perGenere[chiave] = perGenere[chiave] or {}
+		table.insert(perGenere[chiave], tipo)
+	end
+	local mazzo, presi = {}, {}
+	for _, tipo in ipairs(avversario.mazzo) do
+		local def = Epoche.Truppe[tipo]
+		local scelta = tipo
+		if def then
+			local simili = perGenere[tostring(def.epoca) .. "|" .. tostring(def.comandante == true)]
+			for _ = 1, 8 do
+				local prova = simili[math.random(#simili)]
+				if not (def.comandante and presi[prova]) then
+					scelta = prova
+					break
+				end
+			end
+			if def.comandante and presi[scelta] then
+				scelta = nil -- nessun altro comandante libero: una carta in meno
+			end
+		end
+		if scelta and #mazzo < maxReggimenti() then
+			presi[scelta] = true
+			table.insert(mazzo, scelta)
 		end
 	end
-	local mazzo = {}
-	for _ = 1, maxReggimenti() do
-		table.insert(mazzo, tutte[math.random(#tutte)])
+	local formazioni = {}
+	local dati = Dati.ottieni(avversario.player)
+	for _, f in ipairs(Formazioni.Lista) do
+		if Formazioni.sbloccata(f.id, dati and dati.livello) then
+			table.insert(formazioni, f.id)
+		end
 	end
 	local scelte = {}
 	for i = 1, #mazzo do
@@ -554,11 +615,11 @@ local function latoBot(squadra)
 	end
 	return {
 		bot = true,
-		nome = "Training Dummy",
+		nome = NOMI_BOT[math.random(#NOMI_BOT)],
 		squadra = squadra,
 		mazzo = mazzo,
 		scelte = scelte,
-		formazione = Formazioni.PREDEFINITA,
+		formazione = #formazioni > 0 and formazioni[math.random(#formazioni)] or Formazioni.PREDEFINITA,
 		piazzate = {},
 		punti = 0,
 	}
@@ -574,8 +635,9 @@ local function crea(a, b)
 		fase = "costruzione",
 		livello = livello,
 		round = 1,
-		lati = { lato(a, "giocatore"), b and lato(b, "nemico") or latoBot("nemico") },
+		lati = { lato(a, "giocatore") },
 	}
+	partita.lati[2] = b and lato(b, "nemico") or latoBot("nemico", partita.lati[1])
 	for _, l in ipairs(partita.lati) do
 		if not l.bot then
 			partite[l.player] = partita
@@ -673,15 +735,17 @@ function Ranked.richiesta(player, soloEntra)
 	codaDal[player] = os.clock()
 	notifica(player, "Searching for an opponent... (press RANKED again to cancel)")
 	abbina()
-	if Prova then
-		task.delay(ATTESA_BOT, function()
-			if codaDal[player] and table.find(coda, player) and os.clock() - codaDal[player] >= ATTESA_BOT - 0.1 then
-				togliDallaCoda(player)
-				notifica(player, "Studio test: no opponent found, you face a training dummy.")
-				task.spawn(crea, player, nil)
+	-- Da solo in coda troppo a lungo: gioca contro un bot.
+	task.delay(ATTESA_BOT, function()
+		if codaDal[player] and table.find(coda, player) and os.clock() - codaDal[player] >= ATTESA_BOT - 0.1 then
+			togliDallaCoda(player)
+			if not player.Parent or partite[player] or (occupato and occupato(player)) or not Dati.ottieni(player) then
+				return
 			end
-		end)
-	end
+			notifica(player, "No players in queue right now: you will face a bot.")
+			task.spawn(crea, player, nil)
+		end
+	end)
 	return true
 end
 
