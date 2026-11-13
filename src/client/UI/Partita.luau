@@ -75,6 +75,19 @@ local NOMI_ALA = { sinistra = "LEFT", centro = "CENTER", destra = "RIGHT" }
 local alaScelta = nil
 local ordiniAli = {} -- ala -> ordine in corso
 local caricheAli = {} -- ala -> true se ha già caricato in questo round
+-- Barra CHARGE (13/11/2026): la carica si suona quando è piena, poi si riempie di nuovo (Battaglia.RICARICA_CARICA).
+-- Il valore (0-1) arriva dal server con ogni "passo". Pulsante grande CHARGE! in basso a destra.
+-- Barra "tiro alla fune" in alto (YOU blu contro ENEMY rossa), timer del round e "+N%" dopo un ordine efficace.
+-- Tutto in una tabella sola: il modulo era già al limite di 200 variabili locali di Luau.
+local cb = {
+	barraCarica = 1,
+	bottoneCarica = nil, riempimentoCarica = nil, adessoCarica = nil, -- pulsante grande CHARGE!
+	barraBattaglia = nil, bluBattaglia = nil, spadeBattaglia = nil, nomeAvversarioBarra = nil, piuBattaglia = nil,
+	quotaBattaglia = 0.5, -- parte di forza del giocatore, lisciata (0-1)
+	quotaVera = nil, -- la stessa senza lisciatura (per il "+N%")
+	numeroBattaglia = 0, -- cresce a ogni round
+	restaRound = nil, -- secondi veri che mancano alla fine del round (dal server)
+}
 local alaDi = {} -- id del proprio reggimento -> ala
 local bottoniAla = {} -- ala (o "tutte") -> pulsante
 -- Riserva: carte rimaste in mano che si schierano a battaglia iniziata, cliccando la carta e poi il campo.
@@ -201,6 +214,11 @@ local function aggiornaSuggerimento(momento)
 			nomeTasto(Enum.KeyCode.ButtonX), nomeTasto(Enum.KeyCode.ButtonB), nomeTasto(Enum.KeyCode.ButtonY))
 			or Stile.touch() and "TAP A CARD TO DEPLOY OR RECALL IT"
 			or "CLICK A CARD TO DEPLOY OR RECALL IT"
+	elseif info and info.tutorial then
+		-- Primo round snello (13/11/2026): nel tutorial c'è solo il pulsante CHARGE!, senza ali né ordini.
+		suggerimento.Text = Stile.gamepad() and ("%s CHARGE!  ·  %s RESERVE"):format(nomeTasto(Enum.KeyCode.ButtonY), nomeTasto(Enum.KeyCode.ButtonA))
+			or Stile.touch() and "TAP CHARGE! WHEN NOW! LIGHTS UP"
+			or "5 OR CLICK CHARGE! WHEN NOW! LIGHTS UP"
 	elseif Stile.gamepad() then
 		suggerimento.Text = ("%s REGIMENT  ·  %s ABILITY  ·  %s RESERVE  ·  D-PAD/%s ORDERS  ·  L2/R2 WING  ·  L1/R1 TARGET"):format(
 			nomeTasto(Enum.KeyCode.ButtonX), nomeTasto(Enum.KeyCode.ButtonB), nomeTasto(Enum.KeyCode.ButtonA), nomeTasto(Enum.KeyCode.ButtonY))
@@ -269,15 +287,33 @@ local function colpoCamera()
 	stringi:Play()
 end
 
--- Il messaggio sotto il tabellone scende quando si vede la pillola rossa del conto alla rovescia.
+-- Il messaggio sotto il tabellone scende quando si vede la pillola rossa del conto alla rovescia (o, in
+-- battaglia, la barra YOU / ENEMY, che sta sulla stessa riga della pillola).
 local function posizionaAvviso()
-	avviso.Position = UDim2.new(0.5, 0, 0, timer.Visible and 214 or 146)
+	local sotto = timer.Visible or (cb.barraBattaglia ~= nil and cb.barraBattaglia.Visible)
+	avviso.Position = UDim2.new(0.5, 0, 0, sotto and 214 or 146)
+	-- In battaglia la pillola si sposta a sinistra della barra; nello schieramento torna al centro.
+	timer.Position = (cb.barraBattaglia ~= nil and cb.barraBattaglia.Visible) and UDim2.new(0.5, -328, 0, 146) or UDim2.new(0.5, 0, 0, 146)
 end
 
 local function mostraTimer(testo)
 	timer.Visible = testo ~= nil
 	if testo then
 		timer:FindFirstChild("Testo").Text = testo
+	end
+	posizionaAvviso()
+end
+
+-- Pulsante grande CHARGE! e barra YOU / ENEMY: si vedono solo in battaglia (13/11/2026).
+function cb.mostraComandiBattaglia(visibile)
+	if cb.bottoneCarica then
+		cb.bottoneCarica.Visible = visibile
+	end
+	if cb.barraBattaglia then
+		cb.barraBattaglia.Visible = visibile
+	end
+	if cb.piuBattaglia then
+		cb.piuBattaglia.Visible = false
 	end
 	posizionaAvviso()
 end
@@ -664,6 +700,11 @@ local function entraPiazzamento(dati)
 	if dati.tutorial and dati.round == 1 and not Tutorial.attivo() then
 		Tutorial.avvia()
 	end
+	-- Primo livello 2 (13/11/2026): la barra Orders appare per la prima volta, con il suo riquadro "NEW! ORDERS".
+	if dati.tutorialOrdini and dati.round == 1 and not Tutorial.attivo() then
+		Tutorial.avvia("ordini")
+	end
+	cb.mostraComandiBattaglia(false)
 	Tutorial.evento("piazzamento")
 end
 
@@ -962,7 +1003,8 @@ local SPIEGAZIONE_ORDINI = {
 	tieni = "Your line stands firm and fights only who comes close.",
 	ripiega = "Your army falls back in good order, then holds the new line.",
 	fianchi = "The cavalry rides around the wings to hit the enemy archers, the rest holds.",
-	carica = "They charge faster and the cavalry charges again. Once per round for each wing!",
+	-- Prima: "Once per round for each wing!". Dal 13/11/2026 la carica torna ogni volta che la barra è piena.
+	carica = "They charge faster and the cavalry charges again. When the CHARGE bar is full!",
 }
 
 -- Ordine in corso dell'ala scelta (con tutta l'armata: quello comune alle ali, o nil se sono diversi).
@@ -981,19 +1023,10 @@ end
 
 -- Pannello ORDERS: in alto l'ala scelta (oro) con l'ordine di ogni ala; sotto, oro l'ordine in corso
 -- dell'ala scelta e grigia la carica se quell'ala (o, con tutta l'armata, ogni ala) l'ha già suonata.
+-- Dal 13/11/2026 la carica è grigia mentre la barra CHARGE si riempie (cb.barraCarica < 1).
 local function aggiornaOrdini()
 	local attuale = ordineScelto()
-	local caricato
-	if alaScelta then
-		caricato = caricheAli[alaScelta] == true
-	else
-		caricato = true
-		for _, ala in ipairs(Battaglia.ALI) do
-			if not caricheAli[ala] then
-				caricato = false
-			end
-		end
-	end
+	local caricato = cb.barraCarica < 1
 	for nome, bottone in pairs(bottoniOrdine) do
 		local finita = nome == "carica" and caricato and attuale ~= "carica"
 		Stile.coloraPulsante(bottone, nome == attuale and "oro" or (finita and "grigio" or "blu"))
@@ -1257,13 +1290,17 @@ end
 -- toccarsi, con "NOW!" acceso sul pulsante) e la rotta di ogni reggimento nemico distrutto ("ROUTED!").
 
 -- La carica si può ancora suonare (dall'ala scelta, o da almeno un'ala con reggimenti)?
+-- Dal 13/11/2026 serve la barra CHARGE piena (prima: l'ala non doveva aver già caricato in questo round).
 local function caricaDisponibile()
+	if cb.barraCarica < 1 then
+		return false
+	end
 	local conTruppe = {}
 	for _, ala in pairs(alaDi) do
 		conTruppe[ala] = true
 	end
 	for _, ala in ipairs(Battaglia.ALI) do
-		if (alaScelta == nil or ala == alaScelta) and conTruppe[ala] and not caricheAli[ala] then
+		if (alaScelta == nil or ala == alaScelta) and conTruppe[ala] then
 			return true
 		end
 	end
@@ -1346,11 +1383,52 @@ local function daiOrdine(nome)
 		end
 		if nome == "carica" then
 			colpoCamera()
+			-- La barra si svuota subito (il server lo conferma col passo dopo): niente NOW! per un attimo in più.
+			cb.barraCarica = 0
 		end
 		if perfetta then
 			caricaPerfetta()
 		end
 		pop(avviso, 0.75, 0.25)
+		-- "+N%" (13/11/2026): se dopo l'ordine la barra YOU / ENEMY si sposta verso il blu, si vede di quanto.
+		-- Si guarda la quota vera (non lisciata) dopo 2,5 s e, se ancora non basta, dopo 4 s: nel collaudo una
+		-- carica perfetta spostava la barra di +5% in 4,5 s, ma a 2,5 s spesso non arrivava ancora al 3%.
+		local quotaAllOrdine = cb.quotaVera or cb.quotaBattaglia
+		local battagliaOrdine = cb.numeroBattaglia
+		task.spawn(function()
+			local guadagno = 0
+			for _, attesa in ipairs({ 2.5, 1.5 }) do
+				task.wait(attesa)
+				if fase ~= "battaglia" or cb.numeroBattaglia ~= battagliaOrdine then
+					return
+				end
+				guadagno = (cb.quotaVera or cb.quotaBattaglia) - quotaAllOrdine
+				if guadagno >= 0.03 then
+					break
+				end
+			end
+			if fase == "battaglia" and cb.piuBattaglia and guadagno >= 0.03 then
+				cb.piuBattaglia.Text = ("+%d%%"):format(math.floor(guadagno * 100 + 0.5))
+				cb.piuBattaglia.TextTransparency = 0
+				local contorno = cb.piuBattaglia:FindFirstChild("Contorno")
+				if contorno then
+					contorno.Transparency = 0
+				end
+				cb.piuBattaglia.Visible = true
+				pop(cb.piuBattaglia, 0.3, 0.3)
+				Suoni.ui("ala", 1.5)
+				local versione = (cb.piuBattaglia:GetAttribute("Versione") or 0) + 1
+				cb.piuBattaglia:SetAttribute("Versione", versione)
+				task.delay(1.6, function()
+					if cb.piuBattaglia:GetAttribute("Versione") == versione then
+						TweenService:Create(cb.piuBattaglia, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
+						if contorno then
+							TweenService:Create(contorno, TweenInfo.new(0.4), { Transparency = 1 }):Play()
+						end
+					end
+				end)
+			end
+		end)
 	else
 		Suoni.ui("errore")
 		if messaggio then
@@ -1660,7 +1738,13 @@ local function entraBattaglia(dati)
 	bottoneLobby.Visible = false
 	esploratori.Visible = false
 	pannelloFormazioni.Visible = false
-	pannelloOrdini.Visible = true
+	-- Primo round snello (13/11/2026): nel tutorial niente barra Orders, solo il pulsante grande CHARGE!.
+	-- Con una sola linea le ali non servono comunque (Battaglia:_ala); gli ordini arrivano dal livello 2.
+	pannelloOrdini.Visible = not (info and info.tutorial)
+	cb.barraCarica = Battaglia.CARICA_INIZIALE
+	cb.quotaBattaglia, cb.quotaVera, cb.restaRound = 0.5, nil, nil
+	cb.numeroBattaglia = (cb.numeroBattaglia or 0) + 1 -- un "+N%" di un round vecchio non compare nel nuovo
+	cb.mostraComandiBattaglia(true)
 	aggiornaOrdini()
 	aggiornaPuntamento()
 	miraArmata, mireReparti, repartoScelto = nil, {}, nil
@@ -1676,6 +1760,21 @@ local function entraBattaglia(dati)
 			avviso.Text = "Battle in progress..."
 		end
 	end)
+	-- Timer del round (13/11/2026): finito il conto alla rovescia, la pillola rossa mostra il tempo che resta
+	-- (preciso dal server con ogni "passo", cb.restaRound); negli ultimi 10 secondi pulsa.
+	versioneTimer += 1
+	local versione = versioneTimer
+	local fineRound = os.clock() + (dati.conto or 3) + 0.2 + (dati.durata or Battaglia.DURATA_MASSIMA / 0.75)
+	task.delay((dati.conto or 3) + 0.9, function()
+		local scala = timer:FindFirstChild("Battito") or Stile.crea("UIScale", { Name = "Battito", Parent = timer })
+		while fase == "battaglia" and versione == versioneTimer do
+			local resto = math.max(0, math.ceil(cb.restaRound or (fineRound - os.clock())))
+			mostraTimer(("%d:%02d"):format(resto // 60, resto % 60))
+			scala.Scale = resto <= 10 and (1 + 0.12 * math.abs(math.sin(os.clock() * 6))) or 1
+			task.wait(resto <= 10 and 0.05 or 0.25)
+		end
+		scala.Scale = 1
+	end)
 end
 
 -- Fine di un round: cinematica breve sul campo (Intermezzo) con l'esito e il punteggio, poi il server manda
@@ -1687,6 +1786,7 @@ local function mostraRound(dati)
 	Tutorial.evento("round")
 	mostraPiazzamento(false)
 	pannelloOrdini.Visible = false
+	cb.mostraComandiBattaglia(false)
 	mostraVinci(false)
 	scrittaConto.Visible = false
 	mostraTimer(nil)
@@ -1725,6 +1825,7 @@ local function mostraRisultato(dati)
 		mostraPiazzamento(false)
 		mostraVinci(false)
 		pannelloOrdini.Visible = false
+		cb.mostraComandiBattaglia(false)
 		scrittaConto.Visible = false
 		bannerRound.Visible = false
 		mostraTimer(nil)
@@ -1733,6 +1834,7 @@ local function mostraRisultato(dati)
 		return
 	end
 	fase = "risultato"
+	cb.mostraComandiBattaglia(false)
 	Tutorial.evento("risultato")
 	if dati.vittoria then
 		Suoni.musica("vittoria") -- se suona già dalla cinematica dell'ultimo round, continua
@@ -1871,6 +1973,7 @@ local function esci(ripristinaVista)
 	scrittaConto.Visible = false
 	bannerRound.Visible = false
 	pannelloOrdini.Visible = false
+	cb.mostraComandiBattaglia(false)
 	Intermezzo.ferma()
 	FineRanked.chiudi()
 	ripristinaCielo()
@@ -2390,7 +2493,10 @@ function Partita.inizializza(gui, r, callbackLobby)
 			RunService.RenderStepped:Connect(function()
 				if os.clock() >= prossimoControllo then
 					prossimoControllo = os.clock() + 0.1
-					acceso = fase == "battaglia" and pannelloOrdini.Visible and finestraCarica()
+					-- Dal 13/11/2026 NOW! sta sul pulsante grande CHARGE! (un solo posto da guardare): qui si
+					-- accende solo se quel pulsante non c'è.
+					acceso = fase == "battaglia" and pannelloOrdini.Visible and not (cb.bottoneCarica and cb.bottoneCarica.Visible)
+						and finestraCarica()
 				end
 				acceso = acceso and fase == "battaglia"
 				adesso.Visible = acceso
@@ -2401,6 +2507,213 @@ function Partita.inizializza(gui, r, callbackLobby)
 				end
 			end)
 		end
+	end
+
+	-- ===================================================================== barra CHARGE e barra della battaglia
+	-- (13/11/2026) Il 40% dei giocatori usciva durante il primo round: dopo l'unica carica non c'era più niente da
+	-- fare né da guardare. Ora la carica si ricarica (pulsante grande che si riempie come un liquido, tromba quando
+	-- è pieno) e in alto una barra blu contro rossa fa vedere chi sta vincendo, col tempo che resta.
+
+	-- Pulsante grande rotondo CHARGE! in basso a destra, dove nello schieramento c'è FIGHT! (in battaglia è
+	-- nascosto, e in partita il tasto del salto su touch è spento). Dentro un blocco do: anche inizializza ha
+	-- tante variabili locali.
+	do
+	local LATO_CARICA = 230
+	local etichettaCarica, facciaCarica
+	cb.bottoneCarica, etichettaCarica, facciaCarica = Stile.pulsante({
+		Name = "CaricaGrande",
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -40, 1, -36),
+		Size = UDim2.fromOffset(LATO_CARICA, LATO_CARICA),
+		Visible = false,
+		ZIndex = 6,
+		Parent = tela,
+	}, "grigio", { Testo = "CHARGE!", TestoSize = 50, Profondita = 12, Raggio = LATO_CARICA // 2, Contorno = 6 })
+	-- Il liquido dorato sale dal basso: dentro un CanvasGroup rotondo, che lo taglia a cerchio.
+	local vasca = Stile.crea("CanvasGroup", {
+		Name = "Vasca",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 1,
+		Parent = facciaCarica,
+	}, { Stile.tondo() })
+	cb.riempimentoCarica = Stile.crea("Frame", {
+		Name = "Riempimento",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.fromScale(0, 1),
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Stile.BIANCO,
+		BorderSizePixel = 0,
+		Parent = vasca,
+	}, { Stile.sfumatura(Stile.ACCENTI.oro.t, Stile.ACCENTI.oro.b) })
+	-- Il riflesso va dentro la vasca: largo e basso com'è, fuori dal cerchio si vedevano due "orecchie" grigie.
+	local riflessoCarica = facciaCarica:FindFirstChild("Riflesso")
+	if riflessoCarica then
+		riflessoCarica.ZIndex = 2
+		riflessoCarica.Parent = vasca
+	end
+	etichettaCarica.ZIndex = 4
+	etichettaCarica.AnchorPoint = Vector2.new(0.5, 0.5)
+	etichettaCarica.Position = UDim2.fromScale(0.5, 0.5)
+	etichettaCarica.Size = UDim2.new(1, -24, 0, 56)
+	local battitoCarica = cb.bottoneCarica:FindFirstChildOfClass("UIScale")
+	-- "NOW!" a sinistra del pulsante quando è il momento della carica perfetta (finestraCarica). Non sopra: lì
+	-- il tutorial mette la sua freccia con TAP!.
+	cb.adessoCarica = Stile.scritta({
+		Name = "Adesso",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(0, -2, 0.42, 0),
+		Size = UDim2.fromOffset(180, 84),
+		Text = "NOW!",
+		TextSize = 76,
+		TextColor3 = ORO,
+		Visible = false,
+		ZIndex = 8,
+		Parent = cb.bottoneCarica,
+	})
+	local scalaAdesso = Stile.crea("UIScale", { Parent = cb.adessoCarica })
+	cb.bottoneCarica.Activated:Connect(function()
+		if fase ~= "battaglia" then
+			return
+		end
+		if cb.barraCarica < 1 then
+			-- Si sta riempiendo: niente messaggio rosso (un bambino tocca tante volte), solo un "no" leggero.
+			Suoni.ui("errore")
+			avviso.Text = "The CHARGE is refilling..."
+			avviso.TextColor3 = Stile.Colori.Oro
+			return
+		end
+		daiOrdine("carica")
+	end)
+
+	-- Barra YOU / ENEMY in alto, sulla riga della pillola del timer (che in battaglia le sta a sinistra).
+	cb.barraBattaglia = Stile.crea("Frame", {
+		Name = "BarraBattaglia",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 93, 0, 156),
+		Size = UDim2.fromOffset(640, 44),
+		BackgroundColor3 = Stile.BIANCO,
+		Visible = false,
+		ZIndex = 5,
+		Parent = tela,
+	}, { Stile.tondo(), Stile.bordo(Stile.CONTORNO, 5), Stile.sfumatura(Stile.ACCENTI.rosso.t, Stile.ACCENTI.rosso.b) })
+	cb.bluBattaglia = Stile.crea("Frame", {
+		Name = "Blu",
+		Size = UDim2.fromScale(0.5, 1),
+		BackgroundColor3 = Stile.BIANCO,
+		BorderSizePixel = 0,
+		ZIndex = 5,
+		Parent = cb.barraBattaglia,
+	}, { Stile.tondo(), Stile.sfumatura(Stile.ACCENTI.blu.t, Stile.ACCENTI.blu.b) })
+	Stile.scritta({
+		Name = "Tu",
+		Position = UDim2.fromOffset(18, 0),
+		Size = UDim2.new(0.4, 0, 1, 0),
+		Text = "YOU",
+		TextSize = 26,
+		Contorno = 3,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 7,
+		Parent = cb.barraBattaglia,
+	})
+	cb.nomeAvversarioBarra = Stile.scritta({
+		Name = "Nemico",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -18, 0, 0),
+		Size = UDim2.new(0.4, 0, 1, 0),
+		Text = "ENEMY",
+		TextSize = 26,
+		Contorno = 3,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		ZIndex = 7,
+		Parent = cb.barraBattaglia,
+	})
+	-- Spade nel punto d'incontro tra blu e rosso (sotto le scritte YOU / ENEMY, che restano leggibili).
+	cb.spadeBattaglia = Stile.icona("fight", {
+		Name = "Spade",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(64, 64),
+		ZIndex = 6,
+		Parent = cb.barraBattaglia,
+	})
+	-- "+N%" dorato a destra della barra.
+	cb.piuBattaglia = Stile.scritta({
+		Name = "Piu",
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(1, 14, 0.5, 0),
+		Size = UDim2.fromOffset(150, 56),
+		Text = "+0%",
+		TextSize = 48,
+		TextColor3 = ORO,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Visible = false,
+		ZIndex = 8,
+		Parent = cb.barraBattaglia,
+	})
+
+	-- Mentre il dito (o il mouse) tiene premuto il pulsante, il battito non tocca la sua UIScale (la pressione è sua).
+	local premutoCarica, popFino = false, 0
+	cb.bottoneCarica.MouseButton1Down:Connect(function()
+		premutoCarica = true
+	end)
+	cb.bottoneCarica.MouseButton1Up:Connect(function()
+		premutoCarica = false
+	end)
+	cb.bottoneCarica.MouseLeave:Connect(function()
+		premutoCarica = false
+	end)
+
+	-- Ogni frame in battaglia: riempimento e battito del pulsante, NOW!, barra della battaglia (10 volte al secondo).
+	local prossimoAggiornamento, carica, pieno, accesoAdesso = 0, 0, nil, false
+	RunService.RenderStepped:Connect(function(dt)
+		if fase ~= "battaglia" or not cb.bottoneCarica.Visible then
+			pieno = nil
+			return
+		end
+		if os.clock() >= prossimoAggiornamento then
+			prossimoAggiornamento = os.clock() + 0.1
+			accesoAdesso = finestraCarica()
+			local forze = Truppe.forze()
+			local totale = forze.giocatore + forze.nemico
+			if totale > 0 then
+				cb.quotaVera = forze.giocatore / totale
+				cb.quotaBattaglia += (cb.quotaVera - cb.quotaBattaglia) * 0.2
+			end
+			cb.bluBattaglia.Size = UDim2.fromScale(math.clamp(cb.quotaBattaglia, 0.04, 0.96), 1)
+			cb.spadeBattaglia.Position = UDim2.fromScale(math.clamp(cb.quotaBattaglia, 0.04, 0.96), 0.5)
+			cb.nomeAvversarioBarra.Text = info and info.ranked and string.upper(info.avversario or "ENEMY") or "ENEMY"
+		end
+		-- Il liquido segue la barra del server senza scatti (il server la manda 10 volte al secondo).
+		carica = cb.barraCarica < carica and cb.barraCarica or carica + (cb.barraCarica - carica) * math.min(1, dt * 12)
+		cb.riempimentoCarica.Size = UDim2.fromScale(1, math.clamp(carica, 0, 1))
+		local oraPieno = cb.barraCarica >= 1
+		if oraPieno ~= pieno then
+			Stile.coloraPulsante(cb.bottoneCarica, oraPieno and Stile.ACCENTI.oro or "grigio")
+			cb.riempimentoCarica.BackgroundTransparency = oraPieno and 1 or 0
+			etichettaCarica.TextTransparency = oraPieno and 0 or 0.35
+			if oraPieno and pieno == false then
+				-- Di nuovo pieno: salta, suona la tromba e si accende.
+				pop(cb.bottoneCarica, 0.6, 0.4)
+				popFino = os.clock() + 0.4
+				Suoni.ui("tromba")
+			elseif not oraPieno and battitoCarica and not premutoCarica then
+				battitoCarica.Scale = 1
+			end
+			pieno = oraPieno
+		end
+		-- Pieno: batte finché non si usa (più forte con NOW!).
+		if oraPieno and battitoCarica and not premutoCarica and os.clock() > popFino and not cb.bottoneCarica:GetAttribute("Sopra") then
+			local battito = (math.sin(os.clock() * (accesoAdesso and 12 or 5)) + 1) / 2
+			battitoCarica.Scale = 1 + (accesoAdesso and 0.1 or 0.04) * battito
+		end
+		cb.adessoCarica.Visible = accesoAdesso
+		if accesoAdesso then
+			local battito = (math.sin(os.clock() * 12) + 1) / 2
+			cb.adessoCarica.Rotation = -6 + 4 * battito
+			scalaAdesso.Scale = 0.9 + 0.2 * battito
+		end
+	end)
 	end
 
 	-- Grande scritta di fine round.
@@ -2677,6 +2990,14 @@ function Partita.inizializza(gui, r, callbackLobby)
 			return bottoniOrdine.carica
 		end,
 		finestraCarica = finestraCarica,
+		-- Pulsante grande CHARGE! e "barra di nuovo piena" per il passo CHARGE AGAIN! (13/11/2026). Basta la barra
+		-- piena: dopo la prima carica le linee sono già in mischia, quindi NOW! si accende insieme.
+		caricaGrande = function()
+			return cb.bottoneCarica
+		end,
+		barraPiena = function()
+			return fase == "battaglia" and cb.barraCarica >= 1
+		end,
 	})
 	scrittaGrande = Stile.scritta({
 		Name = "Momento",
@@ -2739,6 +3060,9 @@ function Partita.inizializza(gui, r, callbackLobby)
 			local pad = table.find(TASTI_PAD, input.KeyCode)
 			if pad and Battaglia.ORDINI[pad] then
 				Stile.premi(bottoniOrdine[Battaglia.ORDINI[pad]])
+				if Battaglia.ORDINI[pad] == "carica" then
+					Stile.premi(cb.bottoneCarica)
+				end
 				daiOrdine(Battaglia.ORDINI[pad])
 				return
 			end
@@ -2785,6 +3109,9 @@ function Partita.inizializza(gui, r, callbackLobby)
 		local numero = table.find(TASTI, input.KeyCode)
 		if numero and Battaglia.ORDINI[numero] then
 			Stile.premi(bottoniOrdine[Battaglia.ORDINI[numero]])
+			if Battaglia.ORDINI[numero] == "carica" then
+				Stile.premi(cb.bottoneCarica)
+			end
 			daiOrdine(Battaglia.ORDINI[numero])
 		end
 		local mira = table.find(TASTI_MIRA, input.KeyCode)
@@ -2809,6 +3136,17 @@ function Partita.inizializza(gui, r, callbackLobby)
 			for _, e in ipairs(dati.eventi) do
 				eventoBattaglia(e)
 			end
+			-- Barra CHARGE e tempo del round (13/11/2026).
+			if type(dati.carica) == "number" then
+				local prima = cb.barraCarica
+				cb.barraCarica = dati.carica
+				if (prima < 1) ~= (cb.barraCarica < 1) then
+					aggiornaOrdini()
+				end
+			end
+			if type(dati.resta) == "number" then
+				cb.restaRound = dati.resta
+			end
 		end
 	end)
 	remoti.Fase.OnClientEvent:Connect(function(dati)
@@ -2830,6 +3168,7 @@ function Partita.inizializza(gui, r, callbackLobby)
 				mostraPiazzamento(false)
 				mostraVinci(false)
 				pannelloOrdini.Visible = false
+				cb.mostraComandiBattaglia(false)
 				scrittaConto.Visible = false
 				mostraTimer(nil)
 				FineRanked.chiudi()

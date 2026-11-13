@@ -157,6 +157,8 @@ local function inizioRound(player, sessione)
 		avvisoEntrata = entrata and entrata.avviso or nil,
 		fiume = sessione.arena.rigaFiume ~= nil,
 		tutorial = sessione.tutorial or nil,
+		-- Primo livello 2 mai vinto: la barra Orders appare la prima volta con il suo riquadro "NEW! ORDERS".
+		tutorialOrdini = sessione.tutorialOrdini or nil,
 	})
 end
 
@@ -187,6 +189,9 @@ function GestoreCampagna.avvia(player, numero)
 	local livello = Campagna.livello(numero)
 	-- Prima battaglia mai vinta: è il tutorial (Mattia, 20/10/2026). Il giocatore sceglie le carte da sé.
 	local tutorial = numero == 1 and not (dati.stelle and dati.stelle["1"])
+	-- Nel tutorial la barra Orders non c'è (13/11/2026, primo round snello): compare al livello 2, la prima volta
+	-- con un riquadro che la spiega.
+	local tutorialOrdini = numero == 2 and not (dati.stelle and dati.stelle["2"])
 	-- All'inizio sono scelte le prime carte del mazzo, nella formazione usata l'ultima volta.
 	local scelte = {}
 	for indice = 1, math.min(#dati.mazzo, Campagna.primaLinea(livello)) do
@@ -211,6 +216,7 @@ function GestoreCampagna.avvia(player, numero)
 		sconfitti = 0,
 		caduti = 0,
 		tutorial = tutorial,
+		tutorialOrdini = tutorialOrdini,
 	}
 	sessioni[player] = sessione
 	-- Modalità prestazioni (menu Settings, o accesa da sola sui dispositivi lenti): arena senza scenografia.
@@ -412,6 +418,8 @@ local function combattiRound(player, sessione)
 		riservaDopo = Campagna.riservaDopo(livello) / VELOCITA_BATTAGLIA,
 		riservaNemica = #riservaNemica,
 		entrata = sessione.armata.entrata and Campagna.ENTRATE[sessione.armata.entrata].nome or nil,
+		-- Secondi veri del round, per il timer in alto (13/11/2026); il resto preciso arriva con ogni "passo".
+		durata = Battaglia.DURATA_MASSIMA / VELOCITA_BATTAGLIA,
 	})
 	task.wait(3.2) -- conto alla rovescia sul client, intanto si vede lo schieramento nemico
 	if not sessione.attiva then
@@ -441,7 +449,10 @@ local function combattiRound(player, sessione)
 		-- Fermo-immagine della carica perfetta: per un attimo la simulazione non va avanti.
 		if not (sessione.fermoFino and os.clock() < sessione.fermoFino) then
 			local eventi = battaglia:passo(TICK * VELOCITA_BATTAGLIA)
-			remoti.Truppe:FireClient(player, { tipo = "passo", posizioni = posizioni(battaglia), eventi = eventiPerClient(eventi) })
+			-- carica: barra CHARGE del giocatore (0-1); resta: secondi veri che mancano alla fine del round.
+			remoti.Truppe:FireClient(player, { tipo = "passo", posizioni = posizioni(battaglia), eventi = eventiPerClient(eventi),
+				carica = battaglia.barraCarica.giocatore,
+				resta = math.max(0, Battaglia.DURATA_MASSIMA - battaglia.tempo) / VELOCITA_BATTAGLIA })
 		end
 		task.wait(TICK)
 	end

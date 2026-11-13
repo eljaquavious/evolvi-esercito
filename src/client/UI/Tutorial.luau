@@ -61,11 +61,14 @@ local PASSI = {
 	},
 	-- In battaglia si parte dal gesto più forte (tromba, onda, scossa): il bambino del collaudo restava a
 	-- guardare senza sapere cosa toccare, e il vecchio passo "GIVE ORDERS" era un testo lungo pieno di tasti.
+	-- Primo round snello (13/11/2026, il 40% usciva durante il primo round): nel tutorial c'è solo il pulsante
+	-- grande CHARGE!, che si ricarica. Via i passi GIVE ORDERS e CHOOSE THE TARGET (arrivano dal livello 2,
+	-- PASSI_ORDINI) e al loro posto CHARGE AGAIN!, che aspetta la seconda carica.
 	{
 		fase = "battaglia",
 		titolo = "6 · SOUND THE CHARGE!",
-		testo = "Your army fights by itself, but YOU command it. When NOW! lights up, click GENERAL CHARGE: PERFECT CHARGE!",
-		mostra = "carica",
+		testo = "When NOW! lights up, click CHARGE!",
+		mostra = "caricaGrande",
 		richiamo = "CLICK!",
 		quando = "finestraCarica",
 		attesa = "WAIT...",
@@ -73,20 +76,19 @@ local PASSI = {
 	},
 	{
 		fase = "battaglia",
-		titolo = "7 · GIVE ORDERS",
-		testo = "Pick ALL or one WING, then an order. HOLD THE LINE: they stand firm. ADVANCE: forward again. Each wing can CHARGE once per round.",
-		mostra = "ordini",
+		titolo = "7 · CHARGE AGAIN!",
+		testo = "The bar refills. Full + NOW! = another PERFECT CHARGE!",
+		mostra = "caricaGrande",
+		richiamo = "CLICK!",
+		quando = "barraPiena",
+		attesa = "REFILLING...",
+		aspetta = "ordine",
+		saltaCon = "round", -- se il round finisce prima della seconda carica, il tutorial va avanti
 	},
 	{
 		fase = "battaglia",
-		titolo = "8 · CHOOSE THE TARGET",
-		testo = "Click an enemy regiment on the field: your troops attack it. Click one of your cards first to command only that regiment.",
-		aspetta = "bersaglio",
-	},
-	{
-		fase = "battaglia",
-		titolo = "9 · SEND THE RESERVE",
-		testo = "When your RESERVE is ready, click its card and then click your half of the field: the regiment marches in right there.",
+		titolo = "8 · SEND THE RESERVE",
+		testo = "Click the RESERVE card, then click your side of the field.",
 		mostra = "mazzo",
 		aspetta = "riserva",
 		saltaCon = "round", -- se il round finisce prima che la riserva sia pronta, il tutorial va avanti
@@ -100,6 +102,26 @@ local PASSI = {
 	},
 }
 
+-- Primo livello 2 (13/11/2026): la barra Orders compare per la prima volta e un riquadro la spiega, poi la mira.
+-- Tutorial.avvia("ordini").
+local PASSI_ORDINI = {
+	{
+		fase = "battaglia",
+		titolo = "NEW! ORDERS",
+		testo = "Click a WING, then an order. HOLD THE LINE: they stand firm. ADVANCE: forward again.",
+		mostra = "ordini",
+		fine = "GOT IT",
+	},
+	{
+		fase = "battaglia",
+		titolo = "CHOOSE THE TARGET",
+		testo = "Click an enemy regiment on the field: your troops attack it.",
+		aspetta = "bersaglio",
+		saltaCon = "round",
+	},
+}
+local LISTE = { ordini = PASSI_ORDINI }
+
 -- Sul telefono si tocca, non si clicca.
 local function testoPer(s)
 	if Stile.touch() then
@@ -111,7 +133,8 @@ end
 -- Pannelli che restano nascosti finché il tutorial non arriva al passo che li indica (uno alla volta).
 local NASCOSTI_FINO_AL_PASSO = { "formazioni" }
 local function passoCheMostra(nome)
-	for i, passo in ipairs(PASSI) do
+	-- Nella lista in corso (con PASSI_ORDINI non si nasconde niente).
+	for i, passo in ipairs(passi or PASSI) do
 		if passo.mostra == nome then
 			return i
 		end
@@ -153,7 +176,13 @@ local function seguiBersaglio()
 		freccia.TextSize = 84
 		freccia.Size = UDim2.fromOffset(320, 200)
 		freccia.AnchorPoint = Vector2.new(0.5, 1)
-		freccia.Position = UDim2.new(0.5, 0, 0, -6 - 22 * lampo)
+		-- Un elemento sul bordo destro (il pulsante grande CHARGE!): la scritta si sposta a sinistra quanto basta
+		-- per restare dentro lo schermo ("REFILLING..." è più larga del pulsante).
+		local mezzo = math.max(160, freccia.TextBounds.X / scala / 2 + 12)
+		local centroX = pos.X + dim.X / 2
+		local sposta = math.min(0, larghezza - 12 - (centroX + mezzo))
+		freccia.Size = UDim2.fromOffset(mezzo * 2, 200)
+		freccia.Position = UDim2.new(0.5, sposta, 0, -6 - 22 * lampo)
 		freccia.Rotation = 6 * math.sin(os.clock() * 9)
 		return
 	end
@@ -350,9 +379,10 @@ function nascondiNonSpiegati()
 	end
 end
 
--- Inizia il tutorial dal primo passo (il livello di tutorial è appena partito).
-function Tutorial.avvia()
-	passi, indice, attivo = PASSI, 1, true
+-- Inizia il tutorial dal primo passo (il livello di tutorial è appena partito). lista = nil per il tutorial della
+-- prima battaglia, "ordini" per il riquadro della barra Orders al primo livello 2 (PASSI_ORDINI).
+function Tutorial.avvia(lista)
+	passi, indice, attivo = LISTE[lista] or PASSI, 1, true
 	faseAttuale = nil
 	mostrati = {}
 

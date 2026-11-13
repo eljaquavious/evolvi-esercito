@@ -104,7 +104,8 @@ local VOLO_LANCIO = 2.6
 --   ripiega: ritirata ordinata di RIPIEGO caselle verso le proprie retrovie, poi si tiene la nuova linea:
 --     il nemico che insegue si allunga e arriva a pezzi;
 --   fianchi: la cavalleria gira larga sull'ala più vicina e piomba sui tiratori nemici, fanti e tiratori tengono;
---   carica: carica, una volta per round per ogni ala: avanzano più veloci e la cavalleria ricarica.
+--   carica: carica quando la barra CHARGE della squadra è piena (prima era una volta per round per ogni ala):
+--     avanzano più veloci e la cavalleria ricarica.
 Battaglia.ORDINI = { "avanza", "tieni", "ripiega", "fianchi", "carica" }
 -- Nomi visibili nel gioco (inglese) e grido sopra l'armata quando arriva l'ordine.
 Battaglia.NOMI_ORDINI = {
@@ -123,6 +124,13 @@ Battaglia.DURATA_CARICA = 6
 Battaglia.FINESTRA_CARICA = 2.5
 Battaglia.DANNO_CARICA = 0.1
 Battaglia.DANNO_CARICA_PERFETTA = 0.35
+-- Barra CHARGE (13/11/2026, il 40% dei giocatori usciva durante il primo round: "una carica sola e poi si guarda").
+-- Ogni squadra ha una barra da 0 a 1: piena si può caricare, la carica la svuota e si riempie di nuovo in
+-- RICARICA_CARICA secondi di battaglia (più in fretta di CARICA_PER_UCCISO per ogni nemico ucciso). Non si
+-- riempie mentre una sua ala sta caricando. Parte piena (CARICA_INIZIALE), così la prima carica c'è subito.
+Battaglia.RICARICA_CARICA = 12
+Battaglia.CARICA_PER_UCCISO = 0.04
+Battaglia.CARICA_INIZIALE = 1
 -- Ali dell'armata, viste da dietro la propria armata. Ogni reggimento ha la sua ala, decisa da dove si è
 -- schierato rispetto al resto dell'armata (o da dove entra, per la riserva).
 Battaglia.ALI = { "sinistra", "centro", "destra" }
@@ -339,6 +347,8 @@ function Battaglia.nuova(reggimenti, opzioni)
 			self.ali[squadra][ala] = { ordine = "avanza", tempo = 0, ultimo = -math.huge, carica = false }
 		end
 	end
+	-- Barra CHARGE di ogni squadra (0-1, vedi RICARICA_CARICA).
+	self.barraCarica = { giocatore = Battaglia.CARICA_INIZIALE, nemico = Battaglia.CARICA_INIZIALE }
 	-- Ordine comune a tutte le ali ("misto" se sono diversi). Lo guardano i test.
 	self.ordini = { giocatore = "avanza", nemico = "avanza" }
 	self.mire = { giocatore = {}, nemico = {} } -- bersagli scelti: [id del proprio reggimento o 0 = tutti] -> filtro
@@ -470,6 +480,8 @@ end
 -- Dà un ordine (uno di Battaglia.ORDINI) a un'ala della squadra (una di Battaglia.ALI) o, con ala = nil, a tutte.
 -- Ogni ala ha la sua attesa tra un ordine e l'altro e la sua carica per round: con tutta l'armata l'ordine va
 -- alle ali che possono riceverlo. Restituisce false e il motivo se non arriva a nessuna.
+-- Dal 13/11/2026 la carica non è più una per round per ala: serve la barra CHARGE piena (caricaPronta), che la
+-- carica svuota per tutta la squadra, anche se va a una sola ala.
 function Battaglia:ordine(squadra, nome, automatico, ala)
 	local ali = self.ali[squadra]
 	if self.finita or not table.find(Battaglia.ORDINI, nome) or not ali or (ala ~= nil and not ali[ala]) then
@@ -477,6 +489,10 @@ function Battaglia:ordine(squadra, nome, automatico, ala)
 	end
 	if ala ~= nil and not automatico and self:_vivi(squadra, ala) == 0 then
 		return false, ("No regiments left on your %s wing."):format(string.lower(Battaglia.NOMI_ALI[ala]))
+	end
+	-- La carica si suona solo con la barra CHARGE piena (anche per il bot ranked, che la dà come automatica).
+	if nome == "carica" and not self:caricaPronta(squadra) then
+		return false, "Your troops are catching their breath: the charge is refilling."
 	end
 	local scelte, motivo = {}, nil
 	for _, nomeAla in ipairs(Battaglia.ALI) do
@@ -487,8 +503,6 @@ function Battaglia:ordine(squadra, nome, automatico, ala)
 				table.insert(scelte, nomeAla)
 			elseif self.tempo - stato.ultimo < Battaglia.ATTESA_ORDINE then
 				motivo = "Your officers are still carrying out the last order."
-			elseif nome == "carica" and stato.carica then
-				motivo = ala and "This wing has already charged this round." or "Your wings have already charged this round."
 			elseif not (nome == "carica" and vuota) then
 				-- Un'ala vuota prende l'ordine (vale per la riserva che ci entrerà), ma non spreca la carica.
 				table.insert(scelte, nomeAla)
@@ -497,6 +511,9 @@ function Battaglia:ordine(squadra, nome, automatico, ala)
 	end
 	if #scelte == 0 then
 		return false, motivo
+	end
+	if nome == "carica" then
+		self.barraCarica[squadra] = 0
 	end
 	local toccate = {}
 	for _, nomeAla in ipairs(scelte) do
@@ -507,7 +524,7 @@ function Battaglia:ordine(squadra, nome, automatico, ala)
 			stato.ultimo = self.tempo
 		end
 		if nome == "carica" then
-			stato.carica = true
+			stato.carica = true -- solo informativo: dal 13/11 la carica dipende da barraCarica
 		end
 		toccate[nomeAla] = true
 	end
@@ -534,7 +551,7 @@ function Battaglia:ordine(squadra, nome, automatico, ala)
 	end
 	if caricati then
 		table.insert(self.effetti, { squadra = squadra, fine = self.tempo + Battaglia.DURATA_CARICA, velocita = 0.3,
-			danno = perfetta and Battaglia.DANNO_CARICA_PERFETTA or Battaglia.DANNO_CARICA, soldati = caricati })
+			danno = perfetta and Battaglia.DANNO_CARICA_PERFETTA or Battaglia.DANNO_CARICA, soldati = caricati, carica = true })
 	end
 	local comune = ali[Battaglia.ALI[1]].ordine
 	for _, nomeAla in ipairs(Battaglia.ALI) do
@@ -546,6 +563,18 @@ function Battaglia:ordine(squadra, nome, automatico, ala)
 	table.insert(self.eventiInAttesa, { tipo = "ordine", squadra = squadra, ordine = nome, ali = scelte, ala = ala, automatico = automatico or nil,
 		perfetta = perfetta or nil })
 	return true, nil, perfetta
+end
+
+-- La barra CHARGE della squadra è piena?
+function Battaglia:caricaPronta(squadra)
+	return (self.barraCarica[squadra] or 0) >= 1
+end
+
+-- Riempie la barra CHARGE della squadra di "quanto" (massimo 1).
+function Battaglia:_riempiCarica(squadra, quanto)
+	if self.barraCarica[squadra] then
+		self.barraCarica[squadra] = math.min(1, self.barraCarica[squadra] + quanto)
+	end
 end
 
 -- C'è un nemico vivo entro "caselle" dal soldato s?
@@ -1213,6 +1242,8 @@ function Battaglia:_ferisci(b, danno, eventi, attaccante)
 			end
 		end
 		reggimento.vivo = ancoraVivo
+		-- Ogni nemico ucciso riempie un po' la barra CHARGE di chi l'ha ucciso.
+		self:_riempiCarica(b.squadra == "giocatore" and "nemico" or "giocatore", Battaglia.CARICA_PER_UCCISO)
 		table.insert(eventi, { tipo = "morte", id = b.id, da = attaccante, reggimento = reggimento.id, reggimentoCaduto = not ancoraVivo })
 	end
 	return reale
@@ -1300,6 +1331,25 @@ function Battaglia:passo(dt)
 	end
 	self.tempo = self.tempo + dt
 	self:_aggiornaOrdini()
+	-- La barra CHARGE si riempie col tempo, ma non mentre un'ala della squadra sta caricando.
+	for squadra, ali in pairs(self.ali) do
+		local inCarica = false
+		for _, nomeAla in ipairs(Battaglia.ALI) do
+			if ali[nomeAla].ordine == "carica" then
+				inCarica = true
+			end
+		end
+		-- Anche se l'ala riceve un altro ordine dopo 3 s, il bonus della carica dura DURATA_CARICA: fino ad allora
+		-- la barra resta ferma (altrimenti "carica e poi HOLD" la ricaricava prima, e il bot non lo fa).
+		for _, e in ipairs(self.effetti) do
+			if e.carica and e.squadra == squadra and self.tempo < e.fine then
+				inCarica = true
+			end
+		end
+		if not inCarica then
+			self:_riempiCarica(squadra, dt / Battaglia.RICARICA_CARICA)
+		end
+	end
 	for _, u in ipairs(self.soldati) do
 		if u.vivo then
 			u.inMarcia = false

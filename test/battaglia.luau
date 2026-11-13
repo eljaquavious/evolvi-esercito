@@ -327,7 +327,32 @@ for _ = 1, 65 do
 	b:passo(0.1)
 end
 verifica("finita la carica si torna ad avanzare", b.ordini.giocatore == "avanza")
-verifica("la carica si suona una volta per round", not b:ordine("giocatore", "carica"))
+-- Barra CHARGE (13/11/2026): dopo la carica la barra si sta riempiendo, poi si può caricare di nuovo.
+-- Un bersaglio che non muore e non colpisce, così la battaglia non finisce prima che la barra si riempia.
+local MURO = { id = "Muro", soldati = 1, classe = "Fanteria", hp = 1e7, danno = 0, cadenza = 1, gittata = 1.1, velocita = 0, armatura = 0 }
+b = Battaglia.nuova({
+	{ id = 1, squadra = "giocatore", def = CAVALIERE, x = 3, y = 1 },
+	{ id = 101, squadra = "nemico", def = MURO, x = 3, y = 6 },
+})
+verifica("la barra CHARGE parte piena", b:caricaPronta("giocatore") and b:ordine("giocatore", "carica"))
+verifica("la carica svuota la barra", b.barraCarica.giocatore == 0)
+b:passo(0.1)
+verifica("subito dopo la carica la barra si sta riempiendo", not b:ordine("giocatore", "carica"))
+local inizioAttesa = b.tempo
+while not b:caricaPronta("giocatore") and not b.finita and b.tempo < 50 do
+	b:passo(0.1)
+end
+local attesa = b.tempo - inizioAttesa
+verifica("la barra non si riempie durante la carica", attesa >= Battaglia.DURATA_CARICA + Battaglia.RICARICA_CARICA - 0.5)
+verifica("con la barra di nuovo piena si carica ancora", not b.finita and b:ordine("giocatore", "carica"))
+verifica("anche la carica automatica (bot) vuole la barra piena", not b:ordine("giocatore", "carica", true))
+-- Un altro ordine dopo la carica (HOLD dopo 3 s) non fa ripartire la barra prima che il bonus della carica finisca.
+for _ = 1, 35 do
+	b:passo(0.1)
+end
+verifica("dopo la carica si può tenere la linea", b:ordine("giocatore", "tieni"))
+b:passo(0.1)
+verifica("la barra resta ferma finché dura la carica, anche con un altro ordine", b.barraCarica.giocatore == 0)
 
 -- Abilità dei comandanti: una volta sola, bonus doppio per chi è della stessa origine.
 local CESARE = { id = "Cesare", soldati = 1, classe = "Fanteria", comandante = true, origine = "Rome", hp = 700, danno = 36, cadenza = 1, gittata = 1.2, velocita = 1, armatura = 0.35, abilita = { nome = "Veni, Vidi, Vici", danno = 0.2, durata = 8 } }

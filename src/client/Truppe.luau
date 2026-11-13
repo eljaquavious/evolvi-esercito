@@ -717,6 +717,18 @@ function Truppe.distanzaFronte()
 	return math.sqrt(minimo) / CASELLA
 end
 
+-- Forza rimasta alle due squadre: la somma della vita dei soldati vivi (13/11/2026, barra "tiro alla fune" in
+-- alto in battaglia). Le fortezze non contano: nell'assedio, con loro, la barra sembrava una sconfitta certa.
+function Truppe.forze()
+	local forze = { giocatore = 0, nemico = 0 }
+	for _, s in pairs(soldati) do
+		if s.vivo and not s.fisso and forze[s.squadra] then
+			forze[s.squadra] += s.hp or 0
+		end
+	end
+	return forze
+end
+
 -- Squadra e posizione di un soldato (anche appena caduto: resta qualche secondo), o nil.
 function Truppe.soldatoInfo(id)
 	local s = soldati[id]

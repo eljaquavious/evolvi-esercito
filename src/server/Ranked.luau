@@ -406,6 +406,14 @@ local function combattiRound(partita)
 		end
 	end
 	local battaglia = Battaglia.nuova(reggimenti, { colonne = Arena.COLONNE, righe = Arena.RIGHE, ostacoli = ostacoli, terreno = terreno })
+	-- Il client scrive sulle carte a quale ala appartiene ogni reggimento, come nella campagna (13/11/2026: senza,
+	-- in ranked il client credeva di non avere truppe in nessuna ala e NOW! non si accendeva mai). L'ala è vista
+	-- dalla parte della sua squadra, quindi va bene anche per chi gioca scambiato.
+	for _, lato in ipairs(partita.lati) do
+		for _, r in ipairs(perLato[lato]) do
+			r.ala = battaglia.perReggimento[r.id] and battaglia.perReggimento[r.id].ala or nil
+		end
+	end
 	for _, lato in ipairs(partita.lati) do
 		if not lato.bot and lato.player.Parent then
 			local scambia = lato.squadra == "nemico"
@@ -439,6 +447,8 @@ local function combattiRound(partita)
 				conto = 3,
 				reggimenti = perLato[lato],
 				nemici = nemici,
+				-- Secondi veri del round, per il timer in alto (13/11/2026).
+				durata = Battaglia.DURATA_MASSIMA / VELOCITA_BATTAGLIA,
 			})
 		end
 	end
@@ -447,7 +457,7 @@ local function combattiRound(partita)
 		return nil
 	end
 	partita.battaglia = battaglia
-	local abilitaBot, caricaBot = false, false
+	local abilitaBot = false
 	while partita.attiva and not battaglia.finita and not partita.vinciSubito do
 		-- Il bot usa le abilità dei suoi comandanti quando gli eserciti si avvicinano.
 		if not abilitaBot and battaglia.tempo >= 6 then
@@ -460,20 +470,23 @@ local function combattiRound(partita)
 				end
 			end
 		end
-		-- E ordina la carica a tutte le ali quando i due eserciti stanno per toccarsi.
-		if not caricaBot and battaglia.tempo >= 2 then
+		-- E ordina la carica a tutte le ali quando i due eserciti stanno per toccarsi. Dal 13/11/2026 usa la stessa
+		-- barra CHARGE del giocatore: carica di nuovo ogni volta che è piena e il nemico è vicino.
+		if battaglia.tempo >= 2 then
 			for _, lato in ipairs(partita.lati) do
-				if lato.bot and nemicoVicino(battaglia, lato.squadra, DISTANZA_CARICA_BOT) then
-					caricaBot = true
+				if lato.bot and battaglia:caricaPronta(lato.squadra) and nemicoVicino(battaglia, lato.squadra, DISTANZA_CARICA_BOT) then
 					battaglia:ordine(lato.squadra, "carica", true)
 				end
 			end
 		end
 		local eventi = battaglia:passo(TICK * VELOCITA_BATTAGLIA)
 		local pos = posizioni(battaglia)
+		local resta = math.max(0, Battaglia.DURATA_MASSIMA - battaglia.tempo) / VELOCITA_BATTAGLIA
 		for _, lato in ipairs(partita.lati) do
 			if not lato.bot and lato.player.Parent then
-				remoti.Truppe:FireClient(lato.player, { tipo = "passo", posizioni = pos, eventi = eventiPer(eventi, lato.squadra == "nemico") })
+				-- carica: la barra CHARGE della SUA squadra (ognuno vede la propria, come per gli eventi scambiati).
+				remoti.Truppe:FireClient(lato.player, { tipo = "passo", posizioni = pos, eventi = eventiPer(eventi, lato.squadra == "nemico"),
+					carica = battaglia.barraCarica[lato.squadra], resta = resta })
 			end
 		end
 		task.wait(TICK)
